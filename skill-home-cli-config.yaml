@@ -1,0 +1,40 @@
+# skill-home CLI 配置文件
+# 复制到 ~/.config/skill-home/config.yaml
+
+version: "1.0"
+
+# 注册中心配置
+registry:
+  endpoint: "http://47.122.112.210:8080"
+  api_key: ""  # 登录后自动填充
+  timeout: 30
+
+# 本地配置
+local:
+  skills_dir: "~/.skill-home/skills"
+  default_namespace: "@user"
+
+# IDE 配置
+ide:
+  claude:
+    enabled: true
+    project_path: ".claude/skills"
+    global_path: "~/.claude/skills"
+  cursor:
+    enabled: true
+    project_path: ".cursor/rules"
+  codex:
+    enabled: true
+    project_path: ".agents/skills"
+    global_path: "~/.agents/skills"
+
+# 同步配置
+sync:
+  mode: "auto"
+  conflict_strategy: "project_wins"
+  auto_sync_on_push: false
+
+# 安全配置
+security:
+  scan_on_install: true
+  allow_remote_scripts: false

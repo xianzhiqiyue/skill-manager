@@ -1,0 +1,87 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: ../..
+      dockerfile: deployments/docker/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - SKILL_HOME_SERVER_PORT=8080
+      - SKILL_HOME_DATABASE_HOST=postgres
+      - SKILL_HOME_DATABASE_PORT=5432
+      - SKILL_HOME_DATABASE_USER=skillhome
+      - SKILL_HOME_DATABASE_PASSWORD=skillhome
+      - SKILL_HOME_DATABASE_NAME=skillhome
+      - SKILL_HOME_STORAGE_TYPE=minio
+      - SKILL_HOME_STORAGE_ENDPOINT=minio:9000
+      - SKILL_HOME_STORAGE_ACCESS_KEY=minioadmin
+      - SKILL_HOME_STORAGE_SECRET_KEY=minioadmin
+      - SKILL_HOME_STORAGE_BUCKET=skill-home
+      - SKILL_HOME_STORAGE_USE_SSL=false
+      - SKILL_HOME_AUTH_JWT_SECRET=your-jwt-secret-change-in-production
+    depends_on:
+      - postgres
+      - minio
+      - redis
+    networks:
+      - skill-home
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=skillhome
+      - POSTGRES_PASSWORD=skillhome
+      - POSTGRES_DB=skillhome
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - skill-home
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    networks:
+      - skill-home
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - skill-home
+
+  # MinIO 初始化，创建 bucket
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      sleep 10;
+      /usr/bin/mc config host add myminio http://minio:9000 minioadmin minioadmin;
+      /usr/bin/mc mb myminio/skill-home || true;
+      /usr/bin/mc anonymous set download myminio/skill-home || true;
+      exit 0;
+      "
+    networks:
+      - skill-home
+
+volumes:
+  postgres_data:
+  minio_data:
+
+networks:
+  skill-home:
+    driver: bridge
