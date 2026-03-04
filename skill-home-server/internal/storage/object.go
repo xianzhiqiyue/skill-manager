@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
@@ -75,7 +76,10 @@ func (s *ObjectStorage) Delete(ctx context.Context, key string) error {
 
 // 本地存储实现
 func (s *ObjectStorage) uploadLocal(key string, reader io.Reader) error {
-	path := filepath.Join(s.localPath, key)
+	path, err := s.resolveLocalPath(key)
+	if err != nil {
+		return err
+	}
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return err
 	}
@@ -89,11 +93,52 @@ func (s *ObjectStorage) uploadLocal(key string, reader io.Reader) error {
 }
 
 func (s *ObjectStorage) downloadLocal(key string) (io.ReadCloser, error) {
-	path := filepath.Join(s.localPath, key)
+	path, err := s.resolveLocalPath(key)
+	if err != nil {
+		return nil, err
+	}
 	return os.Open(path)
 }
 
 func (s *ObjectStorage) deleteLocal(key string) error {
-	path := filepath.Join(s.localPath, key)
-	return os.Remove(path)
+	path, err := s.resolveLocalPath(key)
+	if err != nil {
+		return err
+	}
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
+}
+
+func (s *ObjectStorage) resolveLocalPath(key string) (string, error) {
+	if key == "" {
+		return "", fmt.Errorf("storage key is empty")
+	}
+	if strings.Contains(key, "\\") {
+		return "", fmt.Errorf("invalid storage key")
+	}
+
+	cleanKey := filepath.Clean(key)
+	if strings.HasPrefix(cleanKey, "..") || filepath.IsAbs(cleanKey) {
+		return "", fmt.Errorf("invalid storage key")
+	}
+
+	baseAbs, err := filepath.Abs(s.localPath)
+	if err != nil {
+		return "", err
+	}
+	targetAbs, err := filepath.Abs(filepath.Join(baseAbs, cleanKey))
+	if err != nil {
+		return "", err
+	}
+
+	rel, err := filepath.Rel(baseAbs, targetAbs)
+	if err != nil {
+		return "", err
+	}
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
+		return "", fmt.Errorf("invalid storage key")
+	}
+	return targetAbs, nil
 }

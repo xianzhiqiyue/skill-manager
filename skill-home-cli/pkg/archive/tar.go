@@ -7,10 +7,16 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // ExtractTarGz 解压 tar.gz 文件到指定目录
 func ExtractTarGz(src, dst string) error {
+	dstAbs, err := filepath.Abs(dst)
+	if err != nil {
+		return fmt.Errorf("解析目标目录失败: %w", err)
+	}
+
 	// 打开文件
 	file, err := os.Open(src)
 	if err != nil {
@@ -38,31 +44,41 @@ func ExtractTarGz(src, dst string) error {
 			return fmt.Errorf("读取 tar 失败: %w", err)
 		}
 
-		// 构建目标路径
-		targetPath := filepath.Join(dst, header.Name)
+			// 构建目标路径（清理并拒绝绝对路径/上级目录）
+			cleanName := filepath.Clean(header.Name)
+			if cleanName == "." {
+				continue
+			}
+			if filepath.IsAbs(cleanName) || cleanName == ".." || strings.HasPrefix(cleanName, ".."+string(os.PathSeparator)) {
+				return fmt.Errorf("不安全的文件路径: %s", header.Name)
+			}
+			targetPath := filepath.Join(dstAbs, cleanName)
 
-		// 安全检查：防止路径遍历攻击
-		if !isSubPath(targetPath, dst) {
-			return fmt.Errorf("不安全的文件路径: %s", header.Name)
-		}
-
-		switch header.Typeflag {
-		case tar.TypeDir:
-			if err := os.MkdirAll(targetPath, os.FileMode(header.Mode)); err != nil {
-				return fmt.Errorf("创建目录失败: %w", err)
+			// 安全检查：防止路径遍历攻击
+			if !isSubPath(targetPath, dstAbs) {
+				return fmt.Errorf("不安全的文件路径: %s", header.Name)
 			}
 
-		case tar.TypeReg:
-			// 确保父目录存在
-			if err := os.MkdirAll(filepath.Dir(targetPath), 0755); err != nil {
-				return fmt.Errorf("创建目录失败: %w", err)
-			}
+			switch header.Typeflag {
+			case tar.TypeDir:
+				if err := os.MkdirAll(targetPath, os.FileMode(header.Mode)); err != nil {
+					return fmt.Errorf("创建目录失败: %w", err)
+				}
 
-			// 创建文件
-			outFile, err := os.Create(targetPath)
-			if err != nil {
-				return fmt.Errorf("创建文件失败: %w", err)
-			}
+			case tar.TypeReg, tar.TypeRegA:
+				// 确保父目录存在
+				if err := os.MkdirAll(filepath.Dir(targetPath), 0755); err != nil {
+					return fmt.Errorf("创建目录失败: %w", err)
+				}
+				if err := ensureNoSymlinkParent(dstAbs, targetPath); err != nil {
+					return err
+				}
+
+				// 创建文件
+				outFile, err := os.OpenFile(targetPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, os.FileMode(header.Mode))
+				if err != nil {
+					return fmt.Errorf("创建文件失败: %w", err)
+				}
 
 			if _, err := io.Copy(outFile, tarReader); err != nil {
 				outFile.Close()
@@ -75,15 +91,13 @@ func ExtractTarGz(src, dst string) error {
 				return fmt.Errorf("设置权限失败: %w", err)
 			}
 
-		case tar.TypeSymlink:
-			// 符号链接
-			if err := os.Symlink(header.Linkname, targetPath); err != nil {
-				return fmt.Errorf("创建符号链接失败: %w", err)
-			}
+			case tar.TypeSymlink:
+				// 为避免链接逃逸，当前拒绝提取归档中的符号链接。
+				return fmt.Errorf("检测到符号链接条目，已拒绝: %s", header.Name)
 
-		default:
-			// 跳过其他类型
-			continue
+			default:
+				// 跳过其他类型
+				continue
 		}
 	}
 
@@ -97,6 +111,40 @@ func isSubPath(child, parent string) bool {
 		return false
 	}
 	return !filepath.IsAbs(rel) && rel != ".." && !filepath.HasPrefix(rel, "../")
+}
+
+// ensureNoSymlinkParent 确保目标路径的父目录链路中没有符号链接。
+func ensureNoSymlinkParent(root, target string) error {
+	parentDir := filepath.Dir(target)
+	rel, err := filepath.Rel(root, parentDir)
+	if err != nil {
+		return fmt.Errorf("解析路径失败: %w", err)
+	}
+	if rel == "." {
+		return nil
+	}
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
+		return fmt.Errorf("目标路径超出解压目录")
+	}
+
+	current := root
+	for _, part := range strings.Split(rel, string(os.PathSeparator)) {
+		if part == "" || part == "." {
+			continue
+		}
+		current = filepath.Join(current, part)
+		info, err := os.Lstat(current)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return fmt.Errorf("检查路径失败: %w", err)
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			return fmt.Errorf("检测到不安全符号链接路径: %s", current)
+		}
+	}
+	return nil
 }
 
 // CreateTarGz 创建 tar.gz 归档

@@ -195,7 +195,13 @@ func setDefaults() {
 
 func validate(cfg *Config) error {
 	if cfg.Auth.JWTSecret == "" {
+		if strings.EqualFold(cfg.Server.Mode, "production") {
+			return fmt.Errorf("auth.jwt_secret is required in production")
+		}
 		cfg.Auth.JWTSecret = "dev-secret"
+	}
+	if cfg.Auth.TokenExpire <= 0 {
+		cfg.Auth.TokenExpire = 24
 	}
 	return nil
 }

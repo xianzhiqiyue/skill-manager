@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -17,13 +18,32 @@ import (
 // PublishVersion 发布新版本
 func PublishVersion(db *storage.Database, objStorage *storage.ObjectStorage, scanner *validator.Scanner) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		namespace := c.Param("namespace")
+		namespace := normalizeNamespace(c.Param("namespace"))
 		name := c.Param("name")
 		user := c.MustGet("user").(*models.User)
 
+		if err := validateNamespace(namespace); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"code": "INVALID_INPUT", "message": err.Error()})
+			return
+		}
+		if err := validateSkillName(name); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"code": "INVALID_INPUT", "message": err.Error()})
+			return
+		}
+
+		versionValue := strings.TrimSpace(c.PostForm("version"))
+		if versionValue == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"code": "INVALID_INPUT", "message": "version is required"})
+			return
+		}
+		if err := validateVersion(versionValue); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"code": "INVALID_INPUT", "message": err.Error()})
+			return
+		}
+
 		// 获取技能
 		var skill models.Skill
-		if err := db.First(&skill, "namespace = ? AND name = ?", namespace, name).Error; err != nil {
+		if err := scopeNamespaceName(db, namespace, name).First(&skill).Error; err != nil {
 			if err == gorm.ErrRecordNotFound {
 				c.JSON(http.StatusNotFound, gin.H{"code": "NOT_FOUND", "message": "Skill not found"})
 				return
@@ -45,18 +65,9 @@ func PublishVersion(db *storage.Database, objStorage *storage.ObjectStorage, sca
 			return
 		}
 
-		// 打开文件
-		src, err := file.Open()
+		content, err := readUploadedArchive(file, maxSkillArchiveBytes)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"code": "INTERNAL_ERROR", "message": "Failed to open file"})
-			return
-		}
-		defer src.Close()
-
-		// 读取文件内容
-		content, err := io.ReadAll(src)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"code": "INTERNAL_ERROR", "message": "Failed to read file"})
+			c.JSON(http.StatusBadRequest, gin.H{"code": "INVALID_INPUT", "message": err.Error()})
 			return
 		}
 
@@ -72,7 +83,7 @@ func PublishVersion(db *storage.Database, objStorage *storage.ObjectStorage, sca
 		}
 
 		// 存储文件
-		storagePath := fmt.Sprintf("skills/%s/%s/%s.tar.gz", namespace, name, uuid.New().String())
+		storagePath := fmt.Sprintf("skills/%s/%s/%s.tar.gz", storageSegment(namespace), storageSegment(name), uuid.New().String())
 		if err := objStorage.Upload(c, storagePath, bytes.NewReader(content), int64(len(content))); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"code": "INTERNAL_ERROR", "message": "Failed to upload file"})
 			return
@@ -81,7 +92,7 @@ func PublishVersion(db *storage.Database, objStorage *storage.ObjectStorage, sca
 		// 创建版本记录
 		version := models.SkillVersion{
 			SkillID:     skill.ID,
-			Version:     c.PostForm("version"),
+			Version:     versionValue,
 			StoragePath: storagePath,
 			SizeBytes:   int64(len(content)),
 			ScanStatus:  scanResult.Status,
@@ -89,14 +100,16 @@ func PublishVersion(db *storage.Database, objStorage *storage.ObjectStorage, sca
 			PublishedBy: user.ID,
 		}
 
-		if err := db.Create(&version).Error; err != nil {
+		if err := db.Transaction(func(tx *gorm.DB) error {
+			if err := tx.Create(&version).Error; err != nil {
+				return err
+			}
+			return tx.Model(&skill).Update("latest_version", version.Version).Error
+		}); err != nil {
+			_ = objStorage.Delete(c, storagePath)
 			c.JSON(http.StatusInternalServerError, gin.H{"code": "INTERNAL_ERROR", "message": err.Error()})
 			return
 		}
-
-		// 更新技能最新版本
-		skill.LatestVersion = version.Version
-		db.Save(&skill)
 
 		c.JSON(http.StatusCreated, gin.H{
 			"namespace":   namespace,
@@ -111,14 +124,14 @@ func PublishVersion(db *storage.Database, objStorage *storage.ObjectStorage, sca
 // DeleteVersion 删除版本
 func DeleteVersion(db *storage.Database, objStorage *storage.ObjectStorage) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		namespace := c.Param("namespace")
+		namespace := normalizeNamespace(c.Param("namespace"))
 		name := c.Param("name")
 		version := c.Param("version")
 		user := c.MustGet("user").(*models.User)
 
 		// 获取技能
 		var skill models.Skill
-		if err := db.First(&skill, "namespace = ? AND name = ?", namespace, name).Error; err != nil {
+		if err := scopeNamespaceName(db, namespace, name).First(&skill).Error; err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"code": "NOT_FOUND", "message": "Skill not found"})
 			return
 		}
@@ -142,7 +155,21 @@ func DeleteVersion(db *storage.Database, objStorage *storage.ObjectStorage) gin.
 		}
 
 		// 删除记录
-		if err := db.Delete(&skillVersion).Error; err != nil {
+		if err := db.Transaction(func(tx *gorm.DB) error {
+			if err := tx.Delete(&skillVersion).Error; err != nil {
+				return err
+			}
+
+			var latest models.SkillVersion
+			err := tx.Where("skill_id = ?", skill.ID).Order("published_at DESC").First(&latest).Error
+			if err != nil {
+				if err == gorm.ErrRecordNotFound {
+					return tx.Model(&skill).Update("latest_version", "").Error
+				}
+				return err
+			}
+			return tx.Model(&skill).Update("latest_version", latest.Version).Error
+		}); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"code": "INTERNAL_ERROR", "message": err.Error()})
 			return
 		}
@@ -154,13 +181,13 @@ func DeleteVersion(db *storage.Database, objStorage *storage.ObjectStorage) gin.
 // DownloadSkill 下载技能
 func DownloadSkill(db *storage.Database, objStorage *storage.ObjectStorage) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		namespace := c.Param("namespace")
+		namespace := normalizeNamespace(c.Param("namespace"))
 		name := c.Param("name")
 		version := c.Param("version")
 
 		// 获取技能
 		var skill models.Skill
-		if err := db.First(&skill, "namespace = ? AND name = ?", namespace, name).Error; err != nil {
+		if err := scopeNamespaceName(db, namespace, name).First(&skill).Error; err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"code": "NOT_FOUND", "message": "Skill not found"})
 			return
 		}
@@ -175,7 +202,12 @@ func DownloadSkill(db *storage.Database, objStorage *storage.ObjectStorage) gin.
 		// 检查权限（私有技能需要认证）
 		if !skill.IsPublic {
 			user, exists := c.Get("user")
-			if !exists || user.(*models.User).ID != skill.OwnerID {
+			if !exists {
+				c.JSON(http.StatusForbidden, gin.H{"code": "FORBIDDEN", "message": "Access denied"})
+				return
+			}
+			owner, ok := user.(*models.User)
+			if !ok || owner.ID != skill.OwnerID {
 				c.JSON(http.StatusForbidden, gin.H{"code": "FORBIDDEN", "message": "Access denied"})
 				return
 			}
@@ -190,12 +222,13 @@ func DownloadSkill(db *storage.Database, objStorage *storage.ObjectStorage) gin.
 		defer reader.Close()
 
 		// 更新下载计数
-		skill.DownloadCount++
-		db.Save(&skill)
+		db.Model(&skill).UpdateColumn("download_count", gorm.Expr("download_count + 1"))
 
 		// 发送文件
 		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s-%s.tar.gz", name, version))
 		c.Header("Content-Type", "application/gzip")
-		io.Copy(c.Writer, reader)
+		if _, err := io.Copy(c.Writer, reader); err != nil {
+			c.Error(err)
+		}
 	}
 }

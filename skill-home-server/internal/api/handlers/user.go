@@ -138,5 +138,5 @@ func generateAPIKey() (string, error) {
 		return "", err
 	}
 	// 使用 base64 URL 编码
-	return "sk_" + base64.URLEncoding.EncodeToString(b), nil
+	return "sk_" + base64.RawURLEncoding.EncodeToString(b), nil
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 
 	"github.com/skill-home/cli/internal/ide"
 	"github.com/skill-home/cli/internal/skill"
@@ -17,6 +18,8 @@ const (
 	ModeSymlink SyncMode = "symlink" // 符号链接
 	ModeMirror  SyncMode = "mirror"  // 物理镜像
 )
+
+var safeSkillNamePattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$`)
 
 // Engine 同步引擎
 type Engine struct {
@@ -32,6 +35,10 @@ func NewEngine(mode SyncMode) *Engine {
 
 // Sync 同步技能到 IDE
 func (e *Engine) Sync(s *skill.Skill, adapter ide.Adapter) error {
+	if !safeSkillNamePattern.MatchString(s.Manifest.Name) {
+		return fmt.Errorf("技能名不安全，已拒绝同步: %s", s.Manifest.Name)
+	}
+
 	// 确定同步模式
 	mode := e.resolveMode(adapter)
 

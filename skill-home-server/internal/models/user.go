@@ -38,7 +38,7 @@ type APIKey struct {
 	UserID     uuid.UUID      `gorm:"type:uuid;not null;index" json:"user_id"`
 	KeyHash    string         `gorm:"size:255;not null" json:"-"`
 	Name       string         `gorm:"size:100" json:"name"`
-	Prefix     string         `gorm:"size:16" json:"prefix"`
+	Prefix     string         `gorm:"size:16;index" json:"prefix"`
 	LastUsedAt *time.Time     `json:"last_used_at,omitempty"`
 	ExpiresAt  *time.Time     `json:"expires_at,omitempty"`
 	CreatedAt  time.Time      `json:"created_at"`

@@ -97,8 +97,13 @@ type SearchResult struct {
 
 // PublishRequest 发布请求
 type PublishRequest struct {
-	Namespace string `json:"namespace,omitempty"`
-	Force     bool   `json:"force,omitempty"`
+	Namespace   string `json:"namespace,omitempty"`
+	Name        string `json:"name,omitempty"`
+	Version     string `json:"version,omitempty"`
+	Description string `json:"description,omitempty"`
+	License     string `json:"license,omitempty"`
+	IsPublic    *bool  `json:"is_public,omitempty"`
+	Force       bool   `json:"force,omitempty"`
 }
 
 // PublishResponse 发布响应

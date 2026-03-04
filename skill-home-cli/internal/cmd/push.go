@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -60,7 +61,14 @@ func runPush(path string, opts *pushOptions) error {
 	}
 
 	fmt.Printf("推送技能: %s\n", color.CyanString(s.GetFullName()))
-	fmt.Printf("版本: %s\n", color.CyanString(s.Manifest.Version))
+	version := strings.TrimSpace(s.Manifest.Version)
+	if opts.version != "" {
+		version = strings.TrimSpace(opts.version)
+	}
+	if version == "" {
+		return fmt.Errorf("版本号不能为空，请在 SKILL.md 中设置 version 或使用 --version")
+	}
+	fmt.Printf("版本: %s\n", color.CyanString(version))
 	fmt.Println()
 
 	// 确定命名空间
@@ -71,10 +79,14 @@ func runPush(path string, opts *pushOptions) error {
 	if namespace == "" {
 		namespace = config.C.Local.DefaultNamespace
 	}
+	namespace = strings.TrimPrefix(namespace, "@")
+	if namespace == "" {
+		return fmt.Errorf("命名空间不能为空，请使用 --namespace 或在配置中设置 default_namespace")
+	}
 
 	// 构建临时包路径
 	tmpDir := os.TempDir()
-	packName := fmt.Sprintf("%s-%s.tar.gz", s.Manifest.Name, s.Manifest.Version)
+	packName := fmt.Sprintf("%s-%s.tar.gz", s.Manifest.Name, version)
 	packPath := filepath.Join(tmpDir, packName)
 	defer os.Remove(packPath)
 
@@ -92,17 +104,24 @@ func runPush(path string, opts *pushOptions) error {
 	// 推送
 	fmt.Println("正在推送到注册中心...")
 	req := &registry.PublishRequest{
-		Namespace: namespace,
-		Force:     opts.force,
+		Namespace:   namespace,
+		Name:        strings.TrimSpace(s.Manifest.Name),
+		Version:     version,
+		Description: strings.TrimSpace(s.Manifest.Description),
+		License:     strings.TrimSpace(s.Manifest.License),
+		Force:       opts.force,
+	}
+	if req.Name == "" {
+		return fmt.Errorf("技能名不能为空，请在 SKILL.md 中设置 name")
 	}
 
 	resp, err := client.Publish(packPath, req)
 	if err != nil {
 		// 处理特定错误
-		if apiErr, ok := err.(*registry.APIError); ok {
-			if apiErr.Code == "VERSION_EXISTS" {
-				return fmt.Errorf("版本 %s 已存在，请更新版本号或使用 --force 覆盖", s.Manifest.Version)
-			}
+			if apiErr, ok := err.(*registry.APIError); ok {
+				if apiErr.Code == "VERSION_EXISTS" {
+					return fmt.Errorf("版本 %s 已存在，请更新版本号或使用 --force 覆盖", version)
+				}
 			if apiErr.Code == "VALIDATION_FAILED" {
 				fmt.Println(color.RedString("✗"), "安全扫描未通过:")
 				fmt.Println("  ", apiErr.Message)

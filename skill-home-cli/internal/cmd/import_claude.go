@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/skill-home/cli/internal/import/types"
 )
@@ -208,5 +209,5 @@ func copyFile(src, dst string) error {
 
 // getCurrentDate 获取当前日期
 func getCurrentDate() string {
-	return fmt.Sprintf("%d-%02d-%02d", 2026, 3, 1) // 使用当前日期
+	return time.Now().Format("2006-01-02")
 }

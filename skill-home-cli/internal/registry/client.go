@@ -206,10 +206,45 @@ func (c *Client) Publish(skillPath string, req *PublishRequest) (*PublishRespons
 
 	// 添加其他字段
 	if req.Namespace != "" {
-		writer.WriteField("namespace", req.Namespace)
+		if err := writer.WriteField("namespace", req.Namespace); err != nil {
+			return nil, err
+		}
+	}
+	if req.Name != "" {
+		if err := writer.WriteField("name", req.Name); err != nil {
+			return nil, err
+		}
+	}
+	if req.Version != "" {
+		if err := writer.WriteField("version", req.Version); err != nil {
+			return nil, err
+		}
+	}
+	if req.Description != "" {
+		if err := writer.WriteField("description", req.Description); err != nil {
+			return nil, err
+		}
+	}
+	if req.License != "" {
+		if err := writer.WriteField("license", req.License); err != nil {
+			return nil, err
+		}
+	}
+	if req.IsPublic != nil {
+		if *req.IsPublic {
+			if err := writer.WriteField("is_public", "true"); err != nil {
+				return nil, err
+			}
+		} else {
+			if err := writer.WriteField("is_public", "false"); err != nil {
+				return nil, err
+			}
+		}
 	}
 	if req.Force {
-		writer.WriteField("force", "true")
+		if err := writer.WriteField("force", "true"); err != nil {
+			return nil, err
+		}
 	}
 
 	if err := writer.Close(); err != nil {
@@ -287,7 +322,7 @@ func (c *Client) DeleteSkill(namespace, name string) error {
 
 // DeleteVersion 删除技能版本
 func (c *Client) DeleteVersion(namespace, name, version string) error {
-	path := fmt.Sprintf("/skills/%s/%s/versions/%s", namespace, name, version)
+	path := fmt.Sprintf("/api/v1/skills/%s/%s/versions/%s", namespace, name, version)
 
 	resp, err := c.doRequest("DELETE", path, nil, nil)
 	if err != nil {
@@ -369,7 +404,7 @@ func (c *Client) CreateAPIKey(req *CreateAPIKeyRequest) (*CreateAPIKeyResponse, 
 
 // RevokeAPIKey 撤销 API Key
 func (c *Client) RevokeAPIKey(keyID string) error {
-	path := fmt.Sprintf("/user/api-keys/%s", keyID)
+	path := fmt.Sprintf("/api/v1/user/api-keys/%s", keyID)
 
 	resp, err := c.doRequest("DELETE", path, nil, nil)
 	if err != nil {

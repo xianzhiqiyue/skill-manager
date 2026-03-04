@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"github.com/skill-home/server/internal/models"
 	"github.com/skill-home/server/internal/storage"
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
 )
 
 // Claims JWT 声明
@@ -20,50 +22,73 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
+const apiKeyPrefixLen = 8
+
 // Auth 认证中间件
 func Auth(db *storage.Database) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{"code": "UNAUTHORIZED", "message": "Missing authorization header"})
+		token, err := parseAuthorizationHeader(authHeader)
+		if err != nil {
+			message := "Invalid authorization format"
+			if authHeader == "" {
+				message = "Missing authorization header"
+			}
+			c.JSON(http.StatusUnauthorized, gin.H{"code": "UNAUTHORIZED", "message": message})
 			c.Abort()
 			return
 		}
 
-		// 支持 Bearer Token 或 API Key
-		parts := strings.SplitN(authHeader, " ", 2)
-		if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
-			c.JSON(http.StatusUnauthorized, gin.H{"code": "UNAUTHORIZED", "message": "Invalid authorization format"})
-			c.Abort()
-			return
-		}
-
-		token := parts[1]
-
-		// 尝试解析 JWT
 		claims, err := parseJWT(token)
 		if err == nil {
-			// JWT 验证成功
-			var user models.User
-			if err := db.First(&user, "id = ?", claims.UserID).Error; err != nil {
+			jwtUser, err := findUserByID(db, claims.UserID)
+			if err != nil {
 				c.JSON(http.StatusUnauthorized, gin.H{"code": "UNAUTHORIZED", "message": "User not found"})
 				c.Abort()
 				return
 			}
-			c.Set("user", &user)
+			c.Set("user", jwtUser)
 			c.Next()
 			return
 		}
 
-		// 尝试验证 API Key
 		user, err := validateAPIKey(db, token)
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"code": "UNAUTHORIZED", "message": "Invalid token or API key"})
 			c.Abort()
 			return
 		}
-
 		c.Set("user", user)
+		c.Next()
+	}
+}
+
+// OptionalAuth 可选认证中间件（认证失败时按匿名处理）
+func OptionalAuth(db *storage.Database) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		authHeader := c.GetHeader("Authorization")
+		if authHeader == "" {
+			c.Next()
+			return
+		}
+
+		token, err := parseAuthorizationHeader(authHeader)
+		if err != nil {
+			c.Next()
+			return
+		}
+
+		if claims, err := parseJWT(token); err == nil {
+			if user, err := findUserByID(db, claims.UserID); err == nil {
+				c.Set("user", user)
+				c.Next()
+				return
+			}
+		}
+
+		if user, err := validateAPIKey(db, token); err == nil {
+			c.Set("user", user)
+		}
 		c.Next()
 	}
 }
@@ -73,6 +98,9 @@ func parseJWT(tokenString string) (*Claims, error) {
 	cfg := config.Get()
 
 	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
+		if token.Method == nil || token.Method.Alg() != jwt.SigningMethodHS256.Alg() {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
 		return []byte(cfg.Auth.JWTSecret), nil
 	})
 	if err != nil {
@@ -88,30 +116,78 @@ func parseJWT(tokenString string) (*Claims, error) {
 
 // validateAPIKey 验证 API Key
 func validateAPIKey(db *storage.Database, key string) (*models.User, error) {
-	// 查找 API Key
-	var apiKey models.APIKey
-	if err := db.Preload("User").First(&apiKey, "key_hash = ?", hashKey(key)).Error; err != nil {
+	prefix, ok := getAPIKeyPrefix(key)
+	if !ok {
+		return nil, gorm.ErrRecordNotFound
+	}
+
+	// 通过 prefix 缩小候选范围，再用 bcrypt 常量时间比较完整密钥。
+	var apiKeys []models.APIKey
+	if err := db.Preload("User").Where("prefix = ?", prefix).Find(&apiKeys).Error; err != nil {
 		return nil, err
 	}
 
-	// 检查是否过期
-	if apiKey.ExpiresAt != nil && apiKey.ExpiresAt.Before(time.Now()) {
-		return nil, jwt.ErrTokenExpired
+	if len(apiKeys) == 0 {
+		return nil, gorm.ErrRecordNotFound
 	}
 
-	// 更新最后使用时间
 	now := time.Now()
-	apiKey.LastUsedAt = &now
-	db.Save(&apiKey)
+	for i := range apiKeys {
+		apiKey := apiKeys[i]
 
-	return &apiKey.User, nil
+		if apiKey.ExpiresAt != nil && apiKey.ExpiresAt.Before(now) {
+			continue
+		}
+
+		if err := bcrypt.CompareHashAndPassword([]byte(apiKey.KeyHash), []byte(key)); err != nil {
+			continue
+		}
+
+		db.Model(&models.APIKey{}).Where("id = ?", apiKey.ID).Update("last_used_at", now)
+
+		if !apiKey.User.IsActive {
+			return nil, gorm.ErrRecordNotFound
+		}
+		return &apiKey.User, nil
+	}
+
+	return nil, gorm.ErrRecordNotFound
 }
 
-// hashKey 哈希 API Key
-func hashKey(key string) string {
-	// 实际应该使用 bcrypt 或 SHA-256
-	hash, _ := bcrypt.GenerateFromPassword([]byte(key), bcrypt.DefaultCost)
-	return string(hash)
+func parseAuthorizationHeader(authHeader string) (string, error) {
+	if authHeader == "" {
+		return "", fmt.Errorf("missing authorization header")
+	}
+
+	parts := strings.SplitN(authHeader, " ", 2)
+	if len(parts) != 2 || !strings.EqualFold(parts[0], "bearer") {
+		return "", fmt.Errorf("invalid authorization format")
+	}
+
+	token := strings.TrimSpace(parts[1])
+	if token == "" {
+		return "", fmt.Errorf("empty token")
+	}
+	return token, nil
+}
+
+func findUserByID(db *storage.Database, userID string) (*models.User, error) {
+	var user models.User
+	if err := db.First(&user, "id = ?", userID).Error; err != nil {
+		return nil, err
+	}
+	if !user.IsActive {
+		return nil, gorm.ErrRecordNotFound
+	}
+	return &user, nil
+}
+
+func getAPIKeyPrefix(key string) (string, bool) {
+	key = strings.TrimSpace(key)
+	if len(key) < apiKeyPrefixLen {
+		return "", false
+	}
+	return key[:apiKeyPrefixLen], true
 }
 
 // GenerateJWT 生成 JWT Token

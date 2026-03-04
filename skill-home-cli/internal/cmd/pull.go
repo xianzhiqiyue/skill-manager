@@ -17,6 +17,7 @@ import (
 type pullOptions struct {
 	outputDir string
 	extract   bool
+	force     bool
 }
 
 func newPullCmd() *cobra.Command {
@@ -39,6 +40,7 @@ func newPullCmd() *cobra.Command {
 
 	cmd.Flags().StringVarP(&opts.outputDir, "output", "o", "", "输出目录 (默认使用缓存目录)")
 	cmd.Flags().BoolVarP(&opts.extract, "extract", "x", true, "自动解压")
+	cmd.Flags().BoolVarP(&opts.force, "force", "f", false, "覆盖已存在目录并重新下载")
 
 	return cmd
 }
@@ -89,9 +91,15 @@ func runPull(skillRef string, opts *pullOptions) error {
 
 	// 检查是否已存在
 	if _, err := os.Stat(outputDir); err == nil {
-		fmt.Printf("技能已存在于: %s\n", color.YellowString(outputDir))
-		fmt.Println("使用 --force 可以重新下载")
-		return nil
+		if opts.force {
+			if err := removeExistingOutput(outputDir); err != nil {
+				return err
+			}
+		} else {
+			fmt.Printf("技能已存在于: %s\n", color.YellowString(outputDir))
+			fmt.Println("使用 --force 可以重新下载")
+			return nil
+		}
 	}
 
 	// 创建临时下载文件
@@ -126,5 +134,17 @@ func runPull(skillRef string, opts *pullOptions) error {
 	fmt.Println()
 	fmt.Printf("运行 '%s' 同步到 IDE\n", color.YellowString(fmt.Sprintf("skill-home sync %s", outputDir)))
 
+	return nil
+}
+
+func removeExistingOutput(path string) error {
+	cleanPath := filepath.Clean(path)
+	rootPath := filepath.VolumeName(cleanPath) + string(filepath.Separator)
+	if cleanPath == "" || cleanPath == "." || cleanPath == string(filepath.Separator) || cleanPath == rootPath {
+		return fmt.Errorf("拒绝删除不安全路径: %s", path)
+	}
+	if err := os.RemoveAll(cleanPath); err != nil {
+		return fmt.Errorf("清理已存在目录失败: %w", err)
+	}
 	return nil
 }
