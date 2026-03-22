@@ -5,7 +5,7 @@
 - **基础 URL**: `http://47.122.112.210:8080`
 - **API 版本**: `v1`
 - **数据格式**: JSON
-- **认证方式**: Bearer Token (JWT)
+- **认证方式**: Bearer Token (JWT 或 API Key)
 
 ## 认证
 
@@ -101,7 +101,7 @@ GET /health
 #### 列出技能
 
 ```http
-GET /api/v1/skills?page=1&per_page=20&q=keyword&tag=tag1
+GET /api/v1/skills?page=1&per_page=20&q=keyword&tag=tag1&namespace=testuser
 ```
 
 **参数**:
@@ -112,6 +112,7 @@ GET /api/v1/skills?page=1&per_page=20&q=keyword&tag=tag1
 | per_page | int | 每页数量，默认 20 |
 | q | string | 搜索关键词 |
 | tag | string | 标签筛选 |
+| namespace | string | 命名空间筛选 |
 
 **响应**:
 
@@ -129,6 +130,7 @@ GET /api/v1/skills?page=1&per_page=20&q=keyword&tag=tag1
       "author": "testuser",
       "tags": ["example", "tutorial"],
       "download_count": 42,
+      "rating": 4.8,
       "rating_count": 5,
       "latest_version": "1.0.0",
       "created_at": "2026-03-01T10:00:00Z",
@@ -142,6 +144,7 @@ GET /api/v1/skills?page=1&per_page=20&q=keyword&tag=tag1
 
 ```http
 GET /api/v1/skills/:namespace/:name
+Authorization: Bearer <token>  // 可选，访问私有技能或返回 user_rating 时需要
 ```
 
 **响应**:
@@ -156,13 +159,23 @@ GET /api/v1/skills/:namespace/:name
   "tags": ["example"],
   "license": "MIT",
   "download_count": 42,
+  "rating": 4.8,
+  "rating_count": 5,
   "is_public": true,
   "latest_version": "1.0.0",
   "created_at": "2026-03-01T10:00:00Z",
+  "updated_at": "2026-03-01T12:00:00Z",
   "owner": {
     "id": "...",
     "username": "testuser",
     "email": "test@example.com"
+  },
+  "user_rating": {
+    "id": "...",
+    "skill_id": "...",
+    "user_id": "...",
+    "rating": 5,
+    "comment": "很实用"
   },
   "versions": [
     {
@@ -225,6 +238,40 @@ DELETE /api/v1/skills/:namespace/:name
 Authorization: Bearer <token>
 ```
 
+#### 为技能评分
+
+```http
+POST /api/v1/skills/:namespace/:name/rating
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "rating": 5,
+  "comment": "很实用"
+}
+```
+
+**响应**:
+
+```json
+{
+  "skill": {
+    "id": "...",
+    "namespace": "testuser",
+    "name": "my-skill",
+    "rating": 4.8,
+    "rating_count": 5
+  },
+  "user_rating": {
+    "id": "...",
+    "skill_id": "...",
+    "user_id": "...",
+    "rating": 5,
+    "comment": "很实用"
+  }
+}
+```
+
 ### 版本管理
 
 #### 列出版本
@@ -273,7 +320,7 @@ Authorization: Bearer <token>
 ### 搜索
 
 ```http
-GET /api/v1/search?q=keyword&tag=tag1&page=1&per_page=20
+GET /api/v1/search?q=keyword&tag=tag1&namespace=testuser&page=1&per_page=20
 ```
 
 **响应**: 同列出技能
@@ -312,6 +359,39 @@ Authorization: Bearer <token>
 ```http
 GET /api/v1/user/skills
 Authorization: Bearer <token>
+```
+
+#### 获取最近活动
+
+```http
+GET /api/v1/user/audit-logs?page=1&per_page=20&action=skill.rate
+Authorization: Bearer <token>
+```
+
+**响应**:
+
+```json
+{
+  "total": 2,
+  "page": 1,
+  "per_page": 20,
+  "results": [
+    {
+      "id": "...",
+      "action": "skill.rate",
+      "resource_type": "skill",
+      "resource_id": "...",
+      "metadata": {
+        "namespace": "testuser",
+        "name": "my-skill",
+        "rating": 5
+      },
+      "ip_address": "127.0.0.1",
+      "user_agent": "skill-home-cli",
+      "created_at": "2026-03-09T12:00:00Z"
+    }
+  ]
+}
 ```
 
 ### API Key 管理
@@ -365,6 +445,8 @@ Authorization: Bearer <token>
 | license | string | 许可证 |
 | is_public | bool | 是否公开 |
 | download_count | int | 下载次数 |
+| rating | float64 | 平均评分 |
+| rating_count | int | 评分次数 |
 | latest_version | string | 最新版本 |
 
 ### SkillVersion

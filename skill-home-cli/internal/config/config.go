@@ -10,52 +10,53 @@ import (
 
 // Config 应用配置结构
 type Config struct {
-	Version  string    `yaml:"version"`
-	Registry Registry  `yaml:"registry"`
-	Local    Local     `yaml:"local"`
-	IDE      IDEConfig `yaml:"ide"`
-	Sync     Sync      `yaml:"sync"`
-	Security Security  `yaml:"security"`
+	Version  string    `yaml:"version" mapstructure:"version"`
+	Registry Registry  `yaml:"registry" mapstructure:"registry"`
+	Local    Local     `yaml:"local" mapstructure:"local"`
+	IDE      IDEConfig `yaml:"ide" mapstructure:"ide"`
+	Sync     Sync      `yaml:"sync" mapstructure:"sync"`
+	Security Security  `yaml:"security" mapstructure:"security"`
 }
 
 // Registry 注册中心配置
 type Registry struct {
-	Endpoint string `yaml:"endpoint"`
-	APIKey   string `yaml:"api_key"`
-	Timeout  int    `yaml:"timeout"`
+	Endpoint string `yaml:"endpoint" mapstructure:"endpoint"`
+	APIKey   string `yaml:"api_key" mapstructure:"api_key"`
+	Timeout  int    `yaml:"timeout" mapstructure:"timeout"`
 }
 
 // Local 本地配置
 type Local struct {
-	SkillsDir        string `yaml:"skills_dir"`
-	DefaultNamespace string `yaml:"default_namespace"`
+	SkillsDir        string `yaml:"skills_dir" mapstructure:"skills_dir"`
+	DefaultNamespace string `yaml:"default_namespace" mapstructure:"default_namespace"`
 }
 
 // IDEConfig IDE 配置
 type IDEConfig struct {
-	Claude IDE `yaml:"claude"`
-	Cursor IDE `yaml:"cursor"`
-	Codex  IDE `yaml:"codex"`
+	Claude  IDE `yaml:"claude" mapstructure:"claude"`
+	Copilot IDE `yaml:"copilot" mapstructure:"copilot"`
+	Cursor  IDE `yaml:"cursor" mapstructure:"cursor"`
+	Codex   IDE `yaml:"codex" mapstructure:"codex"`
 }
 
 // IDE 单个 IDE 配置
 type IDE struct {
-	Enabled     bool   `yaml:"enabled"`
-	ProjectPath string `yaml:"project_path"`
-	GlobalPath  string `yaml:"global_path,omitempty"`
+	Enabled     bool   `yaml:"enabled" mapstructure:"enabled"`
+	ProjectPath string `yaml:"project_path" mapstructure:"project_path"`
+	GlobalPath  string `yaml:"global_path,omitempty" mapstructure:"global_path"`
 }
 
 // Sync 同步配置
 type Sync struct {
-	Mode              string `yaml:"mode"`
-	ConflictStrategy  string `yaml:"conflict_strategy"`
-	AutoSyncOnPush    bool   `yaml:"auto_sync_on_push"`
+	Mode             string `yaml:"mode" mapstructure:"mode"`
+	ConflictStrategy string `yaml:"conflict_strategy" mapstructure:"conflict_strategy"`
+	AutoSyncOnPush   bool   `yaml:"auto_sync_on_push" mapstructure:"auto_sync_on_push"`
 }
 
 // Security 安全配置
 type Security struct {
-	ScanOnInstall      bool `yaml:"scan_on_install"`
-	AllowRemoteScripts bool `yaml:"allow_remote_scripts"`
+	ScanOnInstall      bool `yaml:"scan_on_install" mapstructure:"scan_on_install"`
+	AllowRemoteScripts bool `yaml:"allow_remote_scripts" mapstructure:"allow_remote_scripts"`
 }
 
 var (
@@ -101,11 +102,46 @@ func Init(configFile string) error {
 	if err := viper.Unmarshal(C); err != nil {
 		return fmt.Errorf("解析配置失败: %w", err)
 	}
+	applyViperValues(C)
 
 	// 扩展路径中的 ~
 	expandPaths()
 
 	return nil
+}
+
+func applyViperValues(cfg *Config) {
+	cfg.Version = viper.GetString("version")
+
+	cfg.Registry.Endpoint = viper.GetString("registry.endpoint")
+	cfg.Registry.APIKey = viper.GetString("registry.api_key")
+	cfg.Registry.Timeout = viper.GetInt("registry.timeout")
+
+	cfg.Local.SkillsDir = viper.GetString("local.skills_dir")
+	cfg.Local.DefaultNamespace = viper.GetString("local.default_namespace")
+
+	cfg.IDE.Claude.Enabled = viper.GetBool("ide.claude.enabled")
+	cfg.IDE.Claude.ProjectPath = viper.GetString("ide.claude.project_path")
+	cfg.IDE.Claude.GlobalPath = viper.GetString("ide.claude.global_path")
+
+	cfg.IDE.Copilot.Enabled = viper.GetBool("ide.copilot.enabled")
+	cfg.IDE.Copilot.ProjectPath = viper.GetString("ide.copilot.project_path")
+	cfg.IDE.Copilot.GlobalPath = viper.GetString("ide.copilot.global_path")
+
+	cfg.IDE.Cursor.Enabled = viper.GetBool("ide.cursor.enabled")
+	cfg.IDE.Cursor.ProjectPath = viper.GetString("ide.cursor.project_path")
+	cfg.IDE.Cursor.GlobalPath = viper.GetString("ide.cursor.global_path")
+
+	cfg.IDE.Codex.Enabled = viper.GetBool("ide.codex.enabled")
+	cfg.IDE.Codex.ProjectPath = viper.GetString("ide.codex.project_path")
+	cfg.IDE.Codex.GlobalPath = viper.GetString("ide.codex.global_path")
+
+	cfg.Sync.Mode = viper.GetString("sync.mode")
+	cfg.Sync.ConflictStrategy = viper.GetString("sync.conflict_strategy")
+	cfg.Sync.AutoSyncOnPush = viper.GetBool("sync.auto_sync_on_push")
+
+	cfg.Security.ScanOnInstall = viper.GetBool("security.scan_on_install")
+	cfg.Security.AllowRemoteScripts = viper.GetBool("security.allow_remote_scripts")
 }
 
 // setDefaults 设置默认值
@@ -118,6 +154,9 @@ func setDefaults() {
 	viper.SetDefault("ide.claude.enabled", true)
 	viper.SetDefault("ide.claude.project_path", ".claude/skills")
 	viper.SetDefault("ide.claude.global_path", "~/.claude/skills")
+	viper.SetDefault("ide.copilot.enabled", false)
+	viper.SetDefault("ide.copilot.project_path", ".github/skills")
+	viper.SetDefault("ide.copilot.global_path", "~/.copilot/skills")
 	viper.SetDefault("ide.cursor.enabled", true)
 	viper.SetDefault("ide.cursor.project_path", ".cursor/rules")
 	viper.SetDefault("ide.codex.enabled", true)
@@ -145,6 +184,7 @@ func expandPaths() {
 
 	C.Local.SkillsDir = expandPath(C.Local.SkillsDir, home)
 	C.IDE.Claude.GlobalPath = expandPath(C.IDE.Claude.GlobalPath, home)
+	C.IDE.Copilot.GlobalPath = expandPath(C.IDE.Copilot.GlobalPath, home)
 	C.IDE.Codex.GlobalPath = expandPath(C.IDE.Codex.GlobalPath, home)
 }
 

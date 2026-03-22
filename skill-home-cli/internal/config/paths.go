@@ -31,6 +31,8 @@ func (p *PathResolver) GetIDEProjectPath(ideType string) (string, error) {
 	switch ideType {
 	case "claude":
 		return filepath.Join(p.projectRoot, C.IDE.Claude.ProjectPath), nil
+	case "copilot":
+		return filepath.Join(p.projectRoot, C.IDE.Copilot.ProjectPath), nil
 	case "cursor":
 		return filepath.Join(p.projectRoot, C.IDE.Cursor.ProjectPath), nil
 	case "codex":
@@ -45,6 +47,8 @@ func (p *PathResolver) GetIDEGlobalPath(ideType string) (string, error) {
 	switch ideType {
 	case "claude":
 		return C.IDE.Claude.GlobalPath, nil
+	case "copilot":
+		return C.IDE.Copilot.GlobalPath, nil
 	case "cursor":
 		return "", fmt.Errorf("Cursor 不支持全局路径")
 	case "codex":

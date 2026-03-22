@@ -41,6 +41,8 @@ func NewAdapter(ideType, targetPath string) (Adapter, error) {
 	switch ideType {
 	case "claude":
 		return NewClaudeAdapter(targetPath), nil
+	case "copilot":
+		return NewCopilotAdapter(targetPath), nil
 	case "cursor":
 		return NewCursorAdapter(targetPath), nil
 	case "codex":

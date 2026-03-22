@@ -27,12 +27,14 @@ type Skill struct {
 	DownloadCount int64          `gorm:"default:0" json:"download_count"`
 	RatingSum     int64          `gorm:"default:0" json:"-"`
 	RatingCount   int64          `gorm:"default:0" json:"rating_count"`
+	Rating        float64        `gorm:"-" json:"rating"`
 	IsPublic      bool           `gorm:"default:true" json:"is_public"`
-	IsDeprecated   bool           `gorm:"default:false" json:"is_deprecated"`
-	LatestVersion  string         `gorm:"size:20" json:"latest_version,omitempty"`
-	CreatedAt      time.Time      `json:"created_at"`
-	UpdatedAt      time.Time      `json:"updated_at"`
+	IsDeprecated  bool           `gorm:"default:false" json:"is_deprecated"`
+	LatestVersion string         `gorm:"size:20" json:"latest_version,omitempty"`
+	CreatedAt     time.Time      `json:"created_at"`
+	UpdatedAt     time.Time      `json:"updated_at"`
 	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
+	UserRating    *SkillRating   `gorm:"-" json:"user_rating,omitempty"`
 
 	// 关联
 	Owner    User           `gorm:"foreignKey:OwnerID" json:"owner,omitempty"`
@@ -42,6 +44,14 @@ type Skill struct {
 // TableName 指定表名
 func (Skill) TableName() string {
 	return "skills"
+}
+
+// BeforeCreate 创建前钩子
+func (s *Skill) BeforeCreate(tx *gorm.DB) error {
+	if s.ID == uuid.Nil {
+		s.ID = uuid.New()
+	}
+	return nil
 }
 
 // GetFullName 获取完整名称
@@ -81,6 +91,14 @@ type SkillVersion struct {
 // TableName 指定表名
 func (SkillVersion) TableName() string {
 	return "skill_versions"
+}
+
+// BeforeCreate 创建前钩子
+func (s *SkillVersion) BeforeCreate(tx *gorm.DB) error {
+	if s.ID == uuid.Nil {
+		s.ID = uuid.New()
+	}
+	return nil
 }
 
 // JSON 自定义 JSON 类型
@@ -158,4 +176,17 @@ type SkillRating struct {
 	Comment   string    `gorm:"size:1000" json:"comment,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// TableName 指定表名
+func (SkillRating) TableName() string {
+	return "skill_ratings"
+}
+
+// BeforeCreate 创建前钩子
+func (s *SkillRating) BeforeCreate(tx *gorm.DB) error {
+	if s.ID == uuid.Nil {
+		s.ID = uuid.New()
+	}
+	return nil
 }

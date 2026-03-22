@@ -1,6 +1,6 @@
 # skill-home CLI
 
-AI Skill 跨平台管理工具，支持 Claude Code、Cursor、Codex 等多个 IDE，实现技能的"一次编写，到处同步"。
+AI Skill 跨平台管理工具，支持 Claude Code、GitHub Copilot、Cursor、Codex 等多个 IDE，实现技能的"一次编写，到处同步"。
 
 ## 功能特性
 
@@ -10,10 +10,12 @@ AI Skill 跨平台管理工具，支持 Claude Code、Cursor、Codex 等多个 I
 - ✅ **格式验证**: 验证 SKILL.md 格式是否符合标准
 - 🔒 **安全扫描**: 本地检测恶意命令和提示词注入攻击
 - 📦 **技能打包**: 将技能打包为可分发的 .tar.gz 文件
-- 🔄 **多 IDE 同步**: 一键同步技能到 Claude Code、Cursor、Codex
+- 🔄 **多 IDE 同步**: 一键同步技能到 Claude Code、GitHub Copilot、Cursor、Codex
 - 🔗 **双模同步**: 支持符号链接(Symlink)和物理镜像两种同步模式
-- ☁️ **注册中心**: 推送、拉取和搜索云端技能
+- ☁️ **注册中心**: 推送、拉取、搜索、详情查看与评分
 - 📋 **技能列表**: 查看本地和云端已安装的技能
+- 🩺 **环境诊断**: 检查 registry、认证、路径和 IDE 配置
+- 📦 **生命周期管理**: install / uninstall / update
 
 ## 安装
 
@@ -115,6 +117,9 @@ skill-home import github.com/user/repo -o ./my-imported-skill
 # 同步到所有启用的 IDE
 skill-home sync
 
+# 安装远程技能并同步到 IDE
+skill-home install @user/my-skill
+
 # 仅同步到特定 IDE
 skill-home sync --ide cursor
 
@@ -134,6 +139,8 @@ skill-home sync --global
 | `skill-home pack [path]` | 打包技能 |
 | `skill-home sync [path]` | 同步技能到 IDE |
 | `skill-home list` | 列出已安装的技能 |
+| `skill-home doctor` | 诊断本地环境与 registry 配置 |
+| `skill-home activity` | 查看最近的账号活动 |
 
 ### 注册中心命令
 
@@ -144,7 +151,14 @@ skill-home sync --global
 | `skill-home whoami` | 显示当前登录用户 |
 | `skill-home push [path]` | 推送技能到注册中心 |
 | `skill-home pull <skill-ref>` | 从注册中心拉取技能 |
+| `skill-home install <skill-ref>` | 拉取并安装到本地 IDE |
+| `skill-home uninstall <skill-ref>` | 从本地 IDE 卸载技能 |
+| `skill-home update` | 更新本地缓存技能到最新版 |
+| `skill-home info <skill-ref>` | 查看技能详情 |
 | `skill-home search <keyword>` | 搜索云端技能 |
+| `skill-home list --remote` | 列出云端技能 |
+| `skill-home rate <skill-ref> --score 5` | 为技能评分 |
+| `skill-home activity --action skill.rate` | 查看最近活动 |
 
 **技能引用格式**: `@namespace/name@version`
 - `my-skill` - 使用默认命名空间，最新版本
@@ -168,6 +182,10 @@ ide:
     enabled: true
     project_path: ".claude/skills"
     global_path: "~/.claude/skills"
+  copilot:
+    enabled: false
+    project_path: ".github/skills"
+    global_path: "~/.copilot/skills"
   cursor:
     enabled: true
     project_path: ".cursor/rules"

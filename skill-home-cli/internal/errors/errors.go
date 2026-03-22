@@ -173,7 +173,6 @@ func FormatErrorMessage(err error) string {
 
 // 标准库 errors 的别名
 var (
-	Is     = errors.Is
 	As     = errors.As
 	Unwrap = errors.Unwrap
 )

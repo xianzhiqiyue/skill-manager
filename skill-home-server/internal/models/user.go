@@ -48,6 +48,14 @@ type APIKey struct {
 	User User `gorm:"foreignKey:UserID" json:"-"`
 }
 
+// BeforeCreate 创建前钩子
+func (k *APIKey) BeforeCreate(tx *gorm.DB) error {
+	if k.ID == uuid.Nil {
+		k.ID = uuid.New()
+	}
+	return nil
+}
+
 // AuditLog 审计日志
 type AuditLog struct {
 	ID           uuid.UUID `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
@@ -59,4 +67,12 @@ type AuditLog struct {
 	IPAddress    string    `gorm:"size:45" json:"ip_address,omitempty"`
 	UserAgent    string    `gorm:"size:500" json:"user_agent,omitempty"`
 	CreatedAt    time.Time `json:"created_at"`
+}
+
+// BeforeCreate 创建前钩子
+func (l *AuditLog) BeforeCreate(tx *gorm.DB) error {
+	if l.ID == uuid.Nil {
+		l.ID = uuid.New()
+	}
+	return nil
 }

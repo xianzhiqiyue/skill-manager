@@ -143,7 +143,9 @@ func runPush(path string, opts *pushOptions) error {
 	if config.C.Sync.AutoSyncOnPush {
 		fmt.Println()
 		fmt.Println("正在自动同步到本地 IDE...")
-		// TODO: 调用同步逻辑
+		if err := syncParsedSkill(s, &syncOptions{}); err != nil {
+			return fmt.Errorf("自动同步失败: %w", err)
+		}
 	}
 
 	return nil

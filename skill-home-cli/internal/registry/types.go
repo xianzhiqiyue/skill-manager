@@ -9,6 +9,7 @@ type Skill struct {
 	ID            string    `json:"id"`
 	Namespace     string    `json:"namespace"`
 	Name          string    `json:"name"`
+	OwnerID       string    `json:"owner_id,omitempty"`
 	Description   string    `json:"description"`
 	DescriptionZh string    `json:"description_zh,omitempty"`
 	Author        string    `json:"author"`
@@ -23,6 +24,9 @@ type Skill struct {
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
 	LatestVersion string    `json:"latest_version,omitempty"`
+	Owner         *User         `json:"owner,omitempty"`
+	Versions      []SkillVersion `json:"versions,omitempty"`
+	UserRating    *SkillRating  `json:"user_rating,omitempty"`
 }
 
 // SkillVersion 技能版本
@@ -38,6 +42,17 @@ type SkillVersion struct {
 	ScanResult   *ScanResult `json:"scan_result,omitempty"`
 	PublishedBy  string    `json:"published_by"`
 	PublishedAt  time.Time `json:"published_at"`
+}
+
+// SkillRating 技能评分
+type SkillRating struct {
+	ID        string    `json:"id"`
+	SkillID   string    `json:"skill_id"`
+	UserID    string    `json:"user_id"`
+	Rating    int       `json:"rating"`
+	Comment   string    `json:"comment,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 // Manifest 技能元数据
@@ -95,6 +110,15 @@ type SearchResult struct {
 	Results []Skill `json:"results"`
 }
 
+// ListSkillsOptions 技能列表查询选项
+type ListSkillsOptions struct {
+	Namespace string
+	Query     string
+	Tags      []string
+	Page      int
+	PerPage   int
+}
+
 // PublishRequest 发布请求
 type PublishRequest struct {
 	Namespace   string `json:"namespace,omitempty"`
@@ -113,6 +137,18 @@ type PublishResponse struct {
 	Version     string `json:"version"`
 	DownloadURL string `json:"download_url"`
 	PublishedAt string `json:"published_at"`
+}
+
+// RateSkillRequest 技能评分请求
+type RateSkillRequest struct {
+	Rating  int    `json:"rating"`
+	Comment string `json:"comment,omitempty"`
+}
+
+// RateSkillResponse 技能评分响应
+type RateSkillResponse struct {
+	Skill      Skill       `json:"skill"`
+	UserRating SkillRating `json:"user_rating"`
 }
 
 // APIError API 错误响应
@@ -146,4 +182,25 @@ type CreateAPIKeyRequest struct {
 type CreateAPIKeyResponse struct {
 	APIKey
 	Key string `json:"key"` // 仅创建时返回完整 key
+}
+
+// AuditLog 审计日志
+type AuditLog struct {
+	ID           string                 `json:"id"`
+	UserID       *string                `json:"user_id,omitempty"`
+	Action       string                 `json:"action"`
+	ResourceType string                 `json:"resource_type"`
+	ResourceID   *string                `json:"resource_id,omitempty"`
+	Metadata     map[string]interface{} `json:"metadata,omitempty"`
+	IPAddress    string                 `json:"ip_address,omitempty"`
+	UserAgent    string                 `json:"user_agent,omitempty"`
+	CreatedAt    time.Time              `json:"created_at"`
+}
+
+// AuditLogList 审计日志列表
+type AuditLogList struct {
+	Total   int        `json:"total"`
+	Page    int        `json:"page"`
+	PerPage int        `json:"per_page"`
+	Results []AuditLog `json:"results"`
 }

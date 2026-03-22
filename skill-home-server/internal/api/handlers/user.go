@@ -98,6 +98,12 @@ func CreateAPIKey(db *storage.Database) gin.HandlerFunc {
 			return
 		}
 
+		writeAuditLog(db, c, &user.ID, "api_key.create", resourceTypeAPIKey, &apiKey.ID, models.JSON{
+			"name":       apiKey.Name,
+			"prefix":     apiKey.Prefix,
+			"expires_at": apiKey.ExpiresAt,
+		})
+
 		c.JSON(http.StatusCreated, CreateAPIKeyResponse{
 			ID:        apiKey.ID,
 			Name:      apiKey.Name,
@@ -125,6 +131,11 @@ func RevokeAPIKey(db *storage.Database) gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{"code": "INTERNAL_ERROR", "message": err.Error()})
 			return
 		}
+
+		writeAuditLog(db, c, &user.ID, "api_key.revoke", resourceTypeAPIKey, &apiKey.ID, models.JSON{
+			"name":   apiKey.Name,
+			"prefix": apiKey.Prefix,
+		})
 
 		c.JSON(http.StatusOK, gin.H{"message": "API key revoked"})
 	}

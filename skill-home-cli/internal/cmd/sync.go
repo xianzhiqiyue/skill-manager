@@ -28,7 +28,7 @@ func newSyncCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "sync [skill-path]",
 		Short: "同步技能到 IDE",
-		Long:  "将技能同步到本地 IDE 配置目录（Claude、Cursor、Codex）",
+		Long:  "将技能同步到本地 IDE 配置目录（Claude、Copilot、Cursor、Codex）",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "."
@@ -40,7 +40,7 @@ func newSyncCmd() *cobra.Command {
 	}
 
 	cmd.Flags().BoolVarP(&opts.all, "all", "a", false, "同步到所有启用的 IDE")
-	cmd.Flags().StringVar(&opts.ide, "ide", "", "指定 IDE (claude/cursor/codex)")
+	cmd.Flags().StringVar(&opts.ide, "ide", "", "指定 IDE (claude/copilot/cursor/codex)")
 	cmd.Flags().BoolVar(&opts.dryRun, "dry-run", false, "预览同步结果，不实际执行")
 	cmd.Flags().StringVar(&opts.mode, "mode", "", "同步模式 (auto/symlink/mirror)")
 	cmd.Flags().BoolVar(&opts.global, "global", false, "同步到全局配置而非项目配置")
@@ -55,6 +55,11 @@ func runSync(path string, opts *syncOptions) error {
 		// 可能是技能名称，尝试从缓存加载
 		return fmt.Errorf("解析技能失败: %w", err)
 	}
+
+	return syncParsedSkill(s, opts)
+}
+
+func syncParsedSkill(s *skill.Skill, opts *syncOptions) error {
 
 	fmt.Printf("同步技能: %s\n", color.CyanString(s.GetFullName()))
 	fmt.Printf("版本: %s\n", color.CyanString(s.Manifest.Version))
@@ -142,6 +147,9 @@ func getTargetIDEs(opts *syncOptions) []string {
 
 	if config.C.IDE.Claude.Enabled {
 		ides = append(ides, "claude")
+	}
+	if config.C.IDE.Copilot.Enabled {
+		ides = append(ides, "copilot")
 	}
 	if config.C.IDE.Cursor.Enabled {
 		ides = append(ides, "cursor")

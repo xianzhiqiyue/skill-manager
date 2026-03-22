@@ -31,8 +31,8 @@ func NewRootCmd(version, commit, buildDate string) *cobra.Command {
   ____) |   <| | (_) | |_| | | | (_) | | | | | |
  |_____/|_|\_\_|\___/ \__|_| |_|\___/|_| |_| |_|
 
-`)+ `skill-home 是一个跨平台的 AI 技能管理工具，支持 Claude Code、Cursor、
-Codex 等多个 IDE，实现技能的"一次编写，到处同步"。
+`)+ `skill-home 是一个跨平台的 AI 技能管理工具，支持 Claude Code、GitHub Copilot、
+Cursor、Codex 等多个 IDE，实现技能的"一次编写，到处同步"。
 
 使用 "skill-home [command] --help" 查看具体命令的帮助信息。`,
 		Version: version,
@@ -69,20 +69,31 @@ Codex 等多个 IDE，实现技能的"一次编写，到处同步"。
 	rootCmd.AddCommand(newPackCmd())
 	rootCmd.AddCommand(newSyncCmd())
 	rootCmd.AddCommand(newListCmd())
+	rootCmd.AddCommand(newInfoCmd())
 	rootCmd.AddCommand(newVersionCmd(version, commit, buildDate))
 	rootCmd.AddCommand(newScanCmd())
+	rootCmd.AddCommand(newDoctorCmd())
 
 	// 注册中心相关命令
 	rootCmd.AddCommand(newLoginCmd())
 	rootCmd.AddCommand(newLogoutCmd())
 	rootCmd.AddCommand(newWhoamiCmd())
+	rootCmd.AddCommand(newActivityCmd())
 	rootCmd.AddCommand(newPushCmd())
 	rootCmd.AddCommand(newPullCmd())
+	rootCmd.AddCommand(newInstallCmd())
+	rootCmd.AddCommand(newUninstallCmd())
+	rootCmd.AddCommand(newUpdateCmd())
 	rootCmd.AddCommand(newSearchCmd())
+	rootCmd.AddCommand(newRateCmd())
 
 	// 技能创建和导入命令
 	rootCmd.AddCommand(newCreateCmd())
 	rootCmd.AddCommand(newImportCmd())
+
+	// Skill Creator 命令
+	rootCmd.AddCommand(newExportCmd())
+	rootCmd.AddCommand(newPreviewCmd())
 
 	return rootCmd
 }

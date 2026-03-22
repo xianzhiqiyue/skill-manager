@@ -23,14 +23,9 @@ func ListSkills(db *storage.Database) gin.HandlerFunc {
 		// 分页
 		page, perPage := parsePagination(c.DefaultQuery("page", "1"), c.DefaultQuery("per_page", "20"))
 
-		// 搜索
+		query = applySkillFilters(query, c.Query("namespace"), c.Query("tag"))
 		if q := c.Query("q"); q != "" {
-			query = query.Where("name ILIKE ? OR description ILIKE ?", "%"+q+"%", "%"+q+"%")
-		}
-
-		// 标签筛选
-		if tag := c.Query("tag"); tag != "" {
-			query = query.Where("? = ANY(tags)", tag)
+			query = applySearchFilter(query, q)
 		}
 
 		var total int64
@@ -41,6 +36,7 @@ func ListSkills(db *storage.Database) gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{"code": "INTERNAL_ERROR", "message": err.Error()})
 			return
 		}
+		populateSkillsComputedFields(skills)
 
 		c.JSON(http.StatusOK, gin.H{
 			"total":    total,
@@ -58,7 +54,7 @@ func GetSkill(db *storage.Database) gin.HandlerFunc {
 		name := c.Param("name")
 
 		var skill models.Skill
-		if err := scopeNamespaceName(db.Preload("Versions"), namespace, name).First(&skill).Error; err != nil {
+		if err := scopeNamespaceName(db.Preload("Versions").Preload("Owner"), namespace, name).First(&skill).Error; err != nil {
 			if err == gorm.ErrRecordNotFound {
 				c.JSON(http.StatusNotFound, gin.H{"code": "NOT_FOUND", "message": "Skill not found"})
 				return
@@ -81,6 +77,16 @@ func GetSkill(db *storage.Database) gin.HandlerFunc {
 			}
 		}
 
+		populateSkillComputedFields(&skill)
+		if user, exists := c.Get("user"); exists {
+			if currentUser, ok := user.(*models.User); ok {
+				if err := loadUserRating(db, &skill, &currentUser.ID); err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"code": "INTERNAL_ERROR", "message": err.Error()})
+					return
+				}
+			}
+		}
+
 		c.JSON(http.StatusOK, skill)
 	}
 }
@@ -94,18 +100,26 @@ func SearchSkills(db *storage.Database) gin.HandlerFunc {
 			return
 		}
 
+		page, perPage := parsePagination(c.DefaultQuery("page", "1"), c.DefaultQuery("per_page", "20"))
 		var skills []models.Skill
-		query := db.Where("is_public = ?", true).
-			Where("name ILIKE ? OR description ILIKE ?", "%"+q+"%", "%"+q+"%")
+		query := db.Model(&models.Skill{}).Where("is_public = ?", true)
+		query = applySkillFilters(query, c.Query("namespace"), c.Query("tag"))
+		query = applySearchFilter(query, q)
 
-		if err := query.Order("download_count DESC").Find(&skills).Error; err != nil {
+		var total int64
+		query.Count(&total)
+
+		if err := query.Order("download_count DESC").Limit(perPage).Offset((page - 1) * perPage).Find(&skills).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"code": "INTERNAL_ERROR", "message": err.Error()})
 			return
 		}
+		populateSkillsComputedFields(skills)
 
 		c.JSON(http.StatusOK, gin.H{
-			"total":   len(skills),
-			"results": skills,
+			"total":    total,
+			"page":     page,
+			"per_page": perPage,
+			"results":  skills,
 		})
 	}
 }
@@ -117,7 +131,7 @@ func ListVersions(db *storage.Database) gin.HandlerFunc {
 		name := c.Param("name")
 
 		var skill models.Skill
-		if err := scopeNamespaceName(db, namespace, name).First(&skill).Error; err != nil {
+		if err := scopeNamespaceName(db.DB, namespace, name).First(&skill).Error; err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"code": "NOT_FOUND", "message": "Skill not found"})
 			return
 		}
@@ -191,7 +205,7 @@ func CreateSkill(db *storage.Database, objStorage *storage.ObjectStorage, scanne
 
 		// 检查技能是否已存在
 		var existingSkill models.Skill
-		if err := scopeNamespaceName(db, namespace, name).First(&existingSkill).Error; err == nil {
+		if err := scopeNamespaceName(db.DB, namespace, name).First(&existingSkill).Error; err == nil {
 			c.JSON(http.StatusConflict, gin.H{"code": "ALREADY_EXISTS", "message": "Skill already exists"})
 			return
 		}
@@ -255,7 +269,15 @@ func CreateSkill(db *storage.Database, objStorage *storage.ObjectStorage, scanne
 			if err := tx.Create(&versionModel).Error; err != nil {
 				return err
 			}
-			return tx.Model(&skill).Update("latest_version", versionModel.Version).Error
+			if err := tx.Model(&skill).Update("latest_version", versionModel.Version).Error; err != nil {
+				return err
+			}
+			return writeAuditLogTx(tx, c, &user.ID, "skill.create", resourceTypeSkill, &skill.ID, models.JSON{
+				"namespace": namespace,
+				"name":      name,
+				"version":   versionModel.Version,
+				"is_public": skill.IsPublic,
+			})
 		}); err != nil {
 			_ = objStorage.Delete(c, storagePath)
 			c.JSON(http.StatusInternalServerError, gin.H{"code": "INTERNAL_ERROR", "message": err.Error()})
@@ -279,7 +301,7 @@ func UpdateSkill(db *storage.Database) gin.HandlerFunc {
 		user := c.MustGet("user").(*models.User)
 
 		var skill models.Skill
-		if err := scopeNamespaceName(db, namespace, name).First(&skill).Error; err != nil {
+		if err := scopeNamespaceName(db.DB, namespace, name).First(&skill).Error; err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"code": "NOT_FOUND", "message": "Skill not found"})
 			return
 		}
@@ -302,7 +324,16 @@ func UpdateSkill(db *storage.Database) gin.HandlerFunc {
 		skill.License = req.License
 		skill.IsPublic = req.IsPublic
 
-		if err := db.Save(&skill).Error; err != nil {
+		if err := db.Transaction(func(tx *gorm.DB) error {
+			if err := tx.Save(&skill).Error; err != nil {
+				return err
+			}
+			return writeAuditLogTx(tx, c, &user.ID, "skill.update", resourceTypeSkill, &skill.ID, models.JSON{
+				"namespace": namespace,
+				"name":      name,
+				"is_public": skill.IsPublic,
+			})
+		}); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"code": "INTERNAL_ERROR", "message": err.Error()})
 			return
 		}
@@ -336,7 +367,15 @@ func DeleteSkill(db *storage.Database, objStorage *storage.ObjectStorage) gin.Ha
 		// }
 
 		// 删除技能
-		if err := db.Delete(&skill).Error; err != nil {
+		if err := db.Transaction(func(tx *gorm.DB) error {
+			if err := tx.Delete(&skill).Error; err != nil {
+				return err
+			}
+			return writeAuditLogTx(tx, c, &user.ID, "skill.delete", resourceTypeSkill, &skill.ID, models.JSON{
+				"namespace": namespace,
+				"name":      name,
+			})
+		}); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"code": "INTERNAL_ERROR", "message": err.Error()})
 			return
 		}

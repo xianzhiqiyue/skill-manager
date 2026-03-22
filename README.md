@@ -8,7 +8,7 @@ Skill-Home 是一个完整的 AI Skill 生态系统，包含：
 
 - **注册中心 (Registry)**: 云端技能存储与分发
 - **CLI 工具**: 本地技能管理与 IDE 同步
-- **多 IDE 支持**: Claude Code、Cursor、Codex 等
+- **多 IDE 支持**: Claude Code、GitHub Copilot、Cursor、Codex 等
 
 ## 快速开始
 
@@ -72,6 +72,8 @@ skillManage/
 | 技能管理 | ✅ | CRUD + 版本控制 |
 | 对象存储 | ✅ | MinIO 集成 |
 | 安全扫描 | ✅ | 基础规则检测 |
+| 技能评分 | ✅ | 1-5 星评分与评论 |
+| 搜索排序 | ✅ | PostgreSQL 全文搜索 + 下载量排序 |
 
 ### 客户端 (skill-home-cli)
 
@@ -81,8 +83,10 @@ skillManage/
 | 格式验证 | ✅ | YAML 前端验证 |
 | 安全扫描 | ✅ | 本地规则检测 |
 | 技能打包 | ✅ | tar.gz 压缩 |
-| IDE 同步 | 🚧 | Claude/Cursor/Codex |
-| 注册中心 | ✅ | 推送/拉取/搜索 |
+| IDE 同步 | ✅ | Claude/Copilot/Cursor/Codex |
+| 注册中心 | ✅ | 推送/拉取/搜索/详情 |
+| 生命周期管理 | ✅ | install / uninstall / update |
+| 环境诊断 | ✅ | doctor 检查配置与连通性 |
 
 ## API 端点
 
@@ -104,10 +108,12 @@ GET    /api/v1/download/:ns/:name/:ver  下载技能
 ```
 GET    /api/v1/user                     当前用户
 GET    /api/v1/user/skills              我的技能
+GET    /api/v1/user/audit-logs          最近活动
 POST   /api/v1/user/api-keys            创建 API Key
 DELETE /api/v1/user/api-keys/:id        撤销 API Key
 POST   /api/v1/skills                   发布技能
 POST   /api/v1/skills/:ns/:name/versions 发布版本
+POST   /api/v1/skills/:ns/:name/rating  为技能评分
 ```
 
 完整 API 文档见 [API.md](API.md)
@@ -139,7 +145,7 @@ POST   /api/v1/skills/:ns/:name/versions 发布版本
 
 - **服务端**: Go 1.21+, PostgreSQL 15+, Redis 7+, MinIO
 - **客户端**: Go 1.21+ 或预编译二进制
-- **IDE**: Claude Code / Cursor / Codex
+- **IDE**: Claude Code / GitHub Copilot / Cursor / Codex
 
 ## 开发指南
 

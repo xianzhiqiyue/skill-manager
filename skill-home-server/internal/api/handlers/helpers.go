@@ -9,7 +9,11 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/google/uuid"
+	"github.com/skill-home/server/internal/models"
+	"github.com/skill-home/server/internal/storage"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 const (
@@ -131,5 +135,78 @@ func validatePathSegment(value string, field string) error {
 	if strings.ContainsRune(value, 0) {
 		return fmt.Errorf("%s format is invalid", field)
 	}
+	return nil
+}
+
+func applySkillFilters(query *gorm.DB, namespace, tag string) *gorm.DB {
+	namespace = normalizeNamespace(namespace)
+	if namespace != "" {
+		query = query.Where("namespace IN ?", namespaceVariants(namespace))
+	}
+	if tag != "" {
+		query = query.Where("? = ANY(tags)", tag)
+	}
+	return query
+}
+
+func applySearchFilter(query *gorm.DB, q string) *gorm.DB {
+	q = strings.TrimSpace(q)
+	if q == "" {
+		return query
+	}
+
+	dialect := ""
+	if query != nil && query.Dialector != nil {
+		dialect = query.Dialector.Name()
+	}
+	if dialect != "postgres" {
+		return query.
+			Where("name LIKE ? OR description LIKE ?", "%"+q+"%", "%"+q+"%").
+			Order(clause.Expr{
+				SQL:  "CASE WHEN lower(name) = lower(?) THEN 0 WHEN lower(name) LIKE lower(?) THEN 1 ELSE 2 END",
+				Vars: []interface{}{q, q + "%"},
+			})
+	}
+
+	vectorExpr := "to_tsvector('simple', coalesce(name, '') || ' ' || coalesce(description, ''))"
+	return query.
+		Where(vectorExpr+" @@ plainto_tsquery('simple', ?) OR name ILIKE ? OR description ILIKE ?", q, "%"+q+"%", "%"+q+"%").
+		Order(clause.Expr{
+			SQL:  "CASE WHEN lower(name) = lower(?) THEN 0 WHEN name ILIKE ? THEN 1 ELSE 2 END",
+			Vars: []interface{}{q, q + "%"},
+		}).
+		Order(clause.Expr{
+			SQL:  "ts_rank_cd(" + vectorExpr + ", plainto_tsquery('simple', ?)) DESC",
+			Vars: []interface{}{q},
+		})
+}
+
+func populateSkillComputedFields(skill *models.Skill) {
+	if skill == nil {
+		return
+	}
+	skill.Rating = skill.GetRating()
+}
+
+func populateSkillsComputedFields(skills []models.Skill) {
+	for i := range skills {
+		populateSkillComputedFields(&skills[i])
+	}
+}
+
+func loadUserRating(db *storage.Database, skill *models.Skill, userID *uuid.UUID) error {
+	if db == nil || skill == nil || userID == nil || *userID == uuid.Nil {
+		return nil
+	}
+
+	var rating models.SkillRating
+	if err := db.Where("skill_id = ? AND user_id = ?", skill.ID, *userID).First(&rating).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil
+		}
+		return err
+	}
+
+	skill.UserRating = &rating
 	return nil
 }

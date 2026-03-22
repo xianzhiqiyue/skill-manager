@@ -9,6 +9,41 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// IDEConfig 多平台 IDE 配置
+type IDEConfig struct {
+	Claude *ClaudeConfig `yaml:"claude,omitempty"`
+	Copilot *CopilotConfig `yaml:"copilot,omitempty"`
+	Codex  *CodexConfig  `yaml:"codex,omitempty"`
+	Cursor *CursorConfig `yaml:"cursor,omitempty"`
+}
+
+// ClaudeConfig Claude Code 特定配置
+type ClaudeConfig struct {
+	Globs        []string `yaml:"globs,omitempty"`
+	AutoActivate bool     `yaml:"auto_activate,omitempty"`
+	FileContext  bool     `yaml:"file_context,omitempty"`
+}
+
+// CopilotConfig GitHub Copilot 特定配置
+type CopilotConfig struct {
+	Globs        []string `yaml:"globs,omitempty"`
+	AutoActivate bool     `yaml:"auto_activate,omitempty"`
+	FileContext  bool     `yaml:"file_context,omitempty"`
+}
+
+// CodexConfig Codex 特定配置
+type CodexConfig struct {
+	Globs        []string `yaml:"globs,omitempty"`
+	AutoActivate bool     `yaml:"auto_activate,omitempty"`
+	Tools        []string `yaml:"tools,omitempty"`
+}
+
+// CursorConfig Cursor 特定配置
+type CursorConfig struct {
+	Globs       []string `yaml:"globs,omitempty"`
+	AlwaysApply bool     `yaml:"always_apply,omitempty"`
+}
+
 // Manifest 技能元数据
 type Manifest struct {
 	Name          string                 `yaml:"name"`
@@ -22,7 +57,7 @@ type Manifest struct {
 	Homepage      string                 `yaml:"homepage,omitempty"`
 	Repository    string                 `yaml:"repository,omitempty"`
 	Requires      []string               `yaml:"requires,omitempty"`
-	IDEConfig     map[string]interface{} `yaml:"ide_config,omitempty"`
+	IDEConfig     IDEConfig              `yaml:"ide_config,omitempty"`
 	Permissions   []string               `yaml:"permissions,omitempty"`
 	Engines       map[string]string      `yaml:"engines,omitempty"`
 }
@@ -120,14 +155,8 @@ func (s *Skill) GetFullName() string {
 func (s *Skill) ToCursorMdc() string {
 	// 提取 globs
 	globs := "**/*"
-	if ideConfig, ok := s.Manifest.IDEConfig["cursor"].(map[string]interface{}); ok {
-		if g, ok := ideConfig["globs"].([]interface{}); ok && len(g) > 0 {
-			globsList := make([]string, len(g))
-			for i, v := range g {
-				globsList[i] = fmt.Sprintf("%v", v)
-			}
-			globs = strings.Join(globsList, ", ")
-		}
+	if s.Manifest.IDEConfig.Cursor != nil && len(s.Manifest.IDEConfig.Cursor.Globs) > 0 {
+		globs = strings.Join(s.Manifest.IDEConfig.Cursor.Globs, ", ")
 	}
 
 	return fmt.Sprintf(`---

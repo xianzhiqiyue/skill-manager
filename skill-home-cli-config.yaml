@@ -6,7 +6,7 @@ version: "1.0"
 # 注册中心配置
 registry:
   endpoint: "http://47.122.112.210:8080"
-  api_key: ""  # 登录后自动填充
+  api_key: "sk_Fe7wUNYNv5VrTxPK5zjFM1IYb0P9K6s1SzTsS5iRm80="  # 生产环境 API Key
   timeout: 30
 
 # 本地配置
@@ -20,6 +20,10 @@ ide:
     enabled: true
     project_path: ".claude/skills"
     global_path: "~/.claude/skills"
+  copilot:
+    enabled: false
+    project_path: ".github/skills"
+    global_path: "~/.copilot/skills"
   cursor:
     enabled: true
     project_path: ".cursor/rules"

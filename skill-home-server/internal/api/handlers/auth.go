@@ -76,6 +76,11 @@ func Register(db *storage.Database) gin.HandlerFunc {
 			return
 		}
 
+		writeAuditLog(db, c, &user.ID, "user.register", resourceTypeUser, &user.ID, models.JSON{
+			"username": user.Username,
+			"email":    user.Email,
+		})
+
 		// 生成 JWT
 		token, err := generateToken(&user)
 		if err != nil {
@@ -131,6 +136,10 @@ func Login(db *storage.Database) gin.HandlerFunc {
 		resp.User.ID = user.ID.String()
 		resp.User.Username = user.Username
 		resp.User.Email = user.Email
+
+		writeAuditLog(db, c, &user.ID, "auth.login", resourceTypeUser, &user.ID, models.JSON{
+			"email": user.Email,
+		})
 
 		c.JSON(http.StatusOK, resp)
 	}

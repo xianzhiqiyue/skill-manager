@@ -41,55 +41,22 @@ func newScanCmd() *cobra.Command {
 }
 
 func runScan(path string, opts *scanOptions) error {
-	// 收集需要扫描的文件
-	files := make(map[string]string)
-
-	// 读取 SKILL.md
-	skillFile := filepath.Join(path, "SKILL.md")
-	if content, err := os.ReadFile(skillFile); err == nil {
-		files["SKILL.md"] = string(content)
-	} else {
-		return fmt.Errorf("读取 SKILL.md 失败: %w", err)
-	}
-
-	// 读取 scripts 目录
-	scriptsDir := filepath.Join(path, "scripts")
-	if entries, err := os.ReadDir(scriptsDir); err == nil {
-		for _, entry := range entries {
-			if entry.IsDir() || strings.HasPrefix(entry.Name(), ".") {
-				continue
-			}
-			content, err := os.ReadFile(filepath.Join(scriptsDir, entry.Name()))
-			if err == nil {
-				files["scripts/"+entry.Name()] = string(content)
-			}
-		}
-	}
-
-	// 读取 references 目录
-	refsDir := filepath.Join(path, "references")
-	if entries, err := os.ReadDir(refsDir); err == nil {
-		for _, entry := range entries {
-			if entry.IsDir() || strings.HasPrefix(entry.Name(), ".") {
-				continue
-			}
-			content, err := os.ReadFile(filepath.Join(refsDir, entry.Name()))
-			if err == nil {
-				files["references/"+entry.Name()] = string(content)
-			}
-		}
+	files, err := collectSkillFiles(path)
+	if err != nil {
+		return err
 	}
 
 	// 执行扫描
 	fmt.Printf("正在扫描 %d 个文件...\n\n", len(files))
 
-	scanner := validator.NewScanner()
-	result := scanner.ScanSkill(path, files)
+	result := validator.NewScanner().ScanSkill(path, files)
 
 	// 输出结果
 	if opts.json {
-		// TODO: JSON 输出
-		return fmt.Errorf("JSON 格式尚未实现")
+		if err := printJSON(result); err != nil {
+			return err
+		}
+		return evaluateScanResult(result, opts.strict, true)
 	}
 
 	// 显示问题
@@ -114,27 +81,7 @@ func runScan(path string, opts *scanOptions) error {
 
 	// 摘要
 	fmt.Println(result.Summary)
-
-	// 严格模式检查
-	if opts.strict && result.Status != "pass" {
-		return fmt.Errorf("严格模式：发现安全问题")
-	}
-
-	// 阻止发布的问题
-	if result.HasCritical() {
-		fmt.Println()
-		fmt.Println(color.RedString("✗"), "发现严重问题，阻止发布")
-		return fmt.Errorf("安全扫描未通过")
-	}
-
-	if result.HasHighSeverity() {
-		fmt.Println()
-		fmt.Println(color.YellowString("!"), "发现高级别问题，请修复后发布")
-		fmt.Printf("或使用 %s 强制推送（不推荐）\n", color.YellowString("--force"))
-		return fmt.Errorf("安全扫描未通过")
-	}
-
-	return nil
+	return evaluateScanResult(result, opts.strict, false)
 }
 
 func printIssue(issue validator.ScanIssue) {
@@ -168,4 +115,65 @@ func printIssue(issue validator.ScanIssue) {
 	if issue.Suggestion != "" {
 		fmt.Printf("     建议: %s\n", issue.Suggestion)
 	}
+}
+
+func collectSkillFiles(path string) (map[string]string, error) {
+	files := make(map[string]string)
+
+	skillFile := filepath.Join(path, "SKILL.md")
+	if content, err := os.ReadFile(skillFile); err == nil {
+		files["SKILL.md"] = string(content)
+	} else {
+		return nil, fmt.Errorf("读取 SKILL.md 失败: %w", err)
+	}
+
+	for _, dirName := range []string{"scripts", "references"} {
+		dirPath := filepath.Join(path, dirName)
+		if entries, err := os.ReadDir(dirPath); err == nil {
+			for _, entry := range entries {
+				if entry.IsDir() || strings.HasPrefix(entry.Name(), ".") {
+					continue
+				}
+				content, err := os.ReadFile(filepath.Join(dirPath, entry.Name()))
+				if err == nil {
+					files[dirName+"/"+entry.Name()] = string(content)
+				}
+			}
+		}
+	}
+
+	return files, nil
+}
+
+func scanSkillPath(path string) (*validator.ScanResult, error) {
+	files, err := collectSkillFiles(path)
+	if err != nil {
+		return nil, err
+	}
+	return validator.NewScanner().ScanSkill(path, files), nil
+}
+
+func evaluateScanResult(result *validator.ScanResult, strict bool, silent bool) error {
+	if strict && result.Status != "pass" {
+		return fmt.Errorf("严格模式：发现安全问题")
+	}
+
+	if result.HasCritical() {
+		if !silent {
+			fmt.Println()
+			fmt.Println(color.RedString("✗"), "发现严重问题，阻止发布")
+		}
+		return fmt.Errorf("安全扫描未通过")
+	}
+
+	if result.HasHighSeverity() {
+		if !silent {
+			fmt.Println()
+			fmt.Println(color.YellowString("!"), "发现高级别问题，请修复后发布")
+			fmt.Printf("或使用 %s 强制继续（不推荐）\n", color.YellowString("--force"))
+		}
+		return fmt.Errorf("安全扫描未通过")
+	}
+
+	return nil
 }

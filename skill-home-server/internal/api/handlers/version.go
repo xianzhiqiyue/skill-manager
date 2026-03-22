@@ -43,7 +43,7 @@ func PublishVersion(db *storage.Database, objStorage *storage.ObjectStorage, sca
 
 		// 获取技能
 		var skill models.Skill
-		if err := scopeNamespaceName(db, namespace, name).First(&skill).Error; err != nil {
+		if err := scopeNamespaceName(db.DB, namespace, name).First(&skill).Error; err != nil {
 			if err == gorm.ErrRecordNotFound {
 				c.JSON(http.StatusNotFound, gin.H{"code": "NOT_FOUND", "message": "Skill not found"})
 				return
@@ -104,7 +104,14 @@ func PublishVersion(db *storage.Database, objStorage *storage.ObjectStorage, sca
 			if err := tx.Create(&version).Error; err != nil {
 				return err
 			}
-			return tx.Model(&skill).Update("latest_version", version.Version).Error
+			if err := tx.Model(&skill).Update("latest_version", version.Version).Error; err != nil {
+				return err
+			}
+			return writeAuditLogTx(tx, c, &user.ID, "version.publish", resourceTypeVersion, &version.ID, models.JSON{
+				"namespace": namespace,
+				"name":      name,
+				"version":   version.Version,
+			})
 		}); err != nil {
 			_ = objStorage.Delete(c, storagePath)
 			c.JSON(http.StatusInternalServerError, gin.H{"code": "INTERNAL_ERROR", "message": err.Error()})
@@ -131,7 +138,7 @@ func DeleteVersion(db *storage.Database, objStorage *storage.ObjectStorage) gin.
 
 		// 获取技能
 		var skill models.Skill
-		if err := scopeNamespaceName(db, namespace, name).First(&skill).Error; err != nil {
+		if err := scopeNamespaceName(db.DB, namespace, name).First(&skill).Error; err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"code": "NOT_FOUND", "message": "Skill not found"})
 			return
 		}
@@ -164,11 +171,25 @@ func DeleteVersion(db *storage.Database, objStorage *storage.ObjectStorage) gin.
 			err := tx.Where("skill_id = ?", skill.ID).Order("published_at DESC").First(&latest).Error
 			if err != nil {
 				if err == gorm.ErrRecordNotFound {
-					return tx.Model(&skill).Update("latest_version", "").Error
+					if err := tx.Model(&skill).Update("latest_version", "").Error; err != nil {
+						return err
+					}
+					return writeAuditLogTx(tx, c, &user.ID, "version.delete", resourceTypeVersion, &skillVersion.ID, models.JSON{
+						"namespace": namespace,
+						"name":      name,
+						"version":   version,
+					})
 				}
 				return err
 			}
-			return tx.Model(&skill).Update("latest_version", latest.Version).Error
+			if err := tx.Model(&skill).Update("latest_version", latest.Version).Error; err != nil {
+				return err
+			}
+			return writeAuditLogTx(tx, c, &user.ID, "version.delete", resourceTypeVersion, &skillVersion.ID, models.JSON{
+				"namespace": namespace,
+				"name":      name,
+				"version":   version,
+			})
 		}); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"code": "INTERNAL_ERROR", "message": err.Error()})
 			return
@@ -187,7 +208,7 @@ func DownloadSkill(db *storage.Database, objStorage *storage.ObjectStorage) gin.
 
 		// 获取技能
 		var skill models.Skill
-		if err := scopeNamespaceName(db, namespace, name).First(&skill).Error; err != nil {
+		if err := scopeNamespaceName(db.DB, namespace, name).First(&skill).Error; err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"code": "NOT_FOUND", "message": "Skill not found"})
 			return
 		}

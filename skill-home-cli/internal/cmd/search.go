@@ -63,7 +63,7 @@ func runSearch(query string, opts *searchOptions) error {
 	client := registry.NewClient(server, apiKey)
 
 	// 搜索
-	result, err := client.Search(query, opts.tags, opts.page, opts.perPage)
+	result, err := client.Search(query, opts.namespace, opts.tags, opts.page, opts.perPage)
 	if err != nil {
 		return fmt.Errorf("搜索失败: %w", err)
 	}
@@ -75,43 +75,11 @@ func runSearch(query string, opts *searchOptions) error {
 
 	// 输出结果
 	if opts.format == "json" {
-		// TODO: JSON 输出
-		return fmt.Errorf("JSON 格式尚未实现")
+		return printJSON(result)
 	}
 
 	// 表格输出
-	fmt.Printf("找到 %d 个结果 (第 %d 页)\n\n", result.Total, result.Page)
-
-	for _, skill := range result.Results {
-		fullName := fmt.Sprintf("@%s/%s", skill.Namespace, skill.Name)
-		fmt.Printf("%s %s\n", color.GreenString("•"), color.CyanString(fullName))
-		fmt.Printf("  %s\n", skill.Description)
-
-		// 显示元数据
-		meta := []string{}
-		if skill.LatestVersion != "" {
-			meta = append(meta, fmt.Sprintf("v%s", skill.LatestVersion))
-		}
-		if skill.DownloadCount > 0 {
-			meta = append(meta, fmt.Sprintf("%d 下载", skill.DownloadCount))
-		}
-		if skill.RatingCount > 0 {
-			meta = append(meta, fmt.Sprintf("%.1f★", skill.Rating))
-		}
-		if len(skill.Tags) > 0 {
-			meta = append(meta, strings.Join(skill.Tags, ", "))
-		}
-
-		if len(meta) > 0 {
-			fmt.Printf("  %s\n", color.YellowString(strings.Join(meta, " • ")))
-		}
-		fmt.Println()
-	}
-
-	// 分页提示
-	if result.Total > result.PerPage*result.Page {
-		fmt.Printf("使用 --page %d 查看更多结果\n", result.Page+1)
-	}
+	printSkillResults(result)
 
 	fmt.Printf("\n运行 '%s' 安装技能\n", color.YellowString("skill-home pull <name>"))
 

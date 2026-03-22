@@ -20,6 +20,14 @@ type pullOptions struct {
 	force     bool
 }
 
+type pulledSkill struct {
+	Namespace     string
+	Name          string
+	Version       string
+	OutputDir     string
+	WasDownloaded bool
+}
+
 func newPullCmd() *cobra.Command {
 	opts := &pullOptions{}
 
@@ -46,17 +54,32 @@ func newPullCmd() *cobra.Command {
 }
 
 func runPull(skillRef string, opts *pullOptions) error {
-	// 检查登录状态（可选，因为下载可以是公开的）
+	pulled, err := pullSkillRef(skillRef, opts)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println()
+	fmt.Println(color.GreenString("✓"), "拉取成功!")
+	fmt.Printf("  位置: %s\n", color.CyanString(pulled.OutputDir))
+
+	// 提示同步
+	fmt.Println()
+	fmt.Printf("运行 '%s' 同步到 IDE\n", color.YellowString(fmt.Sprintf("skill-home sync %s", pulled.OutputDir)))
+
+	return nil
+}
+
+func pullSkillRef(skillRef string, opts *pullOptions) (*pulledSkill, error) {
 	apiKey := viper.GetString("registry.api_key")
 	server := viper.GetString("registry.endpoint")
 	if server == "" {
 		server = "https://registry.skill-home.dev"
 	}
 
-	// 解析技能引用
 	namespace, name, version, err := config.ParseSkillRef(skillRef)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	fmt.Printf("拉取技能: %s/%s\n", color.CyanString("@"+namespace), name)
@@ -67,74 +90,70 @@ func runPull(skillRef string, opts *pullOptions) error {
 	}
 	fmt.Println()
 
-	// 创建客户端
 	client := registry.NewClient(server, apiKey)
 
-	// 如果没有指定版本，获取最新版本
 	if version == "" {
-		skill, err := client.GetSkill(namespace, name)
+		skillInfo, err := client.GetSkill(namespace, name)
 		if err != nil {
-			return fmt.Errorf("获取技能信息失败: %w", err)
+			return nil, fmt.Errorf("获取技能信息失败: %w", err)
 		}
-		version = skill.LatestVersion
+		version = skillInfo.LatestVersion
 		if version == "" {
-			return fmt.Errorf("技能没有可用版本")
+			return nil, fmt.Errorf("技能没有可用版本")
 		}
 		fmt.Printf("最新版本: %s\n", color.CyanString(version))
 	}
 
-	// 确定输出目录
 	outputDir := opts.outputDir
 	if outputDir == "" {
 		outputDir = config.GetSkillCacheDir(namespace, name, version)
 	}
 
-	// 检查是否已存在
 	if _, err := os.Stat(outputDir); err == nil {
 		if opts.force {
 			if err := removeExistingOutput(outputDir); err != nil {
-				return err
+				return nil, err
 			}
 		} else {
 			fmt.Printf("技能已存在于: %s\n", color.YellowString(outputDir))
 			fmt.Println("使用 --force 可以重新下载")
-			return nil
+			return &pulledSkill{
+				Namespace: namespace,
+				Name:      name,
+				Version:   version,
+				OutputDir: outputDir,
+			}, nil
 		}
 	}
 
-	// 创建临时下载文件
 	tmpFile := filepath.Join(os.TempDir(), fmt.Sprintf("%s-%s-%s.tar.gz", namespace, name, version))
 	defer os.Remove(tmpFile)
 
-	// 下载
 	fmt.Println("正在下载...")
 	if err := client.Download(namespace, name, version, tmpFile); err != nil {
-		return fmt.Errorf("下载失败: %w", err)
+		return nil, fmt.Errorf("下载失败: %w", err)
 	}
 	fmt.Println(color.GreenString("✓"), "下载完成")
 
-	// 解压
 	if opts.extract {
 		fmt.Println("正在解压...")
 		if err := os.MkdirAll(outputDir, 0755); err != nil {
-			return fmt.Errorf("创建目录失败: %w", err)
+			return nil, fmt.Errorf("创建目录失败: %w", err)
 		}
 
 		if err := archive.ExtractTarGz(tmpFile, outputDir); err != nil {
-			return fmt.Errorf("解压失败: %w", err)
+			return nil, fmt.Errorf("解压失败: %w", err)
 		}
 		fmt.Println(color.GreenString("✓"), "解压完成")
 	}
 
-	fmt.Println()
-	fmt.Println(color.GreenString("✓"), "拉取成功!")
-	fmt.Printf("  位置: %s\n", color.CyanString(outputDir))
-
-	// 提示同步
-	fmt.Println()
-	fmt.Printf("运行 '%s' 同步到 IDE\n", color.YellowString(fmt.Sprintf("skill-home sync %s", outputDir)))
-
-	return nil
+	return &pulledSkill{
+		Namespace:     namespace,
+		Name:          name,
+		Version:       version,
+		OutputDir:     outputDir,
+		WasDownloaded: true,
+	}, nil
 }
 
 func removeExistingOutput(path string) error {

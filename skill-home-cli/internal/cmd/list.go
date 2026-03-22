@@ -8,8 +8,10 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 
 	"github.com/skill-home/cli/internal/config"
+	"github.com/skill-home/cli/internal/registry"
 	"github.com/skill-home/cli/internal/skill"
 )
 
@@ -31,7 +33,7 @@ func newListCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().BoolVarP(&opts.remote, "remote", "r", false, "列出云端已发布的技能（需登录）")
+	cmd.Flags().BoolVarP(&opts.remote, "remote", "r", false, "列出云端已发布的技能")
 	cmd.Flags().StringVarP(&opts.namespace, "namespace", "n", "", "按命名空间筛选")
 	cmd.Flags().StringVarP(&opts.format, "format", "f", "table", "输出格式 (table/json)")
 
@@ -47,6 +49,13 @@ func runList(opts *listOptions) error {
 
 func listLocalSkills(opts *listOptions) error {
 	skillsDir := config.C.Local.SkillsDir
+	type localSkill struct {
+		Namespace string `json:"namespace"`
+		Name      string `json:"name"`
+		Version   string `json:"version"`
+		Path      string `json:"path"`
+	}
+	results := []localSkill{}
 
 	// 检查目录是否存在
 	if _, err := os.Stat(skillsDir); os.IsNotExist(err) {
@@ -95,9 +104,22 @@ func listLocalSkills(opts *listOptions) error {
 				version = s.Manifest.Version
 			}
 
-			fmt.Printf("  %s/%s@%s\n", color.GreenString("@"+ns), skillName, color.YellowString(version))
+			results = append(results, localSkill{
+				Namespace: ns,
+				Name:      skillName,
+				Version:   version,
+				Path:      skillPath,
+			})
 			found = true
 		}
+	}
+
+	if opts.format == "json" {
+		return printJSON(results)
+	}
+
+	for _, item := range results {
+		fmt.Printf("  %s/%s@%s\n", color.GreenString("@"+item.Namespace), item.Name, color.YellowString(item.Version))
 	}
 
 	if !found {
@@ -109,8 +131,37 @@ func listLocalSkills(opts *listOptions) error {
 }
 
 func listRemoteSkills(opts *listOptions) error {
-	// TODO: 实现远程技能列表
-	return fmt.Errorf("远程技能列表功能尚未实现")
+	apiKey := viper.GetString("registry.api_key")
+	server := viper.GetString("registry.endpoint")
+	client := registry.NewClient(server, apiKey)
+
+	result, err := client.ListSkills(registry.ListSkillsOptions{
+		Namespace: opts.namespace,
+		Page:      1,
+		PerPage:   100,
+	})
+	if err != nil {
+		return fmt.Errorf("获取远程技能列表失败: %w", err)
+	}
+
+	if opts.format == "json" {
+		return printJSON(result)
+	}
+
+	if len(result.Results) == 0 {
+		fmt.Println("没有找到远程技能")
+		return nil
+	}
+
+	fmt.Printf("远程技能列表 (%d)\n\n", result.Total)
+	for _, item := range result.Results {
+		printSkillSummary(item)
+		fmt.Println()
+	}
+	if result.Total > result.PerPage*result.Page {
+		fmt.Printf("使用 --page %d 查看更多结果\n", result.Page+1)
+	}
+	return nil
 }
 
 func stringsHasPrefix(s, prefix string) bool {

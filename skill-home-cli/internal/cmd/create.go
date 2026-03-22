@@ -10,7 +10,6 @@ import (
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
 )
 
 // SkillTemplate 技能模板定义
@@ -37,6 +36,7 @@ description: {{.Description}}
   - {{.}}{{end}}{{end}}
 license: {{.License}}
 {{if .Homepage}}homepage: {{.Homepage}}{{end}}
+{{.IDEConfig}}
 ---
 
 # {{.Name}}
@@ -119,9 +119,9 @@ ide_config:
 - 问题: 详细说明
 - 建议: 如何修复
 - 示例:
-  ```语言
+  ` + "```" + `语言
   // 修复后的代码示例
-  ```
+  ` + "```" + `
 
 严重程度分级：
 - 🔴 Critical: 必须立即修复（安全漏洞、严重错误）
@@ -518,6 +518,7 @@ type createOptions struct {
 	outputDir string
 	template  string
 	quick     bool
+	platforms string
 }
 
 func newCreateCmd() *cobra.Command {
@@ -547,6 +548,7 @@ func newCreateCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&opts.outputDir, "output", "o", ".", "输出目录")
 	cmd.Flags().StringVarP(&opts.template, "template", "t", "", "使用指定模板 (basic|code-reviewer|api-designer|refactor-expert|test-expert|doc-writer|security-auditor|performance-optimizer)")
 	cmd.Flags().BoolVarP(&opts.quick, "quick", "q", false, "快速模式，使用默认值")
+	cmd.Flags().StringVar(&opts.platforms, "platforms", "claude", "目标平台，逗号分隔 (claude,codex,cursor)")
 
 	return cmd
 }
@@ -561,10 +563,23 @@ type SkillAnswers struct {
 	License     string
 	Homepage    string
 	Template    string
+	Platforms   []string
+}
+
+// PlatformConfig 平台配置
+type PlatformConfig struct {
+	Name    string
+	Enabled bool
+	Globs   []string
 }
 
 func runCreate(skillName string, opts *createOptions) error {
 	answers := &SkillAnswers{}
+
+	// 解析平台
+	if opts.platforms != "" {
+		answers.Platforms = parseTags(opts.platforms)
+	}
 
 	// 快速模式
 	if opts.quick {
@@ -578,6 +593,9 @@ func runCreate(skillName string, opts *createOptions) error {
 			answers.Template = opts.template
 		} else {
 			answers.Template = "basic"
+		}
+		if len(answers.Platforms) == 0 {
+			answers.Platforms = []string{"claude"}
 		}
 	} else {
 		// 交互式向导
@@ -749,7 +767,28 @@ func runInteractiveWizard(skillName string, templateName string, answers *SkillA
 		return err
 	}
 
-	// 8. 主页（可选）
+	// 8. 目标平台（多选）
+	platformOptions := []string{
+		"claude (Claude Code)",
+		"codex (OpenAI Codex)",
+		"cursor (Cursor IDE)",
+	}
+	promptPlatform := &survey.MultiSelect{
+		Message: "选择目标平台:",
+		Options: platformOptions,
+		Default: []string{"claude (Claude Code)"},
+		Help:    "技能将导出到选中的平台",
+	}
+	var selectedPlatforms []string
+	if err := survey.AskOne(promptPlatform, &selectedPlatforms); err != nil {
+		return err
+	}
+	// 提取平台名称
+	for _, p := range selectedPlatforms {
+		answers.Platforms = append(answers.Platforms, extractPlatformName(p))
+	}
+
+	// 9. 主页（可选）
 	prompt6 := &survey.Input{
 		Message: "主页 URL (可选):",
 		Help:    "项目主页或文档链接",
@@ -772,6 +811,15 @@ func getTemplateOptions() []string {
 
 func extractTemplateName(option string) string {
 	// 从 "name (description)" 中提取 name
+	idx := strings.Index(option, " (")
+	if idx > 0 {
+		return option[:idx]
+	}
+	return option
+}
+
+func extractPlatformName(option string) string {
+	// 从 "claude (Claude Code)" 中提取 claude
 	idx := strings.Index(option, " (")
 	if idx > 0 {
 		return option[:idx]
@@ -839,7 +887,42 @@ func renderTemplate(template string, data *SkillAnswers) (string, error) {
 		result = strings.ReplaceAll(result, "{{if .Tags}}tags:{{range .Tags}}\n  - {{.}}{{end}}{{end}}\n", "")
 	}
 
+	// 平台配置替换
+	ideConfig := renderIDEConfig(data.Platforms)
+	result = strings.ReplaceAll(result, "{{.IDEConfig}}", ideConfig)
+
 	return result, nil
+}
+
+// renderIDEConfig 渲染 IDE 配置
+func renderIDEConfig(platforms []string) string {
+	if len(platforms) == 0 {
+		return ""
+	}
+
+	var config strings.Builder
+	config.WriteString("ide_config:\n")
+
+	for _, platform := range platforms {
+		switch platform {
+		case "claude":
+			config.WriteString("  claude:\n")
+			config.WriteString("    globs: [\"**/*\"]\n")
+			config.WriteString("    auto_activate: true\n")
+			config.WriteString("    file_context: true\n")
+		case "codex":
+			config.WriteString("  codex:\n")
+			config.WriteString("    globs: [\"**/*\"]\n")
+			config.WriteString("    auto_activate: true\n")
+			config.WriteString("    tools: [read, edit, bash, glob, grep]\n")
+		case "cursor":
+			config.WriteString("  cursor:\n")
+			config.WriteString("    globs: [\"**/*\"]\n")
+			config.WriteString("    always_apply: false\n")
+		}
+	}
+
+	return config.String()
 }
 
 // 为了兼容性，保留 init 命令

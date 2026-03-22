@@ -100,22 +100,40 @@ func (c *Client) HealthCheck() error {
 }
 
 // Search 搜索技能
-func (c *Client) Search(query string, tags []string, page, perPage int) (*SearchResult, error) {
-	params := url.Values{}
-	if query != "" {
-		params.Set("q", query)
+func (c *Client) Search(query, namespace string, tags []string, page, perPage int) (*SearchResult, error) {
+	opts := ListSkillsOptions{
+		Namespace: namespace,
+		Query:     query,
+		Tags:      tags,
+		Page:      page,
+		PerPage:   perPage,
 	}
-	for _, tag := range tags {
+	return c.listSkills("/api/v1/search", opts)
+}
+
+// ListSkills 列出技能
+func (c *Client) ListSkills(opts ListSkillsOptions) (*SearchResult, error) {
+	return c.listSkills("/api/v1/skills", opts)
+}
+
+func (c *Client) listSkills(path string, opts ListSkillsOptions) (*SearchResult, error) {
+	params := url.Values{}
+	if opts.Query != "" {
+		params.Set("q", opts.Query)
+	}
+	if opts.Namespace != "" {
+		params.Set("namespace", strings.TrimPrefix(opts.Namespace, "@"))
+	}
+	for _, tag := range opts.Tags {
 		params.Add("tag", tag)
 	}
-	if page > 0 {
-		params.Set("page", fmt.Sprintf("%d", page))
+	if opts.Page > 0 {
+		params.Set("page", fmt.Sprintf("%d", opts.Page))
 	}
-	if perPage > 0 {
-		params.Set("per_page", fmt.Sprintf("%d", perPage))
+	if opts.PerPage > 0 {
+		params.Set("per_page", fmt.Sprintf("%d", opts.PerPage))
 	}
 
-	path := "/api/v1/search"
 	if len(params) > 0 {
 		path += "?" + params.Encode()
 	}
@@ -413,4 +431,69 @@ func (c *Client) RevokeAPIKey(keyID string) error {
 	defer resp.Body.Close()
 
 	return c.handleError(resp)
+}
+
+// ListAuditLogs 获取审计日志
+func (c *Client) ListAuditLogs(page, perPage int, action string) (*AuditLogList, error) {
+	params := url.Values{}
+	if page > 0 {
+		params.Set("page", fmt.Sprintf("%d", page))
+	}
+	if perPage > 0 {
+		params.Set("per_page", fmt.Sprintf("%d", perPage))
+	}
+	if action != "" {
+		params.Set("action", action)
+	}
+
+	path := "/api/v1/user/audit-logs"
+	if len(params) > 0 {
+		path += "?" + params.Encode()
+	}
+
+	resp, err := c.doRequest("GET", path, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if err := c.handleError(resp); err != nil {
+		return nil, err
+	}
+
+	var result AuditLogList
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// RateSkill 评分技能
+func (c *Client) RateSkill(namespace, name string, req *RateSkillRequest) (*RateSkillResponse, error) {
+	body, err := json.Marshal(req)
+	if err != nil {
+		return nil, err
+	}
+
+	headers := map[string]string{
+		"Content-Type": "application/json",
+	}
+
+	path := fmt.Sprintf("/api/v1/skills/%s/%s/rating", namespace, name)
+	resp, err := c.doRequest("POST", path, bytes.NewReader(body), headers)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if err := c.handleError(resp); err != nil {
+		return nil, err
+	}
+
+	var result RateSkillResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+
+	return &result, nil
 }
