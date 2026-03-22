@@ -56,6 +56,9 @@ skillManage/
 │   │   └── sync/           # 同步引擎
 │   └── pkg/validator/      # 安全扫描
 │
+├── skills/
+│   └── skill-home-manager/ # 面向 Codex 的 skill，封装 skill-home CLI 工作流
+│
 ├── 技术规格文档.md         # 详细技术设计
 ├── 需求梳理.md             # 需求文档
 └── DEPLOYMENT.md           # 部署记录
