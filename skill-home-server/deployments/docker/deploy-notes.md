@@ -140,8 +140,27 @@ curl http://47.122.112.210:8080/health
 
 | 服务 | 地址 | 说明 |
 |------|------|------|
-| API | http://47.122.112.210:8080 | 主服务 |
+| Web UI | http://47.122.112.210:8080 | 根路径首页与管理台 |
+| API | http://47.122.112.210:8080/api/v1 | Registry API |
 | MinIO Console | http://47.122.112.210:9001 | 对象存储管理 (minioadmin/minioadmin) |
+
+## Web UI 部署
+
+当 `/opt/skill-home/web` 目录存在且包含前端构建产物时，`skill-home` 服务会自动在根路径提供 Web 页面。
+
+典型更新步骤：
+
+```bash
+# 本地构建前端
+cd skill-home-web
+npm run build
+
+# 上传到服务器
+scp -r dist root@47.122.112.210:/opt/skill-home/web
+
+# 重启服务
+ssh root@47.122.112.210 "systemctl restart skill-home"
+```
 
 ## API 端点
 

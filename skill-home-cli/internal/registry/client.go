@@ -298,7 +298,7 @@ func (c *Client) Publish(skillPath string, req *PublishRequest) (*PublishRespons
 
 // Download 下载技能
 func (c *Client) Download(namespace, name, version, outputPath string) error {
-	path := fmt.Sprintf("/api/v1/download/%s/%s/%s", namespace, name, version)
+	path := fmt.Sprintf("/api/v1/download/%s/%s/%s?format=zip", namespace, name, version)
 
 	resp, err := c.doRequest("GET", path, nil, nil)
 	if err != nil {

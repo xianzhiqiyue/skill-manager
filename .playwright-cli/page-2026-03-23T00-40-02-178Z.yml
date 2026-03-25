@@ -1,0 +1,152 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - button "SH" [ref=e6] [cursor=pointer]
+      - strong [ref=e8]: Skill Home
+    - generic [ref=e9]:
+      - button "切换搜索" [ref=e10] [cursor=pointer]: 搜索
+      - button "切换导航" [ref=e11] [cursor=pointer]: 菜单
+  - main [ref=e12]:
+    - generic [ref=e13]:
+      - generic [ref=e14]:
+        - generic [ref=e15]:
+          - generic [ref=e16]: Skill Home Registry
+          - heading "把 AI Skill 做成可搜索、可安装、可持续运营的产品体验" [level=1] [ref=e17]
+          - paragraph [ref=e18]: 不再给团队丢一个 README 路径，而是给他们一个结构清晰的技能中心、可信的详情页 和可复制的安装指引。Skill Home 负责把 Registry、CLI 和 Web 接成一个完整闭环。
+          - generic [ref=e19]:
+            - button "进入技能中心" [ref=e20] [cursor=pointer]
+            - button "发布新技能" [ref=e21] [cursor=pointer]
+        - generic [ref=e22]:
+          - article [ref=e23]:
+            - generic [ref=e24]: Registry 状态
+            - strong [ref=e25]: ok
+          - article [ref=e26]:
+            - generic [ref=e27]: 公开技能数
+            - strong [ref=e28]: "10"
+          - article [ref=e29]:
+            - generic [ref=e30]: 命名空间
+            - strong [ref=e31]: "2"
+          - article [ref=e32]:
+            - generic [ref=e33]: API 入口
+            - strong [ref=e34]: 47.122.112.210:8080
+            - generic [ref=e35]: 1.0.0
+      - generic [ref=e36]:
+        - generic [ref=e37]:
+          - generic [ref=e38]:
+            - generic [ref=e39]: Recommended
+            - heading "先从最值得看的技能开始" [level=2] [ref=e40]
+            - paragraph [ref=e41]: 首页只保留真正能帮助用户进入下一步的内容，热门技能优先展示。
+          - button "查看全部技能" [ref=e43] [cursor=pointer]
+        - generic [ref=e44]:
+          - article [ref=e45]:
+            - generic [ref=e46]:
+              - generic [ref=e47]: "@testuser/skill-home-manager"
+              - generic [ref=e48]: 0.1.0
+            - heading "skill-home-manager" [level=3] [ref=e49]
+            - paragraph [ref=e50]: 当用户想用本地 skill-home CLI 创建、编辑、验证、打包、导出、同步、安装或排查 skill 时使用，尤其适合把 skill 交付到 Codex。
+            - generic [ref=e51]:
+              - generic [ref=e52]: 12 下载
+              - generic [ref=e53]: 0 评分
+              - generic [ref=e54]: 3月22日
+            - generic [ref=e55]:
+              - button "查看详情" [ref=e56] [cursor=pointer]
+              - button "复制引用" [ref=e57] [cursor=pointer]
+          - article [ref=e58]:
+            - generic [ref=e59]:
+              - generic [ref=e60]: "@testuser/my-first-skill"
+              - generic [ref=e61]: 0.1.0
+            - heading "my-first-skill" [level=3] [ref=e62]
+            - paragraph [ref=e63]: 我的第一个技能示例
+            - generic [ref=e64]:
+              - generic [ref=e65]: 1 下载
+              - generic [ref=e66]: 0 评分
+              - generic [ref=e67]: 3月1日
+            - generic [ref=e68]:
+              - button "查看详情" [ref=e69] [cursor=pointer]
+              - button "复制引用" [ref=e70] [cursor=pointer]
+          - article [ref=e71]:
+            - generic [ref=e72]:
+              - generic [ref=e73]: "@testuser/github"
+              - generic [ref=e74]: 1.0.0
+            - heading "github" [level=3] [ref=e75]
+            - paragraph [ref=e76]: "Interact with GitHub using the `gh` CLI. Use `gh issue`, `gh pr`, `gh run`, and `gh api` for issues, PRs, CI runs, and advanced queries."
+            - generic [ref=e77]:
+              - generic [ref=e78]: 0 下载
+              - generic [ref=e79]: 0 评分
+              - generic [ref=e80]: 3月22日
+            - generic [ref=e81]:
+              - button "查看详情" [ref=e82] [cursor=pointer]
+              - button "复制引用" [ref=e83] [cursor=pointer]
+          - article [ref=e84]:
+            - generic [ref=e85]:
+              - generic [ref=e86]: "@testuser/doc"
+              - generic [ref=e87]: 1.0.0
+            - heading "doc" [level=3] [ref=e88]
+            - paragraph [ref=e89]: "Use when the task involves reading, creating, or editing `.docx` documents, especially when formatting or layout fidelity matters; prefer `python-docx` plus the bundled `scripts/render_docx.py` for visual checks."
+            - generic [ref=e90]:
+              - generic [ref=e91]: 0 下载
+              - generic [ref=e92]: 0 评分
+              - generic [ref=e93]: 3月22日
+            - generic [ref=e94]:
+              - button "查看详情" [ref=e95] [cursor=pointer]
+              - button "复制引用" [ref=e96] [cursor=pointer]
+      - generic [ref=e97]:
+        - generic [ref=e98]:
+          - generic [ref=e99]:
+            - generic [ref=e100]: Get started
+            - heading "第一次使用的最短路径" [level=2] [ref=e101]
+            - paragraph [ref=e102]: 首页负责把人送进正确页面，不再重复展示完整安装流程。
+          - button "查看安装指南" [ref=e104] [cursor=pointer]
+        - generic [ref=e105]:
+          - generic [ref=e106]:
+            - article [ref=e107]:
+              - generic [ref=e108]: "01"
+              - heading "进入技能中心" [level=3] [ref=e109]
+              - paragraph [ref=e110]: 先按关键词、命名空间、标签和 License 缩小范围，再决定查看哪个 skill。
+            - article [ref=e111]:
+              - generic [ref=e112]: "02"
+              - heading "查看详情与版本" [level=3] [ref=e113]
+              - paragraph [ref=e114]: 详情页负责展示扫描状态、版本、包大小、更新时间和安装入口，不再在列表里重复预览。
+            - article [ref=e115]:
+              - generic [ref=e116]: "03"
+              - heading "一键复制安装" [level=3] [ref=e117]
+              - paragraph [ref=e118]: 按目标 AI 复制 pull、install 或下载链接，把发现动作直接转成安装动作。
+          - complementary [ref=e119]:
+            - article [ref=e120]:
+              - generic [ref=e121]: Latest
+              - heading "最近更新" [level=3] [ref=e122]
+              - paragraph [ref=e123]: 优先查看最近更新的技能，避免安装过时版本。
+              - generic [ref=e124]:
+                - button "github @testuser/github" [ref=e125] [cursor=pointer]:
+                  - strong [ref=e126]: github
+                  - generic [ref=e127]: "@testuser/github"
+                - button "doc @testuser/doc" [ref=e128] [cursor=pointer]:
+                  - strong [ref=e129]: doc
+                  - generic [ref=e130]: "@testuser/doc"
+                - button "codex-spec-zh @testuser/codex-spec-zh" [ref=e131] [cursor=pointer]:
+                  - strong [ref=e132]: codex-spec-zh
+                  - generic [ref=e133]: "@testuser/codex-spec-zh"
+      - generic [ref=e134]:
+        - generic [ref=e136]:
+          - generic [ref=e137]: FAQ
+          - heading "使用 Skill Home 前最常见的几个问题" [level=2] [ref=e138]
+        - generic [ref=e139]:
+          - article [ref=e140]:
+            - heading "为什么需要网页入口，而不是只用 README？" [level=3] [ref=e141]
+            - paragraph [ref=e142]: README 适合少量核心用户，网页入口适合新人、跨团队协作和外部宣传。搜索、筛选、安装和版本理解都更直接。
+          - article [ref=e143]:
+            - heading "技能包现在用什么格式？" [level=3] [ref=e144]
+            - paragraph [ref=e145]: 当前统一使用 ZIP。网页下载、CLI 打包和服务端下载默认都已经切换为 ZIP。
+          - article [ref=e146]:
+            - heading "哪些 AI/IDE 能直接安装？" [level=3] [ref=e147]
+            - paragraph [ref=e148]: 当前前端已提供 Codex、Claude Code、Cursor、GitHub Copilot 四类安装指引，命令由 skill-home CLI 执行。
+  - contentinfo [ref=e149]:
+    - generic [ref=e150]:
+      - strong [ref=e151]: Skill Home
+      - text: 统一 AI skill 的发布、发现、安装和运营入口。
+    - generic [ref=e152]:
+      - link "Registry API" [ref=e153] [cursor=pointer]:
+        - /url: http://47.122.112.210:8080
+      - button "技能中心" [ref=e154] [cursor=pointer]
+      - button "发布" [ref=e155] [cursor=pointer]
+      - button "安装指南" [ref=e156] [cursor=pointer]

@@ -17,6 +17,7 @@ coverage.txt
 
 # Dependency directories
 vendor/
+node_modules/
 
 # Go workspace file
 go.work
@@ -37,6 +38,7 @@ go.work
 dist/
 build/
 bin/
+*.tsbuildinfo
 
 # Data directories
 data/

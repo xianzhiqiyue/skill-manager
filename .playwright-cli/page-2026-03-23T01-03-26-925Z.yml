@@ -1,0 +1,184 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - button "SH" [ref=e6] [cursor=pointer]
+      - strong [ref=e8]: Skill Home
+    - generic [ref=e311]:
+      - button "切换搜索" [ref=e312] [cursor=pointer]: 搜索
+      - button "切换导航" [ref=e313] [cursor=pointer]: 菜单
+  - main [ref=e21]:
+    - generic [ref=e315]:
+      - generic [ref=e316]:
+        - button "首页" [ref=e317] [cursor=pointer]
+        - generic [ref=e318]: /
+        - button "技能中心" [ref=e319] [cursor=pointer]
+        - generic [ref=e320]: /
+        - generic [ref=e321]: skill-home-manager
+      - generic [ref=e323]:
+        - generic [ref=e324]:
+          - generic [ref=e325]:
+            - generic [ref=e326]: Skill detail
+            - generic [ref=e327]: 扫描通过
+          - heading "skill-home-manager" [level=1] [ref=e328]
+          - paragraph [ref=e329]: "@testuser/skill-home-manager"
+          - paragraph [ref=e330]: 当用户想用本地 skill-home CLI 创建、编辑、验证、打包、导出、同步、安装或排查 skill 时使用，尤其适合把 skill 交付到 Codex。
+        - complementary [ref=e331]:
+          - generic [ref=e332]:
+            - link "下载 ZIP" [ref=e333] [cursor=pointer]:
+              - /url: http://47.122.112.210:8080/api/v1/download/testuser/skill-home-manager/0.1.0?format=zip
+            - button "复制引用" [ref=e334] [cursor=pointer]
+            - button "复制下载链接" [ref=e335] [cursor=pointer]
+          - generic [ref=e336]:
+            - generic [ref=e337]:
+              - generic [ref=e338]: 最新版本
+              - strong [ref=e339]: 0.1.0
+            - generic [ref=e340]:
+              - generic [ref=e341]: 下载量
+              - strong [ref=e342]: "12"
+            - generic [ref=e343]:
+              - generic [ref=e344]: 版本数
+              - strong [ref=e345]: "1"
+            - generic [ref=e346]:
+              - generic [ref=e347]: 更新时间
+              - strong [ref=e348]: 2026年3月22日 21:32
+            - generic [ref=e349]:
+              - generic [ref=e350]: License
+              - strong [ref=e351]: MIT
+            - generic [ref=e352]:
+              - generic [ref=e353]: 可见性
+              - strong [ref=e354]: 公开
+      - generic [ref=e356]:
+        - generic [ref=e358]:
+          - generic [ref=e359]: AI install
+          - heading "AI 安装指引" [level=2] [ref=e360]
+          - paragraph [ref=e361]: 把技能发现动作直接转成可复制的命令，安装前先用 doctor 做环境检查。
+        - generic [ref=e362]:
+          - button "Codex" [ref=e363] [cursor=pointer]
+          - button "Claude Code" [ref=e364] [cursor=pointer]
+          - button "Cursor" [ref=e365] [cursor=pointer]
+          - button "GitHub Copilot" [ref=e366] [cursor=pointer]
+        - generic [ref=e367]:
+          - generic [ref=e368]:
+            - heading "Codex" [level=3] [ref=e369]
+            - paragraph [ref=e370]: 推荐 WSL / Windows 混合环境使用 mirror 模式，安装后可直接被 Codex 发现。
+          - generic [ref=e371]:
+            - button "复制引用名" [ref=e372] [cursor=pointer]
+            - button "复制下载链接" [ref=e373] [cursor=pointer]
+        - generic [ref=e374]:
+          - article [ref=e375]:
+            - generic [ref=e376]:
+              - generic [ref=e377]:
+                - strong [ref=e378]: 步骤 1：环境检查
+                - paragraph [ref=e379]: 确认本机已安装 CLI，且 registry 与 IDE 路径可用。
+              - button "复制" [ref=e380] [cursor=pointer]
+            - code [ref=e381]: skill-home doctor
+          - article [ref=e382]:
+            - generic [ref=e383]:
+              - generic [ref=e384]:
+                - strong [ref=e385]: 步骤 2：搜索技能
+                - paragraph [ref=e386]: 先在 registry 中确认技能名称和版本。
+              - button "复制" [ref=e387] [cursor=pointer]
+            - code [ref=e388]: skill-home search skill-home-manager
+          - article [ref=e389]:
+            - generic [ref=e390]:
+              - generic [ref=e391]:
+                - strong [ref=e392]: 步骤 3：拉取技能
+                - paragraph [ref=e393]: 把技能包拉到本地缓存，便于后续检查和安装。
+              - button "复制" [ref=e394] [cursor=pointer]
+            - code [ref=e395]: skill-home pull @testuser/skill-home-manager@0.1.0
+          - article [ref=e396]:
+            - generic [ref=e397]:
+              - generic [ref=e398]:
+                - strong [ref=e399]: 步骤 4：同步到 AI
+                - paragraph [ref=e400]: 复制完整安装命令，直接同步到目标 AI/IDE。
+              - button "复制" [ref=e401] [cursor=pointer]
+            - code [ref=e402]: skill-home install @testuser/skill-home-manager@0.1.0 --ide codex --global --mode mirror
+        - generic [ref=e403]:
+          - strong [ref=e404]: 复制后下一步
+          - paragraph [ref=e405]: "先执行环境检查，再执行安装命令。如果你在 WSL + Windows 混合环境中，保留 `--mode mirror` 可避免符号链接兼容问题。"
+      - generic [ref=e406]:
+        - generic [ref=e408]:
+          - generic [ref=e409]: Versions
+          - heading "版本与扫描记录" [level=2] [ref=e410]
+          - paragraph [ref=e411]: 版本列表用于确认安装目标、文件大小和扫描状态。
+        - generic [ref=e412]:
+          - generic [ref=e413]:
+            - generic [ref=e414]: 版本
+            - generic [ref=e415]: 发布时间
+            - generic [ref=e416]: 包大小
+            - generic [ref=e417]: 扫描状态
+            - generic [ref=e418]: 操作
+          - generic [ref=e419]:
+            - strong [ref=e420]: 0.1.0
+            - generic [ref=e421]: 未记录
+            - generic [ref=e422]: 3.8 KB
+            - generic [ref=e423]: 扫描通过
+            - button "复制 pull" [ref=e424] [cursor=pointer]
+      - generic [ref=e425]:
+        - generic [ref=e427]:
+          - generic [ref=e428]: Related
+          - heading "继续探索相关技能" [level=2] [ref=e429]
+          - paragraph [ref=e430]: 优先展示同命名空间或同标签的技能，避免在当前页堆太多安装说明。
+        - generic [ref=e431]:
+          - article [ref=e432]:
+            - generic [ref=e433]:
+              - generic [ref=e434]: "@testuser/my-first-skill"
+              - generic [ref=e435]: 0.1.0
+            - heading "my-first-skill" [level=3] [ref=e436]
+            - paragraph [ref=e437]: 我的第一个技能示例
+            - generic [ref=e438]:
+              - generic [ref=e439]: 1 下载
+              - generic [ref=e440]: 0 评分
+              - generic [ref=e441]: 3月1日
+            - generic [ref=e442]:
+              - button "查看详情" [ref=e443] [cursor=pointer]
+              - button "复制引用" [ref=e444] [cursor=pointer]
+          - article [ref=e445]:
+            - generic [ref=e446]:
+              - generic [ref=e447]: "@testuser/github"
+              - generic [ref=e448]: 1.0.0
+            - heading "github" [level=3] [ref=e449]
+            - paragraph [ref=e450]: "Interact with GitHub using the `gh` CLI. Use `gh issue`, `gh pr`, `gh run`, and `gh api` for issues, PRs, CI runs, and advanced queries."
+            - generic [ref=e451]:
+              - generic [ref=e452]: 0 下载
+              - generic [ref=e453]: 0 评分
+              - generic [ref=e454]: 3月22日
+            - generic [ref=e455]:
+              - button "查看详情" [ref=e456] [cursor=pointer]
+              - button "复制引用" [ref=e457] [cursor=pointer]
+          - article [ref=e458]:
+            - generic [ref=e459]:
+              - generic [ref=e460]: "@testuser/doc"
+              - generic [ref=e461]: 1.0.0
+            - heading "doc" [level=3] [ref=e462]
+            - paragraph [ref=e463]: "Use when the task involves reading, creating, or editing `.docx` documents, especially when formatting or layout fidelity matters; prefer `python-docx` plus the bundled `scripts/render_docx.py` for visual checks."
+            - generic [ref=e464]:
+              - generic [ref=e465]: 0 下载
+              - generic [ref=e466]: 0 评分
+              - generic [ref=e467]: 3月22日
+            - generic [ref=e468]:
+              - button "查看详情" [ref=e469] [cursor=pointer]
+              - button "复制引用" [ref=e470] [cursor=pointer]
+          - article [ref=e471]:
+            - generic [ref=e472]:
+              - generic [ref=e473]: "@testuser/codex-spec-zh"
+              - generic [ref=e474]: 1.0.0
+            - heading "codex-spec-zh" [level=3] [ref=e475]
+            - paragraph [ref=e476]: 使用 spec-plan-progress-acceptance 工作流管理 Codex 中长研发任务，支持任务新建、切换、归档、软删除与恢复；当用户提到长任务规划、跨前后端联调、里程碑验收、多项目复用、中文任务管理时使用。
+            - generic [ref=e477]:
+              - generic [ref=e478]: 0 下载
+              - generic [ref=e479]: 0 评分
+              - generic [ref=e480]: 3月22日
+            - generic [ref=e481]:
+              - button "查看详情" [ref=e482] [cursor=pointer]
+              - button "复制引用" [ref=e483] [cursor=pointer]
+  - contentinfo [ref=e72]:
+    - generic [ref=e73]:
+      - strong [ref=e74]: Skill Home
+      - text: 统一 AI skill 的发布、发现、安装和运营入口。
+    - generic [ref=e75]:
+      - link "Registry API" [ref=e76] [cursor=pointer]:
+        - /url: http://47.122.112.210:8080
+      - button "技能中心" [ref=e77] [cursor=pointer]
+      - button "发布" [ref=e78] [cursor=pointer]
+      - button "安装指南" [ref=e79] [cursor=pointer]

@@ -1,0 +1,20 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - button "SH" [ref=e6] [cursor=pointer]
+      - strong [ref=e8]: Skill Home
+    - generic [ref=e311]:
+      - button "切换搜索" [ref=e312] [cursor=pointer]: 搜索
+      - button "切换导航" [ref=e313] [cursor=pointer]: 菜单
+  - main [ref=e21]:
+    - generic [ref=e315]: 正在读取技能详情...
+  - contentinfo [ref=e72]:
+    - generic [ref=e73]:
+      - strong [ref=e74]: Skill Home
+      - text: 统一 AI skill 的发布、发现、安装和运营入口。
+    - generic [ref=e75]:
+      - link "Registry API" [ref=e76] [cursor=pointer]:
+        - /url: http://47.122.112.210:8080
+      - button "技能中心" [ref=e77] [cursor=pointer]
+      - button "发布" [ref=e78] [cursor=pointer]
+      - button "安装指南" [ref=e79] [cursor=pointer]

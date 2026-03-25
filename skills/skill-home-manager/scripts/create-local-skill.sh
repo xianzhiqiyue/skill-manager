@@ -3,6 +3,10 @@ set -euo pipefail
 
 repo_root="${REPO_ROOT:-/home/zhuyue/code/skill-manager}"
 default_output_dir="$repo_root/skills"
+script_dir="$(
+  cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
+  pwd
+)"
 
 usage() {
   cat <<'EOF'
@@ -17,6 +21,8 @@ if [[ $# -lt 1 || $# -gt 3 ]]; then
   usage
   exit 1
 fi
+
+"$script_dir/bootstrap-cli.sh"
 
 skill_name="$1"
 description="${2:-}"

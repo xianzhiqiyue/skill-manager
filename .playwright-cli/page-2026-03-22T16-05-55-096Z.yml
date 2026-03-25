@@ -1,0 +1,78 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - button "SH" [ref=e6] [cursor=pointer]
+      - generic [ref=e7]:
+        - strong [ref=e8]: Skill Home
+        - text: AI skill registry
+    - generic [ref=e9]:
+      - textbox "搜索 skill、能力、场景" [ref=e10]
+      - button "搜索" [ref=e11] [cursor=pointer]
+    - generic [ref=e12]:
+      - button "登录" [ref=e13] [cursor=pointer]
+      - button "注册" [ref=e14] [cursor=pointer]
+    - button "切换导航" [ref=e15] [cursor=pointer]: 菜单
+  - main [ref=e16]:
+    - generic [ref=e18]:
+      - generic [ref=e20]:
+        - generic [ref=e21]: Skill center
+        - heading "技能中心" [level=2] [ref=e22]
+        - paragraph [ref=e23]: 用更高的信息密度搜索、筛选、预览和比较 skill，再决定装哪一个。
+      - generic [ref=e24]:
+        - complementary [ref=e25]:
+          - generic [ref=e26]:
+            - generic [ref=e27]: 关键词
+            - textbox "关键词" [ref=e28]:
+              - /placeholder: 搜索名字、用途、场景
+          - generic [ref=e29]:
+            - generic [ref=e30]: 命名空间
+            - combobox "命名空间" [ref=e31]:
+              - option "全部" [selected]
+              - option "@testuser"
+              - option "@user"
+          - generic [ref=e32]:
+            - generic [ref=e33]: 标签
+            - combobox "标签" [ref=e34]:
+              - option "全部" [selected]
+          - generic [ref=e35]:
+            - generic [ref=e36]: License
+            - combobox "License" [ref=e37]:
+              - option "全部" [selected]
+              - option "MIT"
+          - generic [ref=e38]:
+            - strong [ref=e39]: 排序
+            - generic [ref=e40]:
+              - button "热门" [ref=e41] [cursor=pointer]
+              - button "最新" [ref=e42] [cursor=pointer]
+              - button "高评分" [ref=e43] [cursor=pointer]
+              - button "名称" [ref=e44] [cursor=pointer]
+          - generic [ref=e45]:
+            - strong [ref=e46]: 视图
+            - generic [ref=e47]:
+              - button "卡片" [ref=e48] [cursor=pointer]
+              - button "列表" [ref=e49] [cursor=pointer]
+          - generic [ref=e50]:
+            - article [ref=e51]:
+              - generic [ref=e52]: 在线技能
+              - strong [ref=e53]: "10"
+            - article [ref=e54]:
+              - generic [ref=e55]: 标签维度
+              - strong [ref=e56]: "0"
+          - button "重置筛选" [ref=e57] [cursor=pointer]
+        - generic [ref=e58]:
+          - generic [ref=e59]:
+            - generic [ref=e60]:
+              - strong [ref=e61]: "10"
+              - text: 个公开技能
+            - button "刷新目录" [ref=e63] [cursor=pointer]
+          - generic [ref=e64]: 正在读取技能目录...
+  - contentinfo [ref=e65]:
+    - generic [ref=e66]:
+      - strong [ref=e67]: Skill Home
+      - text: 统一 AI skill 的发布、发现、安装和运营入口。
+    - generic [ref=e68]:
+      - link "Registry API" [ref=e69] [cursor=pointer]:
+        - /url: http://47.122.112.210:8080
+      - button "技能中心" [ref=e70] [cursor=pointer]
+      - button "发布" [ref=e71] [cursor=pointer]
+      - button "安装指南" [ref=e72] [cursor=pointer]

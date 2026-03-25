@@ -1,0 +1,47 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - button "SH" [ref=e6] [cursor=pointer]
+      - generic [ref=e7]:
+        - strong [ref=e8]: Skill Home
+        - text: AI skill registry
+    - navigation [ref=e9]:
+      - button "首页" [ref=e10] [cursor=pointer]
+      - button "技能中心" [ref=e11] [cursor=pointer]
+      - button "安装指南" [ref=e12] [cursor=pointer]
+      - button "发布" [ref=e13] [cursor=pointer]
+      - button "控制台" [ref=e14] [cursor=pointer]
+    - generic [ref=e15]:
+      - textbox "搜索 skill、能力、场景" [ref=e16]
+      - button "搜索" [ref=e17] [cursor=pointer]
+    - generic [ref=e18]:
+      - button "登录" [ref=e19] [cursor=pointer]
+      - button "注册" [ref=e20] [cursor=pointer]
+  - main [ref=e21]:
+    - generic [ref=e22]:
+      - generic [ref=e23]:
+        - generic [ref=e25]:
+          - generic [ref=e26]: Install
+          - heading "安装指南" [level=2] [ref=e27]
+          - paragraph [ref=e28]: 先打通 CLI 和 registry，再优先复制主安装命令；其余命令只做排查和辅助。
+        - generic [ref=e29]:
+          - article [ref=e30]:
+            - heading "先确认环境" [level=3] [ref=e31]
+            - paragraph [ref=e32]: "确保本机已有 `skill-home`，先执行 `skill-home doctor` 检查 registry、认证和 IDE 路径。"
+          - article [ref=e33]:
+            - heading "再确认 skill 版本" [level=3] [ref=e34]
+            - paragraph [ref=e35]: 先看详情页版本和扫描状态，再复制目标版本的 install 或 pull 命令。
+          - article [ref=e36]:
+            - heading "最后执行安装" [level=3] [ref=e37]
+            - paragraph [ref=e38]: "优先使用 `--global --mode mirror`，这样在多 IDE / WSL 混合环境下更稳妥。"
+      - generic [ref=e39]: 等待技能目录加载完成后展示安装示例。
+  - contentinfo [ref=e40]:
+    - generic [ref=e41]:
+      - strong [ref=e42]: Skill Home
+      - text: 统一 AI skill 的发布、发现、安装和运营入口。
+    - generic [ref=e43]:
+      - link "Registry API" [ref=e44] [cursor=pointer]:
+        - /url: http://47.122.112.210:8080
+      - button "技能中心" [ref=e45] [cursor=pointer]
+      - button "发布" [ref=e46] [cursor=pointer]
+      - button "安装指南" [ref=e47] [cursor=pointer]

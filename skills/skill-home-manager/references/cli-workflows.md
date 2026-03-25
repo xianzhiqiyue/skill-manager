@@ -7,6 +7,29 @@
 - Codex 全局 skills 目录: `/mnt/c/Users/zhuyu/.codex/skills`
 - skill-home 配置文件: `/home/zhuyue/.config/skill-home/config.yaml`
 
+## 先确保 CLI 可用
+
+优先跑 bundled script，让 skill 自己把 CLI 补齐:
+
+```bash
+/home/zhuyue/code/skill-manager/skills/skill-home-manager/scripts/bootstrap-cli.sh
+```
+
+如果 `skill-home` 已经存在且命中 `~/.local/bin/skill-home`、`/usr/local/bin/skill-home` 或当前仓库本地构建产物，这个脚本会直接打印版本并退出。  
+如果 `skill-home` 不存在，或者当前命中的是别的旧二进制，它会在 apt 环境下自动安装 Go、从当前仓库源码构建 CLI，并默认覆盖 `~/.local/bin/skill-home`。
+
+如果你明确需要系统级安装:
+
+```bash
+/home/zhuyue/code/skill-manager/skills/skill-home-manager/scripts/bootstrap-cli.sh --system
+```
+
+如果你明确要强制按当前源码重建:
+
+```bash
+/home/zhuyue/code/skill-manager/skills/skill-home-manager/scripts/rebuild-cli.sh
+```
+
 ## 本地 skill 工作流
 
 ### 1. 新建一个 skill 子项目
@@ -62,6 +85,8 @@ find /mnt/c/Users/zhuyu/.codex/skills/my-skill -maxdepth 2 -type f
 当 `skill-home --help`、`doctor` 或 `sync` 的行为和源码不一致时:
 
 ```bash
+/home/zhuyue/code/skill-manager/skills/skill-home-manager/scripts/bootstrap-cli.sh --force-rebuild
+
 /home/zhuyue/code/skill-manager/skills/skill-home-manager/scripts/rebuild-cli.sh
 
 cd /home/zhuyue/code/skill-manager/skill-home-cli

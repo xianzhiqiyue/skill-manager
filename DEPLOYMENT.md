@@ -309,6 +309,7 @@ docker exec skill-home-minio mc mirror /data /backup
 ├── docker-compose.yml      # Docker 编排文件
 ├── .env                    # 环境变量
 ├── server                  # API 服务二进制
+├── web/                    # Web 前端静态产物（可选）
 ├── skill-home              # CLI 工具二进制
 ├── config.yaml             # CLI 默认配置
 └── deployments/

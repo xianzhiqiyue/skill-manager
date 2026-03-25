@@ -70,6 +70,11 @@ func PublishVersion(db *storage.Database, objStorage *storage.ObjectStorage, sca
 			c.JSON(http.StatusBadRequest, gin.H{"code": "INVALID_INPUT", "message": err.Error()})
 			return
 		}
+		archiveFormat, err := detectArchiveFormat(file.Filename, content)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"code": "INVALID_INPUT", "message": err.Error()})
+			return
+		}
 
 		// 安全扫描
 		scanResult := scanner.ScanContent(string(content))
@@ -83,7 +88,13 @@ func PublishVersion(db *storage.Database, objStorage *storage.ObjectStorage, sca
 		}
 
 		// 存储文件
-		storagePath := fmt.Sprintf("skills/%s/%s/%s.tar.gz", storageSegment(namespace), storageSegment(name), uuid.New().String())
+		storagePath := fmt.Sprintf(
+			"skills/%s/%s/%s.%s",
+			storageSegment(namespace),
+			storageSegment(name),
+			uuid.New().String(),
+			archiveExtension(archiveFormat),
+		)
 		if err := objStorage.Upload(c, storagePath, bytes.NewReader(content), int64(len(content))); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"code": "INTERNAL_ERROR", "message": "Failed to upload file"})
 			return
@@ -119,9 +130,9 @@ func PublishVersion(db *storage.Database, objStorage *storage.ObjectStorage, sca
 		}
 
 		c.JSON(http.StatusCreated, gin.H{
-			"namespace":   namespace,
-			"name":        name,
-			"version":     version.Version,
+			"namespace":    namespace,
+			"name":         name,
+			"version":      version.Version,
 			"download_url": fmt.Sprintf("/api/v1/download/%s/%s/%s", namespace, name, version.Version),
 			"published_at": version.PublishedAt,
 		})
@@ -242,13 +253,37 @@ func DownloadSkill(db *storage.Database, objStorage *storage.ObjectStorage) gin.
 		}
 		defer reader.Close()
 
+		content, err := io.ReadAll(reader)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"code": "INTERNAL_ERROR", "message": "Failed to read file"})
+			return
+		}
+
+		sourceFormat, err := detectArchiveFormat(skillVersion.StoragePath, content)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"code": "INTERNAL_ERROR", "message": "Failed to detect archive format"})
+			return
+		}
+
+		targetFormat, err := resolveDownloadFormat(c.Query("format"), sourceFormat)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"code": "INVALID_INPUT", "message": err.Error()})
+			return
+		}
+
+		payload, err := convertArchive(content, sourceFormat, targetFormat)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"code": "INTERNAL_ERROR", "message": "Failed to convert archive"})
+			return
+		}
+
 		// 更新下载计数
 		db.Model(&skill).UpdateColumn("download_count", gorm.Expr("download_count + 1"))
 
 		// 发送文件
-		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s-%s.tar.gz", name, version))
-		c.Header("Content-Type", "application/gzip")
-		if _, err := io.Copy(c.Writer, reader); err != nil {
+		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s-%s.%s", name, version, archiveExtension(targetFormat)))
+		c.Header("Content-Type", archiveContentType(targetFormat))
+		if _, err := c.Writer.Write(payload); err != nil {
 			c.Error(err)
 		}
 	}

@@ -2,6 +2,10 @@
 set -euo pipefail
 
 codex_home="${CODEX_HOME:-/mnt/c/Users/zhuyu/.codex}"
+script_dir="$(
+  cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
+  pwd
+)"
 
 usage() {
   cat <<'EOF'
@@ -16,6 +20,8 @@ if [[ $# -ne 1 ]]; then
   usage
   exit 1
 fi
+
+"$script_dir/bootstrap-cli.sh"
 
 skill_path="$1"
 skill_file="$skill_path/SKILL.md"

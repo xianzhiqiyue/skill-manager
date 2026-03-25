@@ -126,7 +126,7 @@ func pullSkillRef(skillRef string, opts *pullOptions) (*pulledSkill, error) {
 		}
 	}
 
-	tmpFile := filepath.Join(os.TempDir(), fmt.Sprintf("%s-%s-%s.tar.gz", namespace, name, version))
+	tmpFile := filepath.Join(os.TempDir(), fmt.Sprintf("%s-%s-%s.zip", namespace, name, version))
 	defer os.Remove(tmpFile)
 
 	fmt.Println("正在下载...")
@@ -141,7 +141,7 @@ func pullSkillRef(skillRef string, opts *pullOptions) (*pulledSkill, error) {
 			return nil, fmt.Errorf("创建目录失败: %w", err)
 		}
 
-		if err := archive.ExtractTarGz(tmpFile, outputDir); err != nil {
+		if err := archive.ExtractAuto(tmpFile, outputDir); err != nil {
 			return nil, fmt.Errorf("解压失败: %w", err)
 		}
 		fmt.Println(color.GreenString("✓"), "解压完成")

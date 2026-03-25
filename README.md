@@ -59,6 +59,9 @@ skillManage/
 ├── skills/
 │   └── skill-home-manager/ # 面向 Codex 的 skill，封装 skill-home CLI 工作流
 │
+├── skill-home-web/         # Web 前端，负责宣传、搜索发现、安装引导
+├── docs/                   # 设计与补充文档
+│
 ├── 技术规格文档.md         # 详细技术设计
 ├── 需求梳理.md             # 需求文档
 └── DEPLOYMENT.md           # 部署记录
@@ -208,6 +211,7 @@ systemctl start skill-home  # 启动 API 服务
 | [API.md](API.md) | API 详细文档 |
 | [技术规格文档.md](技术规格文档.md) | 技术设计文档 |
 | [需求梳理.md](需求梳理.md) | 需求分析 |
+| [docs/skill-home-web-redesign-spec.md](docs/skill-home-web-redesign-spec.md) | Web 重构规格文档 |
 | skill-home-server/README.md | 服务端说明 |
 | skill-home-cli/README.md | CLI 说明 |
 
