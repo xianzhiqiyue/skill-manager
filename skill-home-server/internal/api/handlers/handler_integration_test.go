@@ -248,6 +248,141 @@ func TestRateSkillUpdatesExistingRatingWithoutCreatingDuplicate(t *testing.T) {
 	}
 }
 
+func TestCreateSkillSetsPublishedAtOnInitialVersion(t *testing.T) {
+	db := newTestDatabase(t)
+	user := &models.User{ID: uuid.New(), Username: "alice", Email: "alice@example.com"}
+	if err := db.Create(user).Error; err != nil {
+		t.Fatalf("create user failed: %v", err)
+	}
+
+	objStorage, err := storage.NewObjectStorage(config.StorageConfig{
+		Type:      "local",
+		LocalPath: t.TempDir(),
+	})
+	if err != nil {
+		t.Fatalf("NewObjectStorage returned error: %v", err)
+	}
+
+	router := newAuthedRouter(user)
+	router.POST("/api/v1/skills", CreateSkill(db, objStorage, validator.NewScanner()))
+
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	if err := writer.WriteField("namespace", "alice"); err != nil {
+		t.Fatalf("WriteField namespace returned error: %v", err)
+	}
+	if err := writer.WriteField("name", "first-skill"); err != nil {
+		t.Fatalf("WriteField name returned error: %v", err)
+	}
+	if err := writer.WriteField("version", "0.1.0"); err != nil {
+		t.Fatalf("WriteField version returned error: %v", err)
+	}
+	part, err := writer.CreateFormFile("skill", "first-skill.zip")
+	if err != nil {
+		t.Fatalf("CreateFormFile returned error: %v", err)
+	}
+	if _, err := part.Write(mustZipArchive(t, map[string]string{"SKILL.md": "name: first-skill"})); err != nil {
+		t.Fatalf("part.Write returned error: %v", err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("writer.Close returned error: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/skills", body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("unexpected status: %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	var skill models.Skill
+	if err := db.Where("namespace = ? AND name = ?", "alice", "first-skill").First(&skill).Error; err != nil {
+		t.Fatalf("load created skill failed: %v", err)
+	}
+
+	var version models.SkillVersion
+	if err := db.Where("skill_id = ? AND version = ?", skill.ID, "0.1.0").First(&version).Error; err != nil {
+		t.Fatalf("load created version failed: %v", err)
+	}
+	if version.PublishedAt.IsZero() {
+		t.Fatalf("expected published_at to be set")
+	}
+}
+
+func TestPublishVersionSetsPublishedAt(t *testing.T) {
+	db := newTestDatabase(t)
+	user := &models.User{ID: uuid.New(), Username: "alice", Email: "alice@example.com"}
+	if err := db.Create(user).Error; err != nil {
+		t.Fatalf("create user failed: %v", err)
+	}
+
+	skill := models.Skill{
+		ID:            uuid.New(),
+		Namespace:     "alice",
+		Name:          "first-skill",
+		OwnerID:       user.ID,
+		IsPublic:      true,
+		LatestVersion: "0.1.0",
+	}
+	if err := db.Create(&skill).Error; err != nil {
+		t.Fatalf("create skill failed: %v", err)
+	}
+
+	objStorage, err := storage.NewObjectStorage(config.StorageConfig{
+		Type:      "local",
+		LocalPath: t.TempDir(),
+	})
+	if err != nil {
+		t.Fatalf("NewObjectStorage returned error: %v", err)
+	}
+
+	router := newAuthedRouter(user)
+	router.POST("/api/v1/skills/:namespace/:name/versions", PublishVersion(db, objStorage, validator.NewScanner()))
+
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	if err := writer.WriteField("version", "0.2.0"); err != nil {
+		t.Fatalf("WriteField version returned error: %v", err)
+	}
+	part, err := writer.CreateFormFile("skill", "first-skill.zip")
+	if err != nil {
+		t.Fatalf("CreateFormFile returned error: %v", err)
+	}
+	if _, err := part.Write(mustZipArchive(t, map[string]string{"SKILL.md": "name: first-skill"})); err != nil {
+		t.Fatalf("part.Write returned error: %v", err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("writer.Close returned error: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/skills/alice/first-skill/versions", body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("unexpected status: %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	var resp map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response failed: %v", err)
+	}
+	if publishedAt, ok := resp["published_at"].(string); !ok || publishedAt == "" {
+		t.Fatalf("expected published_at in response, got %#v", resp["published_at"])
+	}
+
+	var version models.SkillVersion
+	if err := db.Where("skill_id = ? AND version = ?", skill.ID, "0.2.0").First(&version).Error; err != nil {
+		t.Fatalf("load created version failed: %v", err)
+	}
+	if version.PublishedAt.IsZero() {
+		t.Fatalf("expected published_at to be set")
+	}
+}
+
 func TestSearchSkillsSupportsSQLiteFallback(t *testing.T) {
 	db := newTestDatabase(t)
 	ownerID := uuid.New()
