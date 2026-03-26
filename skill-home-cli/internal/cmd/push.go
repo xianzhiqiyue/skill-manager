@@ -40,7 +40,7 @@ func newPushCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVarP(&opts.namespace, "namespace", "n", "", "命名空间 (默认使用配置中的 default_namespace)")
-	cmd.Flags().StringVarP(&opts.version, "version", "v", "", "指定版本号 (默认使用 SKILL.md 中的 version)")
+	cmd.Flags().StringVar(&opts.version, "version", "", "指定版本号 (默认使用 SKILL.md 中的 version)")
 	cmd.Flags().BoolVarP(&opts.force, "force", "f", false, "强制推送，忽略安全警告")
 	cmd.Flags().StringVarP(&opts.message, "message", "m", "", "版本说明")
 
@@ -86,7 +86,7 @@ func runPush(path string, opts *pushOptions) error {
 
 	// 构建临时包路径
 	tmpDir := os.TempDir()
-	packName := fmt.Sprintf("%s-%s.tar.gz", s.Manifest.Name, version)
+	packName := fmt.Sprintf("%s-%s.zip", s.Manifest.Name, version)
 	packPath := filepath.Join(tmpDir, packName)
 	defer os.Remove(packPath)
 
@@ -118,10 +118,10 @@ func runPush(path string, opts *pushOptions) error {
 	resp, err := client.Publish(packPath, req)
 	if err != nil {
 		// 处理特定错误
-			if apiErr, ok := err.(*registry.APIError); ok {
-				if apiErr.Code == "VERSION_EXISTS" {
-					return fmt.Errorf("版本 %s 已存在，请更新版本号或使用 --force 覆盖", version)
-				}
+		if apiErr, ok := err.(*registry.APIError); ok {
+			if apiErr.Code == "VERSION_EXISTS" {
+				return fmt.Errorf("版本 %s 已存在，请更新版本号或使用 --force 覆盖", version)
+			}
 			if apiErr.Code == "VALIDATION_FAILED" {
 				fmt.Println(color.RedString("✗"), "安全扫描未通过:")
 				fmt.Println("  ", apiErr.Message)

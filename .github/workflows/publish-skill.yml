@@ -1,0 +1,65 @@
+name: Publish Skill
+
+on:
+  workflow_dispatch:
+    inputs:
+      skill_path:
+        description: "Skill directory path, e.g. skills/skill-home-manager"
+        required: true
+        default: "skills/skill-home-manager"
+        type: string
+      version:
+        description: "Optional version override, e.g. 0.2.0"
+        required: false
+        type: string
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      SKILL_HOME_API_KEY: ${{ secrets.SKILL_HOME_API_KEY }}
+      SKILL_HOME_REGISTRY_ENDPOINT: ${{ vars.SKILL_HOME_REGISTRY_ENDPOINT }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: skill-home-cli/go.mod
+          cache-dependency-path: skill-home-cli/go.sum
+
+      - name: Ensure registry credentials exist
+        shell: bash
+        run: |
+          if [ -z "${SKILL_HOME_API_KEY}" ]; then
+            echo "Missing GitHub secret: SKILL_HOME_API_KEY" >&2
+            exit 1
+          fi
+          if [ -z "${SKILL_HOME_REGISTRY_ENDPOINT}" ]; then
+            echo "Missing GitHub variable: SKILL_HOME_REGISTRY_ENDPOINT" >&2
+            exit 1
+          fi
+
+      - name: Build CLI
+        working-directory: skill-home-cli
+        run: |
+          go build -o "${RUNNER_TEMP}/skill-home" ./cmd/skill-home
+          chmod +x "${RUNNER_TEMP}/skill-home"
+          echo "${RUNNER_TEMP}" >> "${GITHUB_PATH}"
+
+      - name: Validate skill
+        shell: bash
+        run: |
+          skill-home validate "${{ github.event.inputs.skill_path }}"
+          skill-home scan "${{ github.event.inputs.skill_path }}"
+
+      - name: Publish skill to registry
+        shell: bash
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            skill-home push "${{ github.event.inputs.skill_path }}" --version "${{ github.event.inputs.version }}"
+          else
+            skill-home push "${{ github.event.inputs.skill_path }}"
+          fi

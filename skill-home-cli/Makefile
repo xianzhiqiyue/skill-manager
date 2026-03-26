@@ -77,17 +77,9 @@ build-all:
 	@echo "Build complete: dist/"
 
 # 创建发布包
-release: build-all
+release:
 	@echo "Creating release archives..."
-	@cd dist && \
-	for file in $(BINARY)-*; do \
-		if [[ "$$file" == *.exe ]]; then \
-			zip "$$file.zip" "$$file" && rm "$$file"; \
-		else \
-			tar -czf "$$file.tar.gz" "$$file" && rm "$$file"; \
-		fi; \
-	done
-	@echo "Release archives created: dist/"
+	@bash ./scripts/package-release.sh $(VERSION) dist
 
 # 开发模式运行
 dev:

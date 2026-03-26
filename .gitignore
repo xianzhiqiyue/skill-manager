@@ -6,6 +6,8 @@
 *.dylib
 server
 skill-home
+!skill-home-cli/cmd/skill-home/
+!skill-home-cli/cmd/skill-home/main.go
 
 # Test binary, built with `go test -c`
 *.test
@@ -17,6 +19,7 @@ coverage.txt
 
 # Dependency directories
 vendor/
+node_modules/
 
 # Go workspace file
 go.work
@@ -37,6 +40,7 @@ go.work
 dist/
 build/
 bin/
+*.tsbuildinfo
 
 # Data directories
 data/

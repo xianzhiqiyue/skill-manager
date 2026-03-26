@@ -9,7 +9,7 @@ AI Skill 跨平台管理工具，支持 Claude Code、GitHub Copilot、Cursor、
 - 📥 **技能导入**: 从 GitHub、Claude Code、Codex 等导入并转换技能
 - ✅ **格式验证**: 验证 SKILL.md 格式是否符合标准
 - 🔒 **安全扫描**: 本地检测恶意命令和提示词注入攻击
-- 📦 **技能打包**: 将技能打包为可分发的 .tar.gz 文件
+- 📦 **技能打包**: 将技能打包为可分发的 .zip 文件
 - 🔄 **多 IDE 同步**: 一键同步技能到 Claude Code、GitHub Copilot、Cursor、Codex
 - 🔗 **双模同步**: 支持符号链接(Symlink)和物理镜像两种同步模式
 - ☁️ **注册中心**: 推送、拉取、搜索、详情查看与评分
@@ -19,18 +19,25 @@ AI Skill 跨平台管理工具，支持 Claude Code、GitHub Copilot、Cursor、
 
 ## 安装
 
+### 使用安装脚本（推荐）
+
+```bash
+curl -fsSL https://get.skill-home.dev/install.sh -o /tmp/skill-home-install.sh
+bash /tmp/skill-home-install.sh
+```
+
+指定版本：
+
+```bash
+bash /tmp/skill-home-install.sh v0.2.0
+```
+
 ### 从源码安装
 
 ```bash
-git clone https://github.com/skill-home/cli.git
-cd skill-home-cli
+git clone https://github.com/xianzhiqiyue/skill-manager.git
+cd skill-manager/skill-home-cli
 make install
-```
-
-### 使用安装脚本
-
-```bash
-curl -sSL https://get.skill-home.dev | sh
 ```
 
 ## 快速开始

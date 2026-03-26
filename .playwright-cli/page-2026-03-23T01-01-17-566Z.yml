@@ -1,0 +1,102 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - button "SH" [ref=e6] [cursor=pointer]
+      - generic [ref=e7]:
+        - strong [ref=e8]: Skill Home
+        - text: AI skill registry
+    - navigation [ref=e9]:
+      - button "首页" [ref=e10] [cursor=pointer]
+      - button "技能中心" [ref=e11] [cursor=pointer]
+      - button "安装指南" [ref=e12] [cursor=pointer]
+      - button "发布" [ref=e13] [cursor=pointer]
+      - button "控制台" [ref=e14] [cursor=pointer]
+    - generic [ref=e15]:
+      - textbox "搜索 skill、能力、场景" [ref=e16]
+      - button "搜索" [ref=e17] [cursor=pointer]
+    - generic [ref=e18]:
+      - button "登录" [ref=e19] [cursor=pointer]
+      - button "注册" [ref=e20] [cursor=pointer]
+  - main [ref=e21]:
+    - generic [ref=e22]:
+      - generic [ref=e23]:
+        - generic [ref=e24]:
+          - generic [ref=e25]: Skill Home Registry
+          - heading "把 AI Skill 做成可搜索、可安装、可持续运营的产品体验" [level=1] [ref=e26]
+          - paragraph [ref=e27]: 不再给团队丢一个 README 路径，而是给他们一个结构清晰的技能中心、可信的详情页 和可复制的安装指引。Skill Home 负责把 Registry、CLI 和 Web 接成一个完整闭环。
+          - generic [ref=e28]:
+            - button "进入技能中心" [ref=e29] [cursor=pointer]
+            - button "发布新技能" [ref=e30] [cursor=pointer]
+        - generic [ref=e31]:
+          - article [ref=e32]:
+            - generic [ref=e33]: Registry 状态
+            - strong [ref=e34]: 检查中
+          - article [ref=e35]:
+            - generic [ref=e36]: 公开技能数
+            - strong [ref=e37]: "0"
+          - article [ref=e38]:
+            - generic [ref=e39]: 命名空间
+            - strong [ref=e40]: "0"
+          - article [ref=e41]:
+            - generic [ref=e42]: API 入口
+            - strong [ref=e43]: 47.122.112.210:8080
+            - generic [ref=e44]: 读取中
+      - generic [ref=e45]:
+        - generic [ref=e46]:
+          - generic [ref=e47]:
+            - generic [ref=e48]: Recommended
+            - heading "先从最值得看的技能开始" [level=2] [ref=e49]
+            - paragraph [ref=e50]: 首页只保留真正能帮助用户进入下一步的内容，热门技能优先展示。
+          - button "查看全部技能" [ref=e52] [cursor=pointer]
+        - generic [ref=e54]: 当前还没有可展示的公开技能。
+      - generic [ref=e55]:
+        - generic [ref=e56]:
+          - generic [ref=e57]:
+            - generic [ref=e58]: Get started
+            - heading "第一次使用的最短路径" [level=2] [ref=e59]
+            - paragraph [ref=e60]: 首页负责把人送进正确页面，不再重复展示完整安装流程。
+          - button "查看安装指南" [ref=e62] [cursor=pointer]
+        - generic [ref=e63]:
+          - generic [ref=e64]:
+            - article [ref=e65]:
+              - generic [ref=e66]: "01"
+              - heading "进入技能中心" [level=3] [ref=e67]
+              - paragraph [ref=e68]: 先按关键词、命名空间、标签和 License 缩小范围，再决定查看哪个 skill。
+            - article [ref=e69]:
+              - generic [ref=e70]: "02"
+              - heading "查看详情与版本" [level=3] [ref=e71]
+              - paragraph [ref=e72]: 详情页负责展示扫描状态、版本、包大小、更新时间和安装入口，不再在列表里重复预览。
+            - article [ref=e73]:
+              - generic [ref=e74]: "03"
+              - heading "一键复制安装" [level=3] [ref=e75]
+              - paragraph [ref=e76]: 按目标 AI 复制 pull、install 或下载链接，把发现动作直接转成安装动作。
+          - complementary [ref=e77]:
+            - article [ref=e78]:
+              - generic [ref=e79]: Latest
+              - heading "最近更新" [level=3] [ref=e80]
+              - paragraph [ref=e81]: 优先查看最近更新的技能，避免安装过时版本。
+              - generic [ref=e83]: 等待技能目录加载后展示最近更新。
+      - generic [ref=e84]:
+        - generic [ref=e86]:
+          - generic [ref=e87]: FAQ
+          - heading "使用 Skill Home 前最常见的几个问题" [level=2] [ref=e88]
+        - generic [ref=e89]:
+          - article [ref=e90]:
+            - heading "为什么需要网页入口，而不是只用 README？" [level=3] [ref=e91]
+            - paragraph [ref=e92]: README 适合少量核心用户，网页入口适合新人、跨团队协作和外部宣传。搜索、筛选、安装和版本理解都更直接。
+          - article [ref=e93]:
+            - heading "技能包现在用什么格式？" [level=3] [ref=e94]
+            - paragraph [ref=e95]: 当前统一使用 ZIP。网页下载、CLI 打包和服务端下载默认都已经切换为 ZIP。
+          - article [ref=e96]:
+            - heading "哪些 AI/IDE 能直接安装？" [level=3] [ref=e97]
+            - paragraph [ref=e98]: 当前前端已提供 Codex、Claude Code、Cursor、GitHub Copilot 四类安装指引，命令由 skill-home CLI 执行。
+  - contentinfo [ref=e99]:
+    - generic [ref=e100]:
+      - strong [ref=e101]: Skill Home
+      - text: 统一 AI skill 的发布、发现、安装和运营入口。
+    - generic [ref=e102]:
+      - link "Registry API" [ref=e103] [cursor=pointer]:
+        - /url: http://47.122.112.210:8080
+      - button "技能中心" [ref=e104] [cursor=pointer]
+      - button "发布" [ref=e105] [cursor=pointer]
+      - button "安装指南" [ref=e106] [cursor=pointer]

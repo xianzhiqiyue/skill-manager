@@ -144,9 +144,118 @@ func applySkillFilters(query *gorm.DB, namespace, tag string) *gorm.DB {
 		query = query.Where("namespace IN ?", namespaceVariants(namespace))
 	}
 	if tag != "" {
-		query = query.Where("? = ANY(tags)", tag)
+		dialect := ""
+		if query != nil && query.Dialector != nil {
+			dialect = query.Dialector.Name()
+		}
+		if dialect == "postgres" {
+			query = query.Where("? = ANY(tags)", tag)
+		} else {
+			query = query.Where(
+				"tags = ? OR tags LIKE ? OR tags LIKE ? OR tags LIKE ?",
+				"{"+tag+"}",
+				"{"+tag+",%",
+				"%,"+tag+",%",
+				"%,"+tag+"}",
+			)
+		}
 	}
 	return query
+}
+
+func applyExtendedSkillFilters(query *gorm.DB, namespace, tag, license string) *gorm.DB {
+	query = applySkillFilters(query, namespace, tag)
+	license = strings.TrimSpace(license)
+	if license != "" {
+		query = query.Where("license = ?", license)
+	}
+	return query
+}
+
+func applySkillOrdering(query *gorm.DB, sort string) *gorm.DB {
+	if query == nil {
+		return query
+	}
+
+	switch strings.ToLower(strings.TrimSpace(sort)) {
+	case "updated", "recent":
+		return query.Order("updated_at DESC").Order("download_count DESC")
+	case "newest", "created":
+		return query.Order("created_at DESC").Order("download_count DESC")
+	case "rating":
+		dialect := ""
+		if query.Dialector != nil {
+			dialect = query.Dialector.Name()
+		}
+		if dialect == "postgres" {
+			return query.
+				Order(clause.Expr{
+					SQL: "CASE WHEN rating_count = 0 THEN 0 ELSE rating_sum::float / rating_count END DESC",
+				}).
+				Order("rating_count DESC").
+				Order("download_count DESC")
+		}
+		return query.
+			Order(clause.Expr{
+				SQL: "CASE WHEN rating_count = 0 THEN 0 ELSE CAST(rating_sum AS REAL) / rating_count END DESC",
+			}).
+			Order("rating_count DESC").
+			Order("download_count DESC")
+	case "name", "alpha":
+		return query.Order("name ASC").Order("namespace ASC")
+	default:
+		return query.Order("download_count DESC").Order("updated_at DESC")
+	}
+}
+
+func applySearchOrdering(query *gorm.DB, q, sort string) *gorm.DB {
+	if query == nil {
+		return query
+	}
+
+	sort = strings.ToLower(strings.TrimSpace(sort))
+	if sort != "" {
+		return applySkillOrdering(query, sort)
+	}
+
+	q = strings.TrimSpace(q)
+	if q == "" {
+		return applySkillOrdering(query, sort)
+	}
+
+	dialect := ""
+	if query.Dialector != nil {
+		dialect = query.Dialector.Name()
+	}
+
+	if dialect != "postgres" {
+		return query.Order(clause.Expr{
+			SQL: "CASE " +
+				"WHEN lower(name) = lower(?) THEN 0 " +
+				"WHEN lower(name) LIKE lower(?) THEN 1 " +
+				"WHEN lower(description) LIKE lower(?) THEN 2 " +
+				"ELSE 3 END",
+			Vars: []interface{}{q, q + "%", "%" + q + "%"},
+		}).Order("updated_at DESC").Order("created_at DESC").Order("download_count DESC")
+	}
+
+	vectorExpr := "to_tsvector('simple', coalesce(name, '') || ' ' || coalesce(description, ''))"
+	return query.
+		Order(clause.Expr{
+			SQL: "CASE " +
+				"WHEN lower(name) = lower(?) THEN 0 " +
+				"WHEN name ILIKE ? THEN 1 " +
+				"WHEN description ILIKE ? THEN 2 " +
+				"ELSE 3 END",
+			Vars: []interface{}{q, q + "%", "%" + q + "%"},
+		}).
+		Order(clause.Expr{
+			SQL:  "ts_rank_cd(" + vectorExpr + ", plainto_tsquery('simple', ?)) DESC",
+			Vars: []interface{}{q},
+		}).
+		Order("updated_at DESC").
+		Order("created_at DESC").
+		Order("download_count DESC")
 }
 
 func applySearchFilter(query *gorm.DB, q string) *gorm.DB {
@@ -160,25 +269,12 @@ func applySearchFilter(query *gorm.DB, q string) *gorm.DB {
 		dialect = query.Dialector.Name()
 	}
 	if dialect != "postgres" {
-		return query.
-			Where("name LIKE ? OR description LIKE ?", "%"+q+"%", "%"+q+"%").
-			Order(clause.Expr{
-				SQL:  "CASE WHEN lower(name) = lower(?) THEN 0 WHEN lower(name) LIKE lower(?) THEN 1 ELSE 2 END",
-				Vars: []interface{}{q, q + "%"},
-			})
+		return query.Where("name LIKE ? OR description LIKE ?", "%"+q+"%", "%"+q+"%")
 	}
 
 	vectorExpr := "to_tsvector('simple', coalesce(name, '') || ' ' || coalesce(description, ''))"
 	return query.
-		Where(vectorExpr+" @@ plainto_tsquery('simple', ?) OR name ILIKE ? OR description ILIKE ?", q, "%"+q+"%", "%"+q+"%").
-		Order(clause.Expr{
-			SQL:  "CASE WHEN lower(name) = lower(?) THEN 0 WHEN name ILIKE ? THEN 1 ELSE 2 END",
-			Vars: []interface{}{q, q + "%"},
-		}).
-		Order(clause.Expr{
-			SQL:  "ts_rank_cd(" + vectorExpr + ", plainto_tsquery('simple', ?)) DESC",
-			Vars: []interface{}{q},
-		})
+		Where(vectorExpr+" @@ plainto_tsquery('simple', ?) OR name ILIKE ? OR description ILIKE ?", q, "%"+q+"%", "%"+q+"%")
 }
 
 func populateSkillComputedFields(skill *models.Skill) {

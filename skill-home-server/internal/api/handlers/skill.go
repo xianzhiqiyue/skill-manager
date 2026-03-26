@@ -23,7 +23,12 @@ func ListSkills(db *storage.Database) gin.HandlerFunc {
 		// 分页
 		page, perPage := parsePagination(c.DefaultQuery("page", "1"), c.DefaultQuery("per_page", "20"))
 
-		query = applySkillFilters(query, c.Query("namespace"), c.Query("tag"))
+		query = applyExtendedSkillFilters(
+			query,
+			c.Query("namespace"),
+			c.Query("tag"),
+			c.Query("license"),
+		)
 		if q := c.Query("q"); q != "" {
 			query = applySearchFilter(query, q)
 		}
@@ -32,7 +37,7 @@ func ListSkills(db *storage.Database) gin.HandlerFunc {
 		query.Count(&total)
 
 		offset := (page - 1) * perPage
-		if err := query.Order("download_count DESC").Limit(perPage).Offset(offset).Find(&skills).Error; err != nil {
+		if err := applySkillOrdering(query, c.Query("sort")).Limit(perPage).Offset(offset).Find(&skills).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"code": "INTERNAL_ERROR", "message": err.Error()})
 			return
 		}
@@ -103,13 +108,18 @@ func SearchSkills(db *storage.Database) gin.HandlerFunc {
 		page, perPage := parsePagination(c.DefaultQuery("page", "1"), c.DefaultQuery("per_page", "20"))
 		var skills []models.Skill
 		query := db.Model(&models.Skill{}).Where("is_public = ?", true)
-		query = applySkillFilters(query, c.Query("namespace"), c.Query("tag"))
+		query = applyExtendedSkillFilters(
+			query,
+			c.Query("namespace"),
+			c.Query("tag"),
+			c.Query("license"),
+		)
 		query = applySearchFilter(query, q)
 
 		var total int64
 		query.Count(&total)
 
-		if err := query.Order("download_count DESC").Limit(perPage).Offset((page - 1) * perPage).Find(&skills).Error; err != nil {
+		if err := applySearchOrdering(query, q, c.Query("sort")).Limit(perPage).Offset((page - 1) * perPage).Find(&skills).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"code": "INTERNAL_ERROR", "message": err.Error()})
 			return
 		}
@@ -161,12 +171,20 @@ func ListVersions(db *storage.Database) gin.HandlerFunc {
 
 // CreateSkillRequest 创建技能请求
 type CreateSkillRequest struct {
-	Namespace     string   `json:"namespace"`
-	Name          string   `json:"name" binding:"required"`
-	Description   string   `json:"description"`
-	Tags          []string `json:"tags"`
-	License       string   `json:"license"`
-	IsPublic      bool     `json:"is_public"`
+	Namespace   string   `json:"namespace"`
+	Name        string   `json:"name" binding:"required"`
+	Description string   `json:"description"`
+	Tags        []string `json:"tags"`
+	License     string   `json:"license"`
+	IsPublic    bool     `json:"is_public"`
+}
+
+type UpdateSkillRequest struct {
+	Description  string   `json:"description"`
+	Tags         []string `json:"tags"`
+	License      string   `json:"license"`
+	IsPublic     bool     `json:"is_public"`
+	IsDeprecated *bool    `json:"is_deprecated,omitempty"`
 }
 
 // CreateSkill 创建技能
@@ -222,6 +240,11 @@ func CreateSkill(db *storage.Database, objStorage *storage.ObjectStorage, scanne
 			c.JSON(http.StatusBadRequest, gin.H{"code": "INVALID_INPUT", "message": err.Error()})
 			return
 		}
+		archiveFormat, err := detectArchiveFormat(file.Filename, content)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"code": "INVALID_INPUT", "message": err.Error()})
+			return
+		}
 
 		// 安全扫描
 		scanResult := scanner.ScanContent(string(content))
@@ -235,7 +258,13 @@ func CreateSkill(db *storage.Database, objStorage *storage.ObjectStorage, scanne
 		}
 
 		// 存储文件
-		storagePath := fmt.Sprintf("skills/%s/%s/%s.tar.gz", storageSegment(namespace), storageSegment(name), uuid.New().String())
+		storagePath := fmt.Sprintf(
+			"skills/%s/%s/%s.%s",
+			storageSegment(namespace),
+			storageSegment(name),
+			uuid.New().String(),
+			archiveExtension(archiveFormat),
+		)
 		if err := objStorage.Upload(c, storagePath, bytes.NewReader(content), int64(len(content))); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"code": "INTERNAL_ERROR", "message": "Failed to upload file"})
 			return
@@ -285,9 +314,9 @@ func CreateSkill(db *storage.Database, objStorage *storage.ObjectStorage, scanne
 		}
 
 		c.JSON(http.StatusCreated, gin.H{
-			"namespace":   namespace,
-			"name":        name,
-			"version":     versionModel.Version,
+			"namespace":    namespace,
+			"name":         name,
+			"version":      versionModel.Version,
 			"download_url": fmt.Sprintf("/api/v1/download/%s/%s/%s", namespace, name, versionModel.Version),
 		})
 	}
@@ -312,7 +341,7 @@ func UpdateSkill(db *storage.Database) gin.HandlerFunc {
 			return
 		}
 
-		var req CreateSkillRequest
+		var req UpdateSkillRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"code": "INVALID_INPUT", "message": err.Error()})
 			return
@@ -323,15 +352,19 @@ func UpdateSkill(db *storage.Database) gin.HandlerFunc {
 		skill.Tags = req.Tags
 		skill.License = req.License
 		skill.IsPublic = req.IsPublic
+		if req.IsDeprecated != nil {
+			skill.IsDeprecated = *req.IsDeprecated
+		}
 
 		if err := db.Transaction(func(tx *gorm.DB) error {
 			if err := tx.Save(&skill).Error; err != nil {
 				return err
 			}
 			return writeAuditLogTx(tx, c, &user.ID, "skill.update", resourceTypeSkill, &skill.ID, models.JSON{
-				"namespace": namespace,
-				"name":      name,
-				"is_public": skill.IsPublic,
+				"namespace":     namespace,
+				"name":          name,
+				"is_public":     skill.IsPublic,
+				"is_deprecated": skill.IsDeprecated,
 			})
 		}); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"code": "INTERNAL_ERROR", "message": err.Error()})

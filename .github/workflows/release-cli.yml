@@ -1,0 +1,67 @@
+name: Release CLI
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "CLI version, e.g. v0.2.0"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: skill-home-cli/go.mod
+          cache-dependency-path: skill-home-cli/go.sum
+
+      - name: Resolve version
+        id: vars
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            version="${{ github.event.inputs.version }}"
+          else
+            version="${GITHUB_REF_NAME}"
+          fi
+          if [[ "$version" != v* ]]; then
+            version="v${version}"
+          fi
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+
+      - name: Run CLI tests
+        working-directory: skill-home-cli
+        run: go test ./...
+
+      - name: Build release assets
+        working-directory: skill-home-cli
+        run: bash ./scripts/package-release.sh "${{ steps.vars.outputs.version }}" dist
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.vars.outputs.version }}
+          name: skill-home ${{ steps.vars.outputs.version }}
+          generate_release_notes: true
+          files: |
+            skill-home-cli/dist/skill-home-darwin-amd64.tar.gz
+            skill-home-cli/dist/skill-home-darwin-arm64.tar.gz
+            skill-home-cli/dist/skill-home-linux-amd64.tar.gz
+            skill-home-cli/dist/skill-home-linux-arm64.tar.gz
+            skill-home-cli/dist/skill-home-windows-amd64.zip
+            skill-home-cli/dist/checksums.txt

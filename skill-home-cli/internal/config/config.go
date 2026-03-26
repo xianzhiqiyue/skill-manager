@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/viper"
 )
@@ -84,6 +85,7 @@ func Init(configFile string) error {
 
 	// 读取环境变量
 	viper.SetEnvPrefix("SKILL_HOME")
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.AutomaticEnv()
 
 	// 尝试读取配置文件（如果不存在则忽略）
@@ -95,6 +97,7 @@ func Init(configFile string) error {
 	}
 
 	// 绑定环境变量
+	viper.BindEnv("registry.endpoint", "SKILL_HOME_REGISTRY_ENDPOINT")
 	viper.BindEnv("registry.api_key", "SKILL_HOME_API_KEY")
 
 	// 解析到结构体

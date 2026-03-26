@@ -2,6 +2,7 @@ package registry
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -200,5 +201,30 @@ func TestListAuditLogsUsesExpectedQueryParameters(t *testing.T) {
 	}
 	if result.Total != 1 || len(result.Results) != 1 || result.Results[0].Action != "skill.rate" {
 		t.Fatalf("unexpected result: %+v", result)
+	}
+}
+
+func TestDownloadRequestsZipFormat(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/download/team/reviewer/1.0.0" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		if got := r.URL.Query().Get("format"); got != "zip" {
+			t.Errorf("unexpected format: %s", got)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		_, _ = io.WriteString(w, "zip-bytes")
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "")
+	outputPath := t.TempDir() + "/skill.zip"
+	if err := client.Download("team", "reviewer", "1.0.0", outputPath); err != nil {
+		t.Fatalf("Download returned error: %v", err)
 	}
 }

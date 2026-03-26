@@ -1,0 +1,250 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - button "SH" [ref=e6] [cursor=pointer]
+      - generic [ref=e7]:
+        - strong [ref=e8]: Skill Home
+        - text: AI skill registry
+    - generic [ref=e9]:
+      - textbox "搜索 skill、能力、场景" [ref=e10]
+      - button "搜索" [ref=e11] [cursor=pointer]
+    - generic [ref=e12]:
+      - button "登录" [ref=e13] [cursor=pointer]
+      - button "注册" [ref=e14] [cursor=pointer]
+    - button "切换导航" [ref=e15] [cursor=pointer]: 菜单
+  - main [ref=e16]:
+    - generic [ref=e18]:
+      - generic [ref=e20]:
+        - generic [ref=e21]: Skill center
+        - heading "技能中心" [level=2] [ref=e22]
+        - paragraph [ref=e23]: 用更高的信息密度搜索、筛选、预览和比较 skill，再决定装哪一个。
+      - generic [ref=e24]:
+        - complementary [ref=e25]:
+          - generic [ref=e26]:
+            - generic [ref=e27]: 关键词
+            - textbox "关键词" [ref=e28]:
+              - /placeholder: 搜索名字、用途、场景
+          - generic [ref=e29]:
+            - generic [ref=e30]: 命名空间
+            - combobox "命名空间" [ref=e31]:
+              - option "全部" [selected]
+              - option "@testuser"
+              - option "@user"
+          - generic [ref=e32]:
+            - generic [ref=e33]: 标签
+            - combobox "标签" [ref=e34]:
+              - option "全部" [selected]
+          - generic [ref=e35]:
+            - generic [ref=e36]: License
+            - combobox "License" [ref=e37]:
+              - option "全部" [selected]
+              - option "MIT"
+          - generic [ref=e38]:
+            - strong [ref=e39]: 排序
+            - generic [ref=e40]:
+              - button "热门" [ref=e41] [cursor=pointer]
+              - button "最新" [ref=e42] [cursor=pointer]
+              - button "高评分" [ref=e43] [cursor=pointer]
+              - button "名称" [ref=e44] [cursor=pointer]
+          - generic [ref=e45]:
+            - strong [ref=e46]: 视图
+            - generic [ref=e47]:
+              - button "卡片" [ref=e48] [cursor=pointer]
+              - button "列表" [ref=e49] [cursor=pointer]
+          - generic [ref=e50]:
+            - article [ref=e51]:
+              - generic [ref=e52]: 在线技能
+              - strong [ref=e53]: "10"
+            - article [ref=e54]:
+              - generic [ref=e55]: 标签维度
+              - strong [ref=e56]: "0"
+          - button "重置筛选" [ref=e57] [cursor=pointer]
+        - generic [ref=e58]:
+          - generic [ref=e59]:
+            - generic [ref=e60]:
+              - strong [ref=e61]: "10"
+              - text: 个公开技能
+            - button "刷新目录" [ref=e63] [cursor=pointer]
+          - generic [ref=e64]:
+            - generic [ref=e73]:
+              - article [ref=e74]:
+                - generic [ref=e75]:
+                  - generic [ref=e76]:
+                    - strong [ref=e77]: skill-home-manager
+                    - generic [ref=e78]: "@testuser/skill-home-manager"
+                  - generic [ref=e79]: 0.1.0
+                - paragraph [ref=e80]: 当用户想用本地 skill-home CLI 创建、编辑、验证、打包、导出、同步、安装或排查 skill 时使用，尤其适合把 skill 交付到 Codex。
+                - generic [ref=e81]:
+                  - generic [ref=e82]: 12 下载
+                  - generic [ref=e83]: 0 评分
+                  - generic [ref=e84]: MIT
+                - generic [ref=e85]:
+                  - button "即时预览" [ref=e86] [cursor=pointer]
+                  - button "详情与安装" [ref=e87] [cursor=pointer]
+              - article [ref=e88]:
+                - generic [ref=e89]:
+                  - generic [ref=e90]:
+                    - strong [ref=e91]: my-first-skill
+                    - generic [ref=e92]: "@testuser/my-first-skill"
+                  - generic [ref=e93]: 0.1.0
+                - paragraph [ref=e94]: 我的第一个技能示例
+                - generic [ref=e95]:
+                  - generic [ref=e96]: 1 下载
+                  - generic [ref=e97]: 0 评分
+                  - generic [ref=e98]: 未填写 License
+                - generic [ref=e99]:
+                  - button "即时预览" [ref=e100] [cursor=pointer]
+                  - button "详情与安装" [ref=e101] [cursor=pointer]
+              - article [ref=e102]:
+                - generic [ref=e103]:
+                  - generic [ref=e104]:
+                    - strong [ref=e105]: github
+                    - generic [ref=e106]: "@testuser/github"
+                  - generic [ref=e107]: 1.0.0
+                - paragraph [ref=e108]: "Interact with GitHub using the `gh` CLI. Use `gh issue`, `gh pr`, `gh run`, and `gh api` for issues, PRs, CI runs, and advanced queries."
+                - generic [ref=e109]:
+                  - generic [ref=e110]: 0 下载
+                  - generic [ref=e111]: 0 评分
+                  - generic [ref=e112]: 未填写 License
+                - generic [ref=e113]:
+                  - button "即时预览" [ref=e114] [cursor=pointer]
+                  - button "详情与安装" [ref=e115] [cursor=pointer]
+              - article [ref=e116]:
+                - generic [ref=e117]:
+                  - generic [ref=e118]:
+                    - strong [ref=e119]: doc
+                    - generic [ref=e120]: "@testuser/doc"
+                  - generic [ref=e121]: 1.0.0
+                - paragraph [ref=e122]: "Use when the task involves reading, creating, or editing `.docx` documents, especially when formatting or layout fidelity matters; prefer `python-docx` plus the bundled `scripts/render_docx.py` for visual checks."
+                - generic [ref=e123]:
+                  - generic [ref=e124]: 0 下载
+                  - generic [ref=e125]: 0 评分
+                  - generic [ref=e126]: 未填写 License
+                - generic [ref=e127]:
+                  - button "即时预览" [ref=e128] [cursor=pointer]
+                  - button "详情与安装" [ref=e129] [cursor=pointer]
+              - article [ref=e130]:
+                - generic [ref=e131]:
+                  - generic [ref=e132]:
+                    - strong [ref=e133]: codex-spec-zh
+                    - generic [ref=e134]: "@testuser/codex-spec-zh"
+                  - generic [ref=e135]: 1.0.0
+                - paragraph [ref=e136]: 使用 spec-plan-progress-acceptance 工作流管理 Codex 中长研发任务，支持任务新建、切换、归档、软删除与恢复；当用户提到长任务规划、跨前后端联调、里程碑验收、多项目复用、中文任务管理时使用。
+                - generic [ref=e137]:
+                  - generic [ref=e138]: 0 下载
+                  - generic [ref=e139]: 0 评分
+                  - generic [ref=e140]: 未填写 License
+                - generic [ref=e141]:
+                  - button "即时预览" [ref=e142] [cursor=pointer]
+                  - button "详情与安装" [ref=e143] [cursor=pointer]
+              - article [ref=e144]:
+                - generic [ref=e145]:
+                  - generic [ref=e146]:
+                    - strong [ref=e147]: server-manager
+                    - generic [ref=e148]: "@testuser/server-manager"
+                  - generic [ref=e149]: 1.0.0
+                - paragraph [ref=e150]: Manage remote servers over SSH with encrypted credentials, danger checks, Docker operations, and build/deploy workflows. Use when users ask to add/remove/list server profiles, run remote commands, inspect container logs/status, troubleshoot servers, or deploy local projects to remote hosts.
+                - generic [ref=e151]:
+                  - generic [ref=e152]: 0 下载
+                  - generic [ref=e153]: 0 评分
+                  - generic [ref=e154]: 未填写 License
+                - generic [ref=e155]:
+                  - button "即时预览" [ref=e156] [cursor=pointer]
+                  - button "详情与安装" [ref=e157] [cursor=pointer]
+              - article [ref=e158]:
+                - generic [ref=e159]:
+                  - generic [ref=e160]:
+                    - strong [ref=e161]: skill-installer
+                    - generic [ref=e162]: "@testuser/skill-installer"
+                  - generic [ref=e163]: 1.0.0
+                - paragraph [ref=e164]: Install Codex skills into $CODEX_HOME/skills from a curated list or a GitHub repo path. Use when a user asks to list installable skills, install a curated skill, or install a skill from another repo (including private repos).
+                - generic [ref=e165]:
+                  - generic [ref=e166]: 0 下载
+                  - generic [ref=e167]: 0 评分
+                  - generic [ref=e168]: 未填写 License
+                - generic [ref=e169]:
+                  - button "即时预览" [ref=e170] [cursor=pointer]
+                  - button "详情与安装" [ref=e171] [cursor=pointer]
+              - article [ref=e172]:
+                - generic [ref=e173]:
+                  - generic [ref=e174]:
+                    - strong [ref=e175]: skill-creator
+                    - generic [ref=e176]: "@testuser/skill-creator"
+                  - generic [ref=e177]: 1.0.0
+                - paragraph [ref=e178]: Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an existing skill) that extends Codex's capabilities with specialized knowledge, workflows, or tool integrations.
+                - generic [ref=e179]:
+                  - generic [ref=e180]: 0 下载
+                  - generic [ref=e181]: 0 评分
+                  - generic [ref=e182]: 未填写 License
+                - generic [ref=e183]:
+                  - button "即时预览" [ref=e184] [cursor=pointer]
+                  - button "详情与安装" [ref=e185] [cursor=pointer]
+              - article [ref=e186]:
+                - generic [ref=e187]:
+                  - generic [ref=e188]:
+                    - strong [ref=e189]: ai-code-assistant
+                    - generic [ref=e190]: "@user/ai-code-assistant"
+                  - generic [ref=e191]: 1.0.1
+                - paragraph [ref=e192]: 多 AI 编辑器通用的代码助手技能，支持 Claude Code、Codex、OpenClaw、Nanobot 等
+                - generic [ref=e193]:
+                  - generic [ref=e194]: 0 下载
+                  - generic [ref=e195]: 0 评分
+                  - generic [ref=e196]: MIT
+                - generic [ref=e197]:
+                  - button "即时预览" [ref=e198] [cursor=pointer]
+                  - button "详情与安装" [ref=e199] [cursor=pointer]
+              - article [ref=e200]:
+                - generic [ref=e201]:
+                  - generic [ref=e202]:
+                    - strong [ref=e203]: ai-code-assistant
+                    - generic [ref=e204]: "@testuser/ai-code-assistant"
+                  - generic [ref=e205]: 1.0.0
+                - paragraph [ref=e206]: 多 AI 编辑器通用的代码助手技能
+                - generic [ref=e207]:
+                  - generic [ref=e208]: 0 下载
+                  - generic [ref=e209]: 0 评分
+                  - generic [ref=e210]: MIT
+                - generic [ref=e211]:
+                  - button "即时预览" [ref=e212] [cursor=pointer]
+                  - button "详情与安装" [ref=e213] [cursor=pointer]
+            - complementary [ref=e214]:
+              - generic [ref=e215]:
+                - generic [ref=e216]:
+                  - generic [ref=e217]: 即时预览
+                  - heading "skill-home-manager" [level=3] [ref=e218]
+                  - paragraph [ref=e219]: "@testuser/skill-home-manager"
+                - generic [ref=e220]: 扫描通过
+              - paragraph [ref=e221]: 当用户想用本地 skill-home CLI 创建、编辑、验证、打包、导出、同步、安装或排查 skill 时使用，尤其适合把 skill 交付到 Codex。
+              - generic [ref=e222]:
+                - generic [ref=e223]:
+                  - generic [ref=e224]: 最新版本
+                  - strong [ref=e225]: 0.1.0
+                - generic [ref=e226]:
+                  - generic [ref=e227]: 更新时间
+                  - strong [ref=e228]: 3月22日
+                - generic [ref=e229]:
+                  - generic [ref=e230]: 下载量
+                  - strong [ref=e231]: "12"
+                - generic [ref=e232]:
+                  - generic [ref=e233]: License
+                  - strong [ref=e234]: MIT
+              - generic [ref=e235]:
+                - button "打开详情页" [ref=e236] [cursor=pointer]
+                - button "复制安装命令" [ref=e237] [cursor=pointer]
+              - generic [ref=e238]:
+                - strong [ref=e239]: 最近版本
+                - generic [ref=e240]:
+                  - generic [ref=e241]:
+                    - strong [ref=e242]: 0.1.0
+                    - text: 3.8 KB
+                  - generic [ref=e243]: 扫描通过
+  - contentinfo [ref=e65]:
+    - generic [ref=e66]:
+      - strong [ref=e67]: Skill Home
+      - text: 统一 AI skill 的发布、发现、安装和运营入口。
+    - generic [ref=e68]:
+      - link "Registry API" [ref=e69] [cursor=pointer]:
+        - /url: http://47.122.112.210:8080
+      - button "技能中心" [ref=e70] [cursor=pointer]
+      - button "发布" [ref=e71] [cursor=pointer]
+      - button "安装指南" [ref=e72] [cursor=pointer]

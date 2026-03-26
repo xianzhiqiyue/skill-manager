@@ -207,6 +207,244 @@ func TestSearchSkillsSupportsSQLiteFallback(t *testing.T) {
 	}
 }
 
+func TestSearchSkillsPrefersNewestAmongExactNameMatches(t *testing.T) {
+	db := newTestDatabase(t)
+	ownerID := uuid.New()
+	now := time.Now()
+	skills := []models.Skill{
+		{
+			ID:            uuid.New(),
+			Namespace:     "legacy",
+			Name:          "skill-home-manager",
+			OwnerID:       ownerID,
+			Description:   "older exact match",
+			IsPublic:      true,
+			DownloadCount: 20,
+			CreatedAt:     now.Add(-48 * time.Hour),
+			UpdatedAt:     now.Add(-48 * time.Hour),
+		},
+		{
+			ID:            uuid.New(),
+			Namespace:     "skill-home",
+			Name:          "skill-home-manager",
+			OwnerID:       ownerID,
+			Description:   "newer exact match",
+			IsPublic:      true,
+			DownloadCount: 1,
+			CreatedAt:     now,
+			UpdatedAt:     now,
+		},
+	}
+	if err := db.Create(&skills).Error; err != nil {
+		t.Fatalf("seed skills failed: %v", err)
+	}
+
+	router := gin.New()
+	router.GET("/api/v1/search", SearchSkills(db))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/search?q=skill-home-manager", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("unexpected status: %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	var resp struct {
+		Results []models.Skill `json:"results"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response failed: %v", err)
+	}
+	if len(resp.Results) != 2 {
+		t.Fatalf("unexpected search results count: %+v", resp.Results)
+	}
+	if resp.Results[0].Namespace != "skill-home" {
+		t.Fatalf("expected newest exact match first, got %+v", resp.Results)
+	}
+}
+
+func TestUpdateSkillSupportsExplicitDeprecationToggle(t *testing.T) {
+	db := newTestDatabase(t)
+	user := &models.User{ID: uuid.New(), Username: "owner", Email: "owner@example.com"}
+	if err := db.Create(user).Error; err != nil {
+		t.Fatalf("create user failed: %v", err)
+	}
+
+	skill := models.Skill{
+		ID:           uuid.New(),
+		Namespace:    "team",
+		Name:         "reviewer",
+		OwnerID:      user.ID,
+		Description:  "before",
+		License:      "MIT",
+		IsPublic:     true,
+		IsDeprecated: false,
+	}
+	if err := db.Create(&skill).Error; err != nil {
+		t.Fatalf("create skill failed: %v", err)
+	}
+
+	router := newAuthedRouter(user)
+	router.PUT("/api/v1/skills/:namespace/:name", UpdateSkill(db))
+
+	body := bytes.NewBufferString(`{"description":"after","tags":["review"],"license":"Apache-2.0","is_public":true,"is_deprecated":true}`)
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/skills/team/reviewer", body)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("unexpected status: %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	var updated models.Skill
+	if err := db.First(&updated, "id = ?", skill.ID).Error; err != nil {
+		t.Fatalf("reload skill failed: %v", err)
+	}
+	if !updated.IsDeprecated {
+		t.Fatalf("expected skill to be deprecated, got %+v", updated)
+	}
+	if updated.License != "Apache-2.0" || updated.Description != "after" {
+		t.Fatalf("unexpected updated fields: %+v", updated)
+	}
+}
+
+func TestListSkillsSupportsLicenseFilterAndSort(t *testing.T) {
+	db := newTestDatabase(t)
+	ownerID := uuid.New()
+	now := time.Now()
+	skills := []models.Skill{
+		{
+			ID:            uuid.New(),
+			Namespace:     "team",
+			Name:          "stable-reviewer",
+			OwnerID:       ownerID,
+			Description:   "review skill",
+			License:       "MIT",
+			DownloadCount: 3,
+			UpdatedAt:     now.Add(-time.Hour),
+			IsPublic:      true,
+		},
+		{
+			ID:            uuid.New(),
+			Namespace:     "team",
+			Name:          "fresh-reviewer",
+			OwnerID:       ownerID,
+			Description:   "review skill",
+			License:       "MIT",
+			DownloadCount: 1,
+			UpdatedAt:     now,
+			IsPublic:      true,
+		},
+		{
+			ID:            uuid.New(),
+			Namespace:     "team",
+			Name:          "apache-helper",
+			OwnerID:       ownerID,
+			Description:   "deploy helper",
+			License:       "Apache-2.0",
+			DownloadCount: 50,
+			UpdatedAt:     now.Add(-2 * time.Hour),
+			IsPublic:      true,
+		},
+	}
+	if err := db.Create(&skills).Error; err != nil {
+		t.Fatalf("seed skills failed: %v", err)
+	}
+
+	router := gin.New()
+	router.GET("/api/v1/skills", ListSkills(db))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/skills?license=MIT&sort=updated", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("unexpected status: %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	var resp struct {
+		Results []models.Skill `json:"results"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response failed: %v", err)
+	}
+	if len(resp.Results) != 2 {
+		t.Fatalf("unexpected result count: %+v", resp.Results)
+	}
+	if resp.Results[0].Name != "fresh-reviewer" || resp.Results[1].Name != "stable-reviewer" {
+		t.Fatalf("unexpected ordering: %+v", resp.Results)
+	}
+}
+
+func TestSearchSkillsSupportsTagAndRatingSortSQLiteFallback(t *testing.T) {
+	db := newTestDatabase(t)
+	ownerID := uuid.New()
+	skills := []models.Skill{
+		{
+			ID:          uuid.New(),
+			Namespace:   "team",
+			Name:        "review-gold",
+			OwnerID:     ownerID,
+			Description: "review pull requests",
+			Tags:        models.StringArray{"review", "quality"},
+			RatingSum:   18,
+			RatingCount: 4,
+			IsPublic:    true,
+		},
+		{
+			ID:          uuid.New(),
+			Namespace:   "team",
+			Name:        "review-new",
+			OwnerID:     ownerID,
+			Description: "review changes quickly",
+			Tags:        models.StringArray{"review"},
+			RatingSum:   5,
+			RatingCount: 2,
+			IsPublic:    true,
+		},
+		{
+			ID:          uuid.New(),
+			Namespace:   "team",
+			Name:        "deploy-new",
+			OwnerID:     ownerID,
+			Description: "deploy service",
+			Tags:        models.StringArray{"deploy"},
+			RatingSum:   10,
+			RatingCount: 2,
+			IsPublic:    true,
+		},
+	}
+	if err := db.Create(&skills).Error; err != nil {
+		t.Fatalf("seed skills failed: %v", err)
+	}
+
+	router := gin.New()
+	router.GET("/api/v1/search", SearchSkills(db))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/search?q=review&tag=review&sort=rating", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("unexpected status: %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	var resp struct {
+		Results []models.Skill `json:"results"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response failed: %v", err)
+	}
+	if len(resp.Results) != 2 {
+		t.Fatalf("unexpected search results: %+v", resp.Results)
+	}
+	if resp.Results[0].Name != "review-gold" {
+		t.Fatalf("expected highest rated skill first, got %+v", resp.Results)
+	}
+}
+
 func TestListAuditLogsReturnsUserEntriesNewestFirst(t *testing.T) {
 	db := newTestDatabase(t)
 	user := &models.User{ID: uuid.New(), Username: "alice", Email: "alice@example.com"}

@@ -9,8 +9,6 @@ import (
 )
 
 func TestInitLoadsSnakeCaseConfigFields(t *testing.T) {
-	t.Parallel()
-
 	viper.Reset()
 	t.Cleanup(viper.Reset)
 
@@ -62,5 +60,32 @@ security:
 	}
 	if got := C.Security.ScanOnInstall; !got {
 		t.Fatalf("unexpected scan_on_install: %t", got)
+	}
+}
+
+func TestInitAllowsRegistryEnvOverrides(t *testing.T) {
+	viper.Reset()
+	t.Cleanup(func() {
+		_ = os.Unsetenv("SKILL_HOME_REGISTRY_ENDPOINT")
+		_ = os.Unsetenv("SKILL_HOME_API_KEY")
+		viper.Reset()
+	})
+
+	if err := os.Setenv("SKILL_HOME_REGISTRY_ENDPOINT", "https://registry.example.test"); err != nil {
+		t.Fatalf("Setenv(endpoint) returned error: %v", err)
+	}
+	if err := os.Setenv("SKILL_HOME_API_KEY", "token-123"); err != nil {
+		t.Fatalf("Setenv(api_key) returned error: %v", err)
+	}
+
+	if err := Init(""); err != nil {
+		t.Fatalf("Init returned error: %v", err)
+	}
+
+	if got := C.Registry.Endpoint; got != "https://registry.example.test" {
+		t.Fatalf("unexpected registry endpoint: %q", got)
+	}
+	if got := C.Registry.APIKey; got != "token-123" {
+		t.Fatalf("unexpected registry api key: %q", got)
 	}
 }

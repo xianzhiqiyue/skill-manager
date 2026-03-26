@@ -211,6 +211,20 @@ func (e *Engine) exportToCodex(s *skill.Skill) (*Result, error) {
 	content := fmt.Sprintf("---\n%s---\n\n%s", string(manifestBytes), s.Body)
 	result.Files[s.Manifest.Name+".mdc"] = []byte(content)
 
+	for _, ref := range s.References {
+		refPath := filepath.Join(s.Path, "references", ref)
+		if data, err := os.ReadFile(refPath); err == nil {
+			result.Files[filepath.Join("references", ref)] = data
+		}
+	}
+
+	for _, script := range s.Scripts {
+		scriptPath := filepath.Join(s.Path, "scripts", script)
+		if data, err := os.ReadFile(scriptPath); err == nil {
+			result.Files[filepath.Join("scripts", script)] = data
+		}
+	}
+
 	return result, nil
 }
 

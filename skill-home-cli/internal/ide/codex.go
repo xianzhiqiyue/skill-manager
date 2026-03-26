@@ -59,6 +59,17 @@ func (a *CodexAdapter) InstallSkill(data SkillData) error {
 		}
 	}
 
+	// 写入 scripts
+	if len(data.Scripts) > 0 {
+		scriptDir := filepath.Join(skillPath, "scripts")
+		for name, content := range data.Scripts {
+			scriptPath := filepath.Join(scriptDir, name)
+			if err := writeFile(scriptPath, content); err != nil {
+				return fmt.Errorf("写入 script 失败: %w", err)
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -110,6 +121,18 @@ func ConvertToCodexFormat(s *skill.Skill) SkillData {
 		}
 	}
 
+	// 读取 scripts
+	scripts := make(map[string][]byte)
+	scriptDir := filepath.Join(s.Path, "scripts")
+	if entries, err := os.ReadDir(scriptDir); err == nil {
+		for _, entry := range entries {
+			if !entry.IsDir() {
+				content, _ := os.ReadFile(filepath.Join(scriptDir, entry.Name()))
+				scripts[entry.Name()] = content
+			}
+		}
+	}
+
 	// 构建 manifest YAML
 	manifestYAML := fmt.Sprintf(`---
 name: %s
@@ -125,5 +148,6 @@ description: %s`, s.Manifest.Name, s.Manifest.Version, s.Manifest.Description)
 		Manifest:   []byte(manifestYAML),
 		Body:       s.Body,
 		References: refs,
+		Scripts:    scripts,
 	}
 }
