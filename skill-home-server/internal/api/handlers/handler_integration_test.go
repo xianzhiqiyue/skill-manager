@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -11,8 +12,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/skill-home/server/internal/config"
 	"github.com/skill-home/server/internal/models"
 	"github.com/skill-home/server/internal/storage"
+	"github.com/skill-home/server/pkg/validator"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -485,5 +488,87 @@ func TestListAuditLogsReturnsUserEntriesNewestFirst(t *testing.T) {
 	}
 	if resp.Total != 1 || len(resp.Results) != 1 || resp.Results[0].Action != "skill.rate" {
 		t.Fatalf("unexpected audit log response: %+v", resp)
+	}
+}
+
+func TestPublishVersionReturnsVersionExistsConflict(t *testing.T) {
+	db := newTestDatabase(t)
+	mustExec(t, db.DB, `CREATE UNIQUE INDEX idx_skill_version ON skill_versions(skill_id, version)`)
+
+	user := &models.User{ID: uuid.New(), Username: "testuser", Email: "test@example.com"}
+	if err := db.Create(user).Error; err != nil {
+		t.Fatalf("create user failed: %v", err)
+	}
+
+	skill := models.Skill{
+		ID:            uuid.New(),
+		Namespace:     "skill-home",
+		Name:          "skill-home-manager",
+		OwnerID:       user.ID,
+		Description:   "manager",
+		IsPublic:      true,
+		LatestVersion: "0.2.1",
+	}
+	if err := db.Create(&skill).Error; err != nil {
+		t.Fatalf("create skill failed: %v", err)
+	}
+
+	existingVersion := models.SkillVersion{
+		ID:          uuid.New(),
+		SkillID:     skill.ID,
+		Version:     "0.2.1",
+		StoragePath: "skills/skill-home/skill-home-manager/existing.zip",
+		SizeBytes:   32,
+		ScanStatus:  "pass",
+		ScanResult:  models.JSON{"issues": []any{}},
+		PublishedBy: user.ID,
+		PublishedAt: time.Now(),
+	}
+	if err := db.Create(&existingVersion).Error; err != nil {
+		t.Fatalf("create existing version failed: %v", err)
+	}
+
+	objStorage, err := storage.NewObjectStorage(config.StorageConfig{
+		Type:      "local",
+		LocalPath: t.TempDir(),
+	})
+	if err != nil {
+		t.Fatalf("NewObjectStorage returned error: %v", err)
+	}
+
+	router := newAuthedRouter(user)
+	router.POST("/api/v1/skills/:namespace/:name/versions", PublishVersion(db, objStorage, validator.NewScanner()))
+
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	if err := writer.WriteField("version", "0.2.1"); err != nil {
+		t.Fatalf("WriteField returned error: %v", err)
+	}
+	part, err := writer.CreateFormFile("skill", "skill-home-manager.zip")
+	if err != nil {
+		t.Fatalf("CreateFormFile returned error: %v", err)
+	}
+	if _, err := part.Write(mustZipArchive(t, map[string]string{"SKILL.md": "name: skill-home-manager"})); err != nil {
+		t.Fatalf("part.Write returned error: %v", err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("writer.Close returned error: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/skills/skill-home/skill-home-manager/versions", body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("unexpected status: %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	var resp map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response failed: %v", err)
+	}
+	if got := resp["code"]; got != "VERSION_EXISTS" {
+		t.Fatalf("unexpected code: %#v body=%s", got, rec.Body.String())
 	}
 }
