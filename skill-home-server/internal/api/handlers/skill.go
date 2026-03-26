@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -12,6 +13,7 @@ import (
 	"github.com/skill-home/server/internal/storage"
 	"github.com/skill-home/server/pkg/validator"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // ListSkills 列出技能
@@ -291,7 +293,7 @@ func CreateSkill(db *storage.Database, objStorage *storage.ObjectStorage, scanne
 		}
 
 		if err := db.Transaction(func(tx *gorm.DB) error {
-			if err := tx.Create(&skill).Error; err != nil {
+			if err := createSkillRecord(tx, &skill); err != nil {
 				return err
 			}
 			versionModel.SkillID = skill.ID
@@ -309,6 +311,10 @@ func CreateSkill(db *storage.Database, objStorage *storage.ObjectStorage, scanne
 			})
 		}); err != nil {
 			_ = objStorage.Delete(c, storagePath)
+			if errors.Is(err, errSkillAlreadyExists) || isSkillNamespaceNameConflictError(err) {
+				c.JSON(http.StatusConflict, gin.H{"code": "ALREADY_EXISTS", "message": "Skill already exists"})
+				return
+			}
 			c.JSON(http.StatusInternalServerError, gin.H{"code": "INTERNAL_ERROR", "message": err.Error()})
 			return
 		}
@@ -320,6 +326,17 @@ func CreateSkill(db *storage.Database, objStorage *storage.ObjectStorage, scanne
 			"download_url": fmt.Sprintf("/api/v1/download/%s/%s/%s", namespace, name, versionModel.Version),
 		})
 	}
+}
+
+func createSkillRecord(tx *gorm.DB, skill *models.Skill) error {
+	result := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(skill)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return errSkillAlreadyExists
+	}
+	return nil
 }
 
 // UpdateSkill 更新技能
