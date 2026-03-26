@@ -26,6 +26,7 @@ const (
 
 var (
 	versionPattern        = regexp.MustCompile(`^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$`)
+	errSkillAlreadyExists = errors.New("skill already exists")
 	errSkillVersionExists = errors.New("skill version already exists")
 )
 
@@ -97,6 +98,16 @@ func isSkillVersionConflictError(err error) bool {
 	message := strings.ToLower(err.Error())
 	return strings.Contains(message, "idx_skill_version") ||
 		strings.Contains(message, "skill_versions.skill_id, skill_versions.version")
+}
+
+func isSkillNamespaceNameConflictError(err error) bool {
+	if !isDuplicatedKeyError(err) {
+		return false
+	}
+
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "idx_namespace_name") ||
+		strings.Contains(message, "skills.namespace, skills.name")
 }
 
 func parsePagination(pageRaw, perPageRaw string) (int, int) {

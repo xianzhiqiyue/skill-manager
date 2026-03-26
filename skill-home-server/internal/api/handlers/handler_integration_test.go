@@ -3,6 +3,7 @@ package handlers
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"mime/multipart"
 	"net/http"
@@ -598,5 +599,43 @@ func TestPublishVersionReturnsVersionExistsConflict(t *testing.T) {
 	}
 	if fileCount != 0 {
 		t.Fatalf("expected cleanup after conflict, found %d storage files", fileCount)
+	}
+}
+
+func TestCreateSkillRecordReturnsAlreadyExistsOnConflict(t *testing.T) {
+	db := newTestDatabase(t)
+	mustExec(t, db.DB, `CREATE UNIQUE INDEX idx_namespace_name ON skills(namespace, name)`)
+
+	existing := models.Skill{
+		ID:        uuid.New(),
+		Namespace: "skill-home",
+		Name:      "skill-home-manager",
+		OwnerID:   uuid.New(),
+		IsPublic:  true,
+	}
+	if err := db.Create(&existing).Error; err != nil {
+		t.Fatalf("create existing skill failed: %v", err)
+	}
+
+	candidate := models.Skill{
+		Namespace: "skill-home",
+		Name:      "skill-home-manager",
+		OwnerID:   uuid.New(),
+		IsPublic:  true,
+	}
+
+	err := db.Transaction(func(tx *gorm.DB) error {
+		return createSkillRecord(tx, &candidate)
+	})
+	if !errors.Is(err, errSkillAlreadyExists) {
+		t.Fatalf("expected errSkillAlreadyExists, got %v", err)
+	}
+
+	var skillCount int64
+	if err := db.Model(&models.Skill{}).Where("namespace = ? AND name = ?", "skill-home", "skill-home-manager").Count(&skillCount).Error; err != nil {
+		t.Fatalf("count skills failed: %v", err)
+	}
+	if skillCount != 1 {
+		t.Fatalf("expected exactly 1 skill after conflict, got %d", skillCount)
 	}
 }
