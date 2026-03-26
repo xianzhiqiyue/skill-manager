@@ -170,8 +170,8 @@ func parseArray(s string, a *StringArray) error {
 // SkillRating 技能评分
 type SkillRating struct {
 	ID        uuid.UUID `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
-	SkillID   uuid.UUID `gorm:"type:uuid;not null;index" json:"skill_id"`
-	UserID    uuid.UUID `gorm:"type:uuid;not null;index" json:"user_id"`
+	SkillID   uuid.UUID `gorm:"type:uuid;not null;uniqueIndex:idx_skill_user_rating" json:"skill_id"`
+	UserID    uuid.UUID `gorm:"type:uuid;not null;uniqueIndex:idx_skill_user_rating" json:"user_id"`
 	Rating    int       `gorm:"not null" json:"rating"`
 	Comment   string    `gorm:"size:1000" json:"comment,omitempty"`
 	CreatedAt time.Time `json:"created_at"`

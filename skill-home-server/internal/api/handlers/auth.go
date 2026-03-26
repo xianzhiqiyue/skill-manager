@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"net/http"
 	"time"
 
@@ -10,6 +11,8 @@ import (
 	"github.com/skill-home/server/internal/models"
 	"github.com/skill-home/server/internal/storage"
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // RegisterRequest 注册请求
@@ -71,8 +74,15 @@ func Register(db *storage.Database) gin.HandlerFunc {
 			Password: string(passwordHash),
 		}
 
-		if err := db.Create(&user).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"code": "INTERNAL_ERROR", "message": err.Error()})
+		if err := createUserRecord(db.DB, &user); err != nil {
+			switch {
+			case errors.Is(err, errEmailExists):
+				c.JSON(http.StatusConflict, gin.H{"code": "EMAIL_EXISTS", "message": "Email already registered"})
+			case errors.Is(err, errUsernameExists):
+				c.JSON(http.StatusConflict, gin.H{"code": "USERNAME_EXISTS", "message": "Username already taken"})
+			default:
+				c.JSON(http.StatusInternalServerError, gin.H{"code": "INTERNAL_ERROR", "message": err.Error()})
+			}
 			return
 		}
 
@@ -98,6 +108,25 @@ func Register(db *storage.Database) gin.HandlerFunc {
 
 		c.JSON(http.StatusCreated, resp)
 	}
+}
+
+func createUserRecord(db *gorm.DB, user *models.User) error {
+	result := db.Clauses(clause.OnConflict{DoNothing: true}).Create(user)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected > 0 {
+		return nil
+	}
+
+	var existing models.User
+	if err := db.Where("email = ?", user.Email).First(&existing).Error; err == nil {
+		return errEmailExists
+	}
+	if err := db.Where("username = ?", user.Username).First(&existing).Error; err == nil {
+		return errUsernameExists
+	}
+	return gorm.ErrDuplicatedKey
 }
 
 // Login 用户登录
