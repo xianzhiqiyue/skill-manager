@@ -5,6 +5,8 @@
 *.so
 *.dylib
 server
+!skill-home-server/cmd/server/
+!skill-home-server/cmd/server/main.go
 skill-home
 !skill-home-cli/cmd/skill-home/
 !skill-home-cli/cmd/skill-home/main.go

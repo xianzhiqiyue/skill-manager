@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -31,6 +32,16 @@ func GetCurrentUser(c *gin.Context) {
 	})
 }
 
+// APIKeySummaryResponse API Key 列表项
+type APIKeySummaryResponse struct {
+	ID         uuid.UUID  `json:"id"`
+	Name       string     `json:"name"`
+	Prefix     string     `json:"prefix"`
+	LastUsedAt *time.Time `json:"last_used_at,omitempty"`
+	ExpiresAt  *time.Time `json:"expires_at,omitempty"`
+	CreatedAt  time.Time  `json:"created_at"`
+}
+
 // GetUserSkills 获取用户技能列表
 func GetUserSkills(db *storage.Database) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -46,20 +57,50 @@ func GetUserSkills(db *storage.Database) gin.HandlerFunc {
 	}
 }
 
+// ListAPIKeys 获取当前用户的 API Key 列表
+func ListAPIKeys(db *storage.Database) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user := c.MustGet("user").(*models.User)
+
+		var apiKeys []models.APIKey
+		if err := db.
+			Where("user_id = ?", user.ID).
+			Order("created_at DESC").
+			Find(&apiKeys).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"code": "INTERNAL_ERROR", "message": err.Error()})
+			return
+		}
+
+		response := make([]APIKeySummaryResponse, 0, len(apiKeys))
+		for _, apiKey := range apiKeys {
+			response = append(response, APIKeySummaryResponse{
+				ID:         apiKey.ID,
+				Name:       apiKey.Name,
+				Prefix:     apiKey.Prefix,
+				LastUsedAt: apiKey.LastUsedAt,
+				ExpiresAt:  apiKey.ExpiresAt,
+				CreatedAt:  apiKey.CreatedAt,
+			})
+		}
+
+		c.JSON(http.StatusOK, response)
+	}
+}
+
 // CreateAPIKeyRequest 创建 API Key 请求
 type CreateAPIKeyRequest struct {
-	Name      string `json:"name"`
+	Name      string     `json:"name"`
 	ExpiresAt *time.Time `json:"expires_at,omitempty"`
 }
 
 // CreateAPIKeyResponse 创建 API Key 响应
 type CreateAPIKeyResponse struct {
-	ID        uuid.UUID `json:"id"`
-	Name      string    `json:"name"`
-	Key       string    `json:"key"` // 仅创建时返回
-	Prefix    string    `json:"prefix"`
+	ID        uuid.UUID  `json:"id"`
+	Name      string     `json:"name"`
+	Key       string     `json:"key"` // 仅创建时返回
+	Prefix    string     `json:"prefix"`
 	ExpiresAt *time.Time `json:"expires_at,omitempty"`
-	CreatedAt time.Time `json:"created_at"`
+	CreatedAt time.Time  `json:"created_at"`
 }
 
 // CreateAPIKey 创建 API Key
@@ -72,6 +113,11 @@ func CreateAPIKey(db *storage.Database) gin.HandlerFunc {
 		}
 
 		user := c.MustGet("user").(*models.User)
+		name := strings.TrimSpace(req.Name)
+		if name == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"code": "INVALID_INPUT", "message": "name is required"})
+			return
+		}
 
 		// 生成 API Key
 		key, err := generateAPIKey()
@@ -88,7 +134,7 @@ func CreateAPIKey(db *storage.Database) gin.HandlerFunc {
 		apiKey := models.APIKey{
 			UserID:    user.ID,
 			KeyHash:   string(keyHash),
-			Name:      req.Name,
+			Name:      name,
 			Prefix:    key[:8],
 			ExpiresAt: req.ExpiresAt,
 		}
