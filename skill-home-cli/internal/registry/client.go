@@ -202,6 +202,31 @@ func (c *Client) ListVersions(namespace, name string) ([]SkillVersion, error) {
 
 // Publish 发布技能
 func (c *Client) Publish(skillPath string, req *PublishRequest) (*PublishResponse, error) {
+	resp, err := c.publishArchive("/api/v1/skills", skillPath, req)
+	if err != nil {
+		if apiErr, ok := err.(*APIError); ok {
+			if apiErr.Code == "ALREADY_EXISTS" && req.Namespace != "" && req.Name != "" {
+				return c.publishVersion(skillPath, req)
+			}
+			if apiErr.Code == "VALIDATION_FAILED" {
+				return nil, fmt.Errorf("安全扫描失败: %s", apiErr.Message)
+			}
+		}
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+func (c *Client) publishVersion(skillPath string, req *PublishRequest) (*PublishResponse, error) {
+	path := fmt.Sprintf("/api/v1/skills/%s/%s/versions", req.Namespace, req.Name)
+	return c.publishArchive(path, skillPath, &PublishRequest{
+		Version: req.Version,
+		Force:   req.Force,
+	})
+}
+
+func (c *Client) publishArchive(path, skillPath string, req *PublishRequest) (*PublishResponse, error) {
 	// 创建 multipart form
 	var buf bytes.Buffer
 	writer := multipart.NewWriter(&buf)
@@ -274,17 +299,13 @@ func (c *Client) Publish(skillPath string, req *PublishRequest) (*PublishRespons
 		"Content-Type": writer.FormDataContentType(),
 	}
 
-	resp, err := c.doRequest("POST", "/api/v1/skills", &buf, headers)
+	resp, err := c.doRequest("POST", path, &buf, headers)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
 
 	if err := c.handleError(resp); err != nil {
-		// 处理验证错误
-		if apiErr, ok := err.(*APIError); ok && apiErr.Code == "VALIDATION_FAILED" {
-			return nil, fmt.Errorf("安全扫描失败: %s", apiErr.Message)
-		}
 		return nil, err
 	}
 
