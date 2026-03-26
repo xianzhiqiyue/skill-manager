@@ -69,6 +69,7 @@ func GetSkill(db *storage.Database) gin.HandlerFunc {
 		}
 
 		// 检查权限
+		var currentUser *models.User
 		if !skill.IsPublic {
 			user, exists := c.Get("user")
 			if !exists {
@@ -80,16 +81,16 @@ func GetSkill(db *storage.Database) gin.HandlerFunc {
 				c.JSON(http.StatusForbidden, gin.H{"code": "FORBIDDEN", "message": "Access denied"})
 				return
 			}
+			currentUser = owner
+		} else if user, exists := c.Get("user"); exists {
+			if viewer, ok := user.(*models.User); ok {
+				currentUser = viewer
+			}
 		}
 
-		populateSkillComputedFields(&skill)
-		if user, exists := c.Get("user"); exists {
-			if currentUser, ok := user.(*models.User); ok {
-				if err := loadUserRating(db, &skill, &currentUser.ID); err != nil {
-					c.JSON(http.StatusInternalServerError, gin.H{"code": "INTERNAL_ERROR", "message": err.Error()})
-					return
-				}
-			}
+		if err := populateSkillDetailResponse(db, &skill, currentUser); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"code": "INTERNAL_ERROR", "message": err.Error()})
+			return
 		}
 
 		c.JSON(http.StatusOK, skill)
@@ -276,7 +277,7 @@ func CreateSkill(db *storage.Database, objStorage *storage.ObjectStorage, scanne
 			Name:        name,
 			OwnerID:     user.ID,
 			Description: c.PostForm("description"),
-			Tags:        []string{},
+			Tags:        models.StringArray(parseTagList(c.PostForm("tags"))),
 			License:     c.PostForm("license"),
 			IsPublic:    strings.EqualFold(c.DefaultPostForm("is_public", "true"), "true"),
 		}
@@ -349,7 +350,7 @@ func UpdateSkill(db *storage.Database) gin.HandlerFunc {
 
 		// 更新字段
 		skill.Description = req.Description
-		skill.Tags = req.Tags
+		skill.Tags = models.StringArray(normalizeTags(req.Tags))
 		skill.License = req.License
 		skill.IsPublic = req.IsPublic
 		if req.IsDeprecated != nil {

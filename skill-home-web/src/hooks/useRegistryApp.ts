@@ -1,17 +1,24 @@
 import { startTransition, useDeferredValue, useEffect, useState } from 'react';
 
 import {
+  addCommunityTag,
+  createAPIKey,
   deleteSkill,
   deleteSkillVersion,
   fetchCurrentUser,
   fetchHealth,
+  fetchMyAPIKeys,
   fetchMySkills,
   fetchSkillDetail,
   fetchSkills,
   loginUser,
   publishSkill,
   registerUser,
+  removeCommunityTag,
+  revokeAPIKey,
   updateSkill,
+  type APIKeyCreateResponse,
+  type APIKeySummary,
   type AuthResponse,
   type AuthUser,
   type FetchSkillsParams,
@@ -20,13 +27,18 @@ import {
   type SkillDetail,
   type SkillSummary,
 } from '../api';
+import {
+  defaultCatalogFilters,
+  parseCatalogSearch,
+  toCatalogSearch,
+  type CatalogFilters,
+  type CatalogSort,
+  type CatalogView,
+} from '../lib/catalogState';
 import { parseTags, skillKey } from '../lib/format';
-import { buildSkillPath, type AppRoute } from '../lib/routes';
+import { buildAuthPath, buildSkillPath, parseAuthRedirect, type AppRoute } from '../lib/routes';
 
 const TOKEN_STORAGE_KEY = 'skill-home-web-token';
-
-export type CatalogSort = NonNullable<FetchSkillsParams['sort']>;
-export type CatalogView = 'cards' | 'list';
 
 function loadStoredToken() {
   if (typeof window === 'undefined') {
@@ -39,21 +51,47 @@ function uniq(values: string[]) {
   return Array.from(new Set(values.filter(Boolean)));
 }
 
+type APIKeyExpiryPreset = 'never' | '7d' | '30d' | '90d' | 'custom';
+
+function getExpiresAtFromPreset(preset: APIKeyExpiryPreset) {
+  if (preset === 'never') {
+    return undefined;
+  }
+
+  if (preset === 'custom') {
+    return undefined;
+  }
+
+  const days = preset === '7d' ? 7 : preset === '30d' ? 30 : 90;
+  return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+}
+
+function toISOStringFromLocalDateTime(value: string) {
+  if (!value) {
+    return undefined;
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return undefined;
+  }
+
+  return date.toISOString();
+}
+
 export function useRegistryApp(
   route: AppRoute,
+  locationSearch: string,
   navigate: (path: string, options?: { replace?: boolean }) => void,
 ) {
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [healthError, setHealthError] = useState<string | null>(null);
 
-  const [catalogFilters, setCatalogFilters] = useState({
-    query: '',
-    namespace: 'all',
-    tag: 'all',
-    license: 'all',
-    sort: 'downloads' as CatalogSort,
-    view: 'list' as CatalogView,
-  });
+  const [catalogFilters, setCatalogFilters] = useState<CatalogFilters>(() =>
+    route.name === 'skills' || route.name === 'skill-tab'
+      ? parseCatalogSearch(locationSearch)
+      : defaultCatalogFilters,
+  );
   const deferredQuery = useDeferredValue(catalogFilters.query);
 
   const [skills, setSkills] = useState<SkillSummary[]>([]);
@@ -62,13 +100,16 @@ export function useRegistryApp(
   const [skillsError, setSkillsError] = useState<string | null>(null);
   const [catalogNonce, setCatalogNonce] = useState(0);
 
-  const routeSkillKey =
-    route.name === 'skill' ? `${route.namespace}/${route.skillName}` : null;
+  const routeSkillKey = route.name === 'skill-tab' ? `${route.namespace}/${route.skillName}` : null;
 
   const [detailSkill, setDetailSkill] = useState<SkillDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [detailNonce, setDetailNonce] = useState(0);
+  const [communityTagSaving, setCommunityTagSaving] = useState(false);
+  const [communityTagRemoving, setCommunityTagRemoving] = useState<string | null>(null);
+  const [communityTagError, setCommunityTagError] = useState<string | null>(null);
+  const [communityTagSuccess, setCommunityTagSuccess] = useState<string | null>(null);
 
   const [token, setToken] = useState(loadStoredToken);
   const [authLoading, setAuthLoading] = useState(false);
@@ -86,6 +127,19 @@ export function useRegistryApp(
   const [accountNonce, setAccountNonce] = useState(0);
 
   const [mySkills, setMySkills] = useState<SkillSummary[]>([]);
+  const [apiKeys, setAPIKeys] = useState<APIKeySummary[]>([]);
+  const [apiKeysLoading, setAPIKeysLoading] = useState(false);
+  const [apiKeysError, setAPIKeysError] = useState<string | null>(null);
+  const [apiKeysSuccess, setAPIKeysSuccess] = useState<string | null>(null);
+  const [apiKeysNonce, setAPIKeysNonce] = useState(0);
+  const [apiKeyCreating, setAPIKeyCreating] = useState(false);
+  const [apiKeyRevoking, setAPIKeyRevoking] = useState<string | null>(null);
+  const [revealedAPIKey, setRevealedAPIKey] = useState<APIKeyCreateResponse | null>(null);
+  const [apiKeyForm, setAPIKeyForm] = useState({
+    name: '',
+    expiryPreset: 'never' as APIKeyExpiryPreset,
+    customExpiresAt: '',
+  });
   const [managedSkillKey, setManagedSkillKey] = useState<string | null>(null);
   const [managedSkill, setManagedSkill] = useState<SkillDetail | null>(null);
   const [manageLoading, setManageLoading] = useState(false);
@@ -112,6 +166,7 @@ export function useRegistryApp(
     description: '',
     version: '0.1.0',
     license: 'MIT',
+    tags: '',
     isPublic: true,
   });
   const [publishFile, setPublishFile] = useState<File | null>(null);
@@ -136,6 +191,32 @@ export function useRegistryApp(
     licenseCount: licenseOptions.length,
     tagCount: tagOptions.length,
   };
+
+  useEffect(() => {
+    if (route.name !== 'skills' && route.name !== 'skill-tab') {
+      return;
+    }
+
+    const nextFilters = parseCatalogSearch(locationSearch);
+    setCatalogFilters((current) => {
+      const currentSearch = toCatalogSearch(current);
+      const nextSearch = toCatalogSearch(nextFilters);
+      return currentSearch === nextSearch ? current : nextFilters;
+    });
+  }, [locationSearch, route.name]);
+
+  useEffect(() => {
+    if (route.name !== 'skills') {
+      return;
+    }
+
+    const nextSearch = toCatalogSearch(catalogFilters);
+    const currentSearch = locationSearch || '';
+
+    if (nextSearch !== currentSearch) {
+      navigate(`/skills${nextSearch}`, { replace: true });
+    }
+  }, [catalogFilters, locationSearch, navigate, route.name]);
 
   useEffect(() => {
     let disposed = false;
@@ -203,6 +284,10 @@ export function useRegistryApp(
       setDetailSkill(null);
       setDetailError(null);
       setDetailLoading(false);
+      setCommunityTagError(null);
+      setCommunityTagSuccess(null);
+      setCommunityTagSaving(false);
+      setCommunityTagRemoving(null);
       return;
     }
 
@@ -246,6 +331,7 @@ export function useRegistryApp(
     if (!token) {
       setCurrentUser(null);
       setMySkills([]);
+      setAPIKeys([]);
       setAccountError(null);
       setManagedSkillKey(null);
       setManagedSkill(null);
@@ -290,6 +376,51 @@ export function useRegistryApp(
   }, [accountNonce, token]);
 
   useEffect(() => {
+    if (!token) {
+      setAPIKeys([]);
+      setAPIKeysLoading(false);
+      setAPIKeysError(null);
+      setAPIKeysSuccess(null);
+      setAPIKeyCreating(false);
+      setAPIKeyRevoking(null);
+      setRevealedAPIKey(null);
+      return;
+    }
+
+    let cancelled = false;
+    setAPIKeysLoading(true);
+    setAPIKeysError(null);
+
+    fetchMyAPIKeys(token)
+      .then((data) => {
+        if (cancelled) {
+          return;
+        }
+
+        setAPIKeys(data);
+        setAPIKeysLoading(false);
+      })
+      .catch((error: Error) => {
+        if (cancelled) {
+          return;
+        }
+
+        setAPIKeysError(error.message);
+        setAPIKeysLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [apiKeysNonce, token]);
+
+  useEffect(() => {
+    if (route.name === 'skill-settings') {
+      const nextKey = `${route.namespace}/${route.skillName}`;
+      setManagedSkillKey((current) => (current === nextKey ? current : nextKey));
+      return;
+    }
+
     if (!mySkills.length) {
       setManagedSkillKey(null);
       setManagedSkill(null);
@@ -300,7 +431,7 @@ export function useRegistryApp(
     if (!exists) {
       setManagedSkillKey(skillKey(mySkills[0]));
     }
-  }, [managedSkillKey, mySkills]);
+  }, [managedSkillKey, mySkills, route]);
 
   useEffect(() => {
     if (!token || !managedSkillKey) {
@@ -363,22 +494,25 @@ export function useRegistryApp(
   }
 
   function resetCatalogFilters() {
-    setCatalogFilters({
-      query: '',
-      namespace: 'all',
-      tag: 'all',
-      license: 'all',
-      sort: 'downloads',
-      view: 'list',
-    });
+    setCatalogFilters(defaultCatalogFilters);
   }
 
   function openSkill(namespace: string, name: string) {
-    navigate(buildSkillPath(namespace, name));
+    const search = locationSearch || toCatalogSearch(catalogFilters);
+    navigate(`${buildSkillPath(namespace, name)}${search}`);
   }
 
   function returnToCatalog() {
-    navigate('/skills');
+    const search = locationSearch || toCatalogSearch(catalogFilters);
+    navigate(`/skills${search}`);
+  }
+
+  function getCurrentPath() {
+    if (typeof window === 'undefined') {
+      return '/';
+    }
+
+    return `${window.location.pathname || '/'}${window.location.search || ''}`;
   }
 
   async function submitAuth(mode: 'login' | 'register') {
@@ -411,7 +545,7 @@ export function useRegistryApp(
       }));
       setAuthSuccess(mode === 'register' ? '注册成功，已自动登录。' : '登录成功。');
       setAccountNonce((value) => value + 1);
-      navigate('/console');
+      navigate(parseAuthRedirect(locationSearch) || '/settings/profile');
     } catch (error) {
       setAuthError(error instanceof Error ? error.message : '请求失败');
     } finally {
@@ -423,20 +557,75 @@ export function useRegistryApp(
     setToken('');
     setCurrentUser(null);
     setMySkills([]);
+    setAPIKeys([]);
     setManagedSkillKey(null);
     setManagedSkill(null);
     setManageError(null);
     setManageSuccess(null);
+    setAPIKeysError(null);
+    setAPIKeysSuccess(null);
+    setRevealedAPIKey(null);
     setAuthSuccess('已退出登录。');
     setPublishSuccess(null);
     setPublishError(null);
     navigate('/');
   }
 
+  async function submitAPIKeyCreate() {
+    if (!token) {
+      setAPIKeysError('请先登录，再创建 API Key。');
+      navigate(buildAuthPath('login', getCurrentPath()));
+      return;
+    }
+
+    const name = apiKeyForm.name.trim();
+    if (!name) {
+      setAPIKeysError('请先填写 API Key 名称。');
+      return;
+    }
+
+    const expiresAt =
+      apiKeyForm.expiryPreset === 'custom'
+        ? toISOStringFromLocalDateTime(apiKeyForm.customExpiresAt)
+        : getExpiresAtFromPreset(apiKeyForm.expiryPreset);
+    if (apiKeyForm.expiryPreset === 'custom' && !expiresAt) {
+      setAPIKeysError('请填写有效的自定义到期时间。');
+      return;
+    }
+    if (expiresAt && new Date(expiresAt).getTime() <= Date.now()) {
+      setAPIKeysError('到期时间必须晚于当前时间。');
+      return;
+    }
+
+    setAPIKeyCreating(true);
+    setAPIKeysError(null);
+    setAPIKeysSuccess(null);
+
+    try {
+      const response = await createAPIKey(token, {
+        name,
+        expiresAt,
+      });
+
+      setRevealedAPIKey(response);
+      setAPIKeysSuccess('API Key 已生成，请立即复制并妥善保存。');
+      setAPIKeyForm({
+        name: '',
+        expiryPreset: 'never',
+        customExpiresAt: '',
+      });
+      setAPIKeysNonce((value) => value + 1);
+    } catch (error) {
+      setAPIKeysError(error instanceof Error ? error.message : '创建 API Key 失败');
+    } finally {
+      setAPIKeyCreating(false);
+    }
+  }
+
   async function submitPublish() {
     if (!token) {
       setPublishError('请先登录，再发布 skill。');
-      navigate('/login');
+      navigate(buildAuthPath('login', getCurrentPath()));
       return;
     }
 
@@ -456,6 +645,7 @@ export function useRegistryApp(
         description: publishForm.description.trim(),
         version: publishForm.version.trim(),
         license: publishForm.license.trim(),
+        tags: parseTags(publishForm.tags),
         isPublic: publishForm.isPublic,
         archive: publishFile,
       });
@@ -466,6 +656,7 @@ export function useRegistryApp(
         name: '',
         description: '',
         version: '0.1.0',
+        tags: '',
       }));
       setPublishFile(null);
       setAccountNonce((value) => value + 1);
@@ -535,7 +726,9 @@ export function useRegistryApp(
       setAccountNonce((value) => value + 1);
       setCatalogNonce((value) => value + 1);
       setDetailNonce((value) => value + 1);
-      if (route.name === 'skill' && route.namespace === managedSkill.namespace && route.skillName === managedSkill.name) {
+      if (route.name === 'skill-settings' && route.namespace === managedSkill.namespace && route.skillName === managedSkill.name) {
+        navigate('/settings/profile');
+      } else if (route.name === 'skill-tab' && route.namespace === managedSkill.namespace && route.skillName === managedSkill.name) {
         navigate('/skills');
       }
     } catch (error) {
@@ -573,6 +766,89 @@ export function useRegistryApp(
     }
   }
 
+  async function removeAPIKey(id: string) {
+    if (!token) {
+      return;
+    }
+
+    const target = apiKeys.find((item) => item.id === id);
+    const label = target?.name || target?.prefix || '当前 API Key';
+    if (!window.confirm(`确认撤销 ${label} 吗？撤销后依赖它的脚本和集成会立即失效。`)) {
+      return;
+    }
+
+    setAPIKeyRevoking(id);
+    setAPIKeysError(null);
+    setAPIKeysSuccess(null);
+
+    try {
+      await revokeAPIKey(token, id);
+      setAPIKeys((current) => current.filter((item) => item.id !== id));
+      setAPIKeysSuccess('API Key 已撤销。');
+      if (revealedAPIKey?.id === id) {
+        setRevealedAPIKey(null);
+      }
+    } catch (error) {
+      setAPIKeysError(error instanceof Error ? error.message : '撤销 API Key 失败');
+    } finally {
+      setAPIKeyRevoking(null);
+    }
+  }
+
+  async function submitCommunityTag(rawTag: string) {
+    if (!routeSkillKey || !detailSkill) {
+      return;
+    }
+
+    if (!token) {
+      setCommunityTagError('请先登录，再添加社区标签。');
+      navigate(buildAuthPath('login', getCurrentPath()));
+      return;
+    }
+
+    const tag = parseTags(rawTag)[0]?.trim();
+    if (!tag) {
+      setCommunityTagError('请先输入一个社区标签。');
+      return;
+    }
+
+    setCommunityTagSaving(true);
+    setCommunityTagError(null);
+    setCommunityTagSuccess(null);
+
+    try {
+      const [namespace, name] = routeSkillKey.split('/');
+      const response = await addCommunityTag(token, namespace, name, { tag });
+      setDetailSkill(response);
+      setCommunityTagSuccess('社区标签已更新。');
+    } catch (error) {
+      setCommunityTagError(error instanceof Error ? error.message : '添加社区标签失败');
+    } finally {
+      setCommunityTagSaving(false);
+    }
+  }
+
+  async function removeCommunitySkillTag(tag: string) {
+    if (!routeSkillKey || !detailSkill || !token) {
+      return;
+    }
+
+    setCommunityTagRemoving(tag);
+    setCommunityTagError(null);
+    setCommunityTagSuccess(null);
+
+    try {
+      const [namespace, name] = routeSkillKey.split('/');
+      const response = await removeCommunityTag(token, namespace, name, tag);
+      setDetailSkill(response);
+      setCommunityTagSuccess('社区标签已移除。');
+    } catch (error) {
+      setCommunityTagError(error instanceof Error ? error.message : '移除社区标签失败');
+    } finally {
+      setCommunityTagRemoving(null);
+    }
+  }
+
   const relatedSkills =
     detailSkill == null
       ? []
@@ -589,6 +865,18 @@ export function useRegistryApp(
     total: mySkills.length,
     publicCount: mySkills.filter((skill) => skill.is_public !== false).length,
     privateCount: mySkills.filter((skill) => skill.is_public === false).length,
+  };
+
+  const apiKeyStats = {
+    total: apiKeys.length,
+    active: apiKeys.filter((item) => !item.expires_at || new Date(item.expires_at).getTime() > Date.now()).length,
+    expiringSoon: apiKeys.filter((item) => {
+      if (!item.expires_at) {
+        return false;
+      }
+      const delta = new Date(item.expires_at).getTime() - Date.now();
+      return delta > 0 && delta <= 7 * 24 * 60 * 60 * 1000;
+    }).length,
   };
 
   return {
@@ -623,11 +911,31 @@ export function useRegistryApp(
     detailSkill,
     detailLoading,
     detailError,
+    communityTagSaving,
+    communityTagRemoving,
+    communityTagError,
+    communityTagSuccess,
+    submitCommunityTag,
+    removeCommunityTag: removeCommunitySkillTag,
     refreshDetail: () => setDetailNonce((value) => value + 1),
     accountLoading,
     accountError,
     mySkills,
+    apiKeys,
+    apiKeysLoading,
+    apiKeysError,
+    apiKeysSuccess,
+    apiKeyCreating,
+    apiKeyRevoking,
+    revealedAPIKey,
+    setRevealedAPIKey,
+    apiKeyForm,
+    setAPIKeyForm,
+    submitAPIKeyCreate,
+    removeAPIKey,
+    refreshAPIKeys: () => setAPIKeysNonce((value) => value + 1),
     accountStats,
+    apiKeyStats,
     managedSkillKey,
     setManagedSkillKey,
     managedSkill,

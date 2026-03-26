@@ -67,6 +67,4 @@ Thumbs.db
 config.yaml.local
 config.local.yaml
 .cache/*
-.cache/go-build/dc/dc3ad6bbaa7ee1ad7f967ad407e7490bab32a856ddfc44e1b97e87f7bd2d4388-a
-.cache/go-build/dc/dc5b829c94a5b89a33e4aa019560667a1695e4da4c82c773aa2651a282d6f4c8-d
-.cache/go-build/dc/dc5b829c94a5b89a33e4aa019560667a1695e4da4c82c773aa2651a282d6f4c8-d
+.playwright-cli/*

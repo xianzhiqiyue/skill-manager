@@ -31,6 +31,19 @@ export type AuthResponse = {
   };
 };
 
+export type APIKeySummary = {
+  id: string;
+  name: string;
+  prefix: string;
+  last_used_at?: string;
+  expires_at?: string;
+  created_at: string;
+};
+
+export type APIKeyCreateResponse = APIKeySummary & {
+  key: string;
+};
+
 export type SkillSummary = {
   id: string;
   namespace: string;
@@ -57,8 +70,15 @@ export type SkillVersion = {
   created_at?: string;
 };
 
+export type CommunityTagSummary = {
+  tag: string;
+  count: number;
+};
+
 export type SkillDetail = SkillSummary & {
   tags?: string[];
+  community_tags?: CommunityTagSummary[];
+  viewer_tags?: string[];
   owner?: {
     username?: string;
     email?: string;
@@ -90,6 +110,7 @@ export type PublishPayload = {
   description: string;
   version: string;
   license: string;
+  tags: string[];
   isPublic: boolean;
   archive: File;
 };
@@ -112,6 +133,15 @@ export type UpdateSkillPayload = {
 
 export type MessageResponse = {
   message: string;
+};
+
+export type CreateAPIKeyPayload = {
+  name: string;
+  expiresAt?: string;
+};
+
+export type CommunityTagPayload = {
+  tag: string;
 };
 
 type RequestOptions = {
@@ -254,6 +284,60 @@ export function fetchMySkills(token: string) {
   });
 }
 
+export function fetchMyAPIKeys(token: string) {
+  return request<APIKeySummary[]>('/api/v1/user/api-keys', undefined, {
+    token,
+  });
+}
+
+export function createAPIKey(token: string, payload: CreateAPIKeyPayload) {
+  return request<APIKeyCreateResponse>('/api/v1/user/api-keys', undefined, {
+    method: 'POST',
+    token,
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      name: payload.name,
+      expires_at: payload.expiresAt,
+    }),
+  });
+}
+
+export function revokeAPIKey(token: string, id: string) {
+  return request<MessageResponse>(`/api/v1/user/api-keys/${id}`, undefined, {
+    method: 'DELETE',
+    token,
+  });
+}
+
+export function addCommunityTag(
+  token: string,
+  namespace: string,
+  name: string,
+  payload: CommunityTagPayload,
+) {
+  return request<SkillDetail>(`/api/v1/skills/${namespace}/${name}/community-tags`, undefined, {
+    method: 'POST',
+    token,
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function removeCommunityTag(token: string, namespace: string, name: string, tag: string) {
+  return request<SkillDetail>(
+    `/api/v1/skills/${namespace}/${name}/community-tags/${encodeURIComponent(tag)}`,
+    undefined,
+    {
+      method: 'DELETE',
+      token,
+    },
+  );
+}
+
 export function publishSkill(token: string, payload: PublishPayload) {
   const form = new FormData();
   form.append('namespace', payload.namespace);
@@ -261,6 +345,7 @@ export function publishSkill(token: string, payload: PublishPayload) {
   form.append('description', payload.description);
   form.append('version', payload.version);
   form.append('license', payload.license);
+  form.append('tags', payload.tags.join(','));
   form.append('is_public', payload.isPublic ? 'true' : 'false');
   form.append('skill', payload.archive);
 

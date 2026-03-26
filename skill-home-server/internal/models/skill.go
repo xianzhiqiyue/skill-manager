@@ -13,28 +13,30 @@ import (
 
 // Skill 技能模型
 type Skill struct {
-	ID            uuid.UUID      `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
-	Namespace     string         `gorm:"size:64;not null;index:idx_namespace_name,unique" json:"namespace"`
-	Name          string         `gorm:"size:64;not null;index:idx_namespace_name,unique" json:"name"`
-	OwnerID       uuid.UUID      `gorm:"type:uuid;not null;index" json:"owner_id"`
-	Description   string         `gorm:"size:500" json:"description"`
-	DescriptionZh string         `gorm:"size:500" json:"description_zh,omitempty"`
-	Author        string         `gorm:"size:255" json:"author,omitempty"`
-	Tags          StringArray    `gorm:"type:text[]" json:"tags,omitempty"`
-	License       string         `gorm:"size:50" json:"license,omitempty"`
-	Homepage      string         `gorm:"size:500" json:"homepage,omitempty"`
-	Repository    string         `gorm:"size:500" json:"repository,omitempty"`
-	DownloadCount int64          `gorm:"default:0" json:"download_count"`
-	RatingSum     int64          `gorm:"default:0" json:"-"`
-	RatingCount   int64          `gorm:"default:0" json:"rating_count"`
-	Rating        float64        `gorm:"-" json:"rating"`
-	IsPublic      bool           `gorm:"default:true" json:"is_public"`
-	IsDeprecated  bool           `gorm:"default:false" json:"is_deprecated"`
-	LatestVersion string         `gorm:"size:20" json:"latest_version,omitempty"`
-	CreatedAt     time.Time      `json:"created_at"`
-	UpdatedAt     time.Time      `json:"updated_at"`
-	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
-	UserRating    *SkillRating   `gorm:"-" json:"user_rating,omitempty"`
+	ID            uuid.UUID                  `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
+	Namespace     string                     `gorm:"size:64;not null;index:idx_namespace_name,unique" json:"namespace"`
+	Name          string                     `gorm:"size:64;not null;index:idx_namespace_name,unique" json:"name"`
+	OwnerID       uuid.UUID                  `gorm:"type:uuid;not null;index" json:"owner_id"`
+	Description   string                     `gorm:"size:500" json:"description"`
+	DescriptionZh string                     `gorm:"size:500" json:"description_zh,omitempty"`
+	Author        string                     `gorm:"size:255" json:"author,omitempty"`
+	Tags          StringArray                `gorm:"type:text[]" json:"tags,omitempty"`
+	License       string                     `gorm:"size:50" json:"license,omitempty"`
+	Homepage      string                     `gorm:"size:500" json:"homepage,omitempty"`
+	Repository    string                     `gorm:"size:500" json:"repository,omitempty"`
+	DownloadCount int64                      `gorm:"default:0" json:"download_count"`
+	RatingSum     int64                      `gorm:"default:0" json:"-"`
+	RatingCount   int64                      `gorm:"default:0" json:"rating_count"`
+	Rating        float64                    `gorm:"-" json:"rating"`
+	IsPublic      bool                       `gorm:"default:true" json:"is_public"`
+	IsDeprecated  bool                       `gorm:"default:false" json:"is_deprecated"`
+	LatestVersion string                     `gorm:"size:20" json:"latest_version,omitempty"`
+	CreatedAt     time.Time                  `json:"created_at"`
+	UpdatedAt     time.Time                  `json:"updated_at"`
+	DeletedAt     gorm.DeletedAt             `gorm:"index" json:"-"`
+	UserRating    *SkillRating               `gorm:"-" json:"user_rating,omitempty"`
+	CommunityTags []SkillCommunityTagSummary `gorm:"-" json:"community_tags,omitempty"`
+	ViewerTags    []string                   `gorm:"-" json:"viewer_tags,omitempty"`
 
 	// 关联
 	Owner    User           `gorm:"foreignKey:OwnerID" json:"owner,omitempty"`

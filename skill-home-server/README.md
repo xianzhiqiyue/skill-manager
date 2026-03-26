@@ -57,6 +57,7 @@ go run cmd/server/main.go
 |------|------|------|
 | GET | /api/v1/user | 当前用户 |
 | GET | /api/v1/user/skills | 我的技能 |
+| GET | /api/v1/user/api-keys | 我的 API Key 列表 |
 | POST | /api/v1/user/api-keys | 创建 API Key |
 | DELETE | /api/v1/user/api-keys/:id | 撤销 API Key |
 | POST | /api/v1/skills | 创建技能 |
