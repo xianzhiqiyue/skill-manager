@@ -7,6 +7,8 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -528,9 +530,10 @@ func TestPublishVersionReturnsVersionExistsConflict(t *testing.T) {
 		t.Fatalf("create existing version failed: %v", err)
 	}
 
+	storageRoot := t.TempDir()
 	objStorage, err := storage.NewObjectStorage(config.StorageConfig{
 		Type:      "local",
-		LocalPath: t.TempDir(),
+		LocalPath: storageRoot,
 	})
 	if err != nil {
 		t.Fatalf("NewObjectStorage returned error: %v", err)
@@ -570,5 +573,30 @@ func TestPublishVersionReturnsVersionExistsConflict(t *testing.T) {
 	}
 	if got := resp["code"]; got != "VERSION_EXISTS" {
 		t.Fatalf("unexpected code: %#v body=%s", got, rec.Body.String())
+	}
+
+	var versionCount int64
+	if err := db.Model(&models.SkillVersion{}).Where("skill_id = ?", skill.ID).Count(&versionCount).Error; err != nil {
+		t.Fatalf("count versions failed: %v", err)
+	}
+	if versionCount != 1 {
+		t.Fatalf("expected exactly 1 version after conflict, got %d", versionCount)
+	}
+
+	var fileCount int
+	err = filepath.WalkDir(storageRoot, func(path string, d os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if !d.IsDir() {
+			fileCount++
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("WalkDir returned error: %v", err)
+	}
+	if fileCount != 0 {
+		t.Fatalf("expected cleanup after conflict, found %d storage files", fileCount)
 	}
 }
