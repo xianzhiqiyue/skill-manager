@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 	"github.com/skill-home/server/internal/storage"
 	"github.com/skill-home/server/pkg/validator"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // PublishVersion 发布新版本
@@ -112,8 +114,12 @@ func PublishVersion(db *storage.Database, objStorage *storage.ObjectStorage, sca
 		}
 
 		if err := db.Transaction(func(tx *gorm.DB) error {
-			if err := tx.Create(&version).Error; err != nil {
-				return err
+			result := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&version)
+			if result.Error != nil {
+				return result.Error
+			}
+			if result.RowsAffected == 0 {
+				return errSkillVersionExists
 			}
 			if err := tx.Model(&skill).Update("latest_version", version.Version).Error; err != nil {
 				return err
@@ -125,7 +131,7 @@ func PublishVersion(db *storage.Database, objStorage *storage.ObjectStorage, sca
 			})
 		}); err != nil {
 			_ = objStorage.Delete(c, storagePath)
-			if isSkillVersionConflictError(err) {
+			if errors.Is(err, errSkillVersionExists) || isSkillVersionConflictError(err) {
 				c.JSON(http.StatusConflict, gin.H{
 					"code":    "VERSION_EXISTS",
 					"message": "Version already exists",
