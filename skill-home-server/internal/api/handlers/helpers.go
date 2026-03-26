@@ -26,8 +26,10 @@ const (
 
 var (
 	versionPattern        = regexp.MustCompile(`^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$`)
+	errEmailExists        = errors.New("email already exists")
 	errSkillAlreadyExists = errors.New("skill already exists")
 	errSkillVersionExists = errors.New("skill version already exists")
+	errUsernameExists     = errors.New("username already exists")
 )
 
 func normalizeNamespace(namespace string) string {

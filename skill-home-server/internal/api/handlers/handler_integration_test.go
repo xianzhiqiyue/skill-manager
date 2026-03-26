@@ -74,6 +74,7 @@ func newTestDatabase(t *testing.T) *storage.Database {
 		created_at DATETIME,
 		updated_at DATETIME
 	)`)
+	mustExec(t, db, `CREATE UNIQUE INDEX idx_skill_user_rating ON skill_ratings(skill_id, user_id)`)
 	mustExec(t, db, `CREATE TABLE skill_versions (
 		id TEXT PRIMARY KEY,
 		skill_id TEXT NOT NULL,
@@ -177,6 +178,73 @@ func TestRateSkillCreatesRatingAndAuditLog(t *testing.T) {
 	}
 	if len(logs) != 1 || logs[0].Action != "skill.rate" {
 		t.Fatalf("unexpected audit logs: %+v", logs)
+	}
+}
+
+func TestRateSkillUpdatesExistingRatingWithoutCreatingDuplicate(t *testing.T) {
+	db := newTestDatabase(t)
+	user := &models.User{ID: uuid.New(), Username: "alice", Email: "alice@example.com"}
+	if err := db.Create(user).Error; err != nil {
+		t.Fatalf("create user failed: %v", err)
+	}
+
+	skill := models.Skill{
+		ID:          uuid.New(),
+		Namespace:   "team",
+		Name:        "reviewer",
+		OwnerID:     user.ID,
+		Description: "code review skill",
+		IsPublic:    true,
+	}
+	if err := db.Create(&skill).Error; err != nil {
+		t.Fatalf("create skill failed: %v", err)
+	}
+
+	existing := models.SkillRating{
+		ID:        uuid.New(),
+		SkillID:   skill.ID,
+		UserID:    user.ID,
+		Rating:    2,
+		Comment:   "old",
+		CreatedAt: time.Now().Add(-time.Hour),
+		UpdatedAt: time.Now().Add(-time.Hour),
+	}
+	if err := db.Create(&existing).Error; err != nil {
+		t.Fatalf("create existing rating failed: %v", err)
+	}
+	if err := db.Model(&models.Skill{}).
+		Where("id = ?", skill.ID).
+		Updates(map[string]interface{}{"rating_sum": 2, "rating_count": 1}).Error; err != nil {
+		t.Fatalf("seed rating aggregate failed: %v", err)
+	}
+
+	router := newAuthedRouter(user)
+	router.POST("/api/v1/skills/:namespace/:name/rating", RateSkill(db))
+
+	body := bytes.NewBufferString(`{"rating":5,"comment":"updated"}`)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/skills/team/reviewer/rating", body)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("unexpected status: %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	var updated models.Skill
+	if err := db.First(&updated, "id = ?", skill.ID).Error; err != nil {
+		t.Fatalf("reload skill failed: %v", err)
+	}
+	if updated.RatingCount != 1 || updated.RatingSum != 5 {
+		t.Fatalf("unexpected rating aggregate after update: %+v", updated)
+	}
+
+	var ratings []models.SkillRating
+	if err := db.Where("skill_id = ?", skill.ID).Find(&ratings).Error; err != nil {
+		t.Fatalf("list ratings failed: %v", err)
+	}
+	if len(ratings) != 1 || ratings[0].Rating != 5 || ratings[0].Comment != "updated" {
+		t.Fatalf("unexpected ratings after update: %+v", ratings)
 	}
 }
 
@@ -637,5 +705,59 @@ func TestCreateSkillRecordReturnsAlreadyExistsOnConflict(t *testing.T) {
 	}
 	if skillCount != 1 {
 		t.Fatalf("expected exactly 1 skill after conflict, got %d", skillCount)
+	}
+}
+
+func TestCreateUserRecordReturnsEmailExistsOnConflict(t *testing.T) {
+	db := newTestDatabase(t)
+	mustExec(t, db.DB, `CREATE UNIQUE INDEX idx_users_email ON users(email)`)
+	mustExec(t, db.DB, `CREATE UNIQUE INDEX idx_users_username ON users(username)`)
+
+	existing := models.User{
+		ID:       uuid.New(),
+		Username: "existing-user",
+		Email:    "existing@example.com",
+		Password: "hash",
+	}
+	if err := db.Create(&existing).Error; err != nil {
+		t.Fatalf("create existing user failed: %v", err)
+	}
+
+	candidate := models.User{
+		Username: "new-user",
+		Email:    "existing@example.com",
+		Password: "hash",
+	}
+
+	err := createUserRecord(db.DB, &candidate)
+	if !errors.Is(err, errEmailExists) {
+		t.Fatalf("expected errEmailExists, got %v", err)
+	}
+}
+
+func TestCreateUserRecordReturnsUsernameExistsOnConflict(t *testing.T) {
+	db := newTestDatabase(t)
+	mustExec(t, db.DB, `CREATE UNIQUE INDEX idx_users_email ON users(email)`)
+	mustExec(t, db.DB, `CREATE UNIQUE INDEX idx_users_username ON users(username)`)
+
+	existing := models.User{
+		ID:       uuid.New(),
+		Username: "existing-user",
+		Email:    "existing@example.com",
+		Password: "hash",
+	}
+	if err := db.Create(&existing).Error; err != nil {
+		t.Fatalf("create existing user failed: %v", err)
+	}
+
+	candidate := models.User{
+		Username: "existing-user",
+		Email:    "new@example.com",
+		Password: "hash",
+	}
+
+	err := createUserRecord(db.DB, &candidate)
+	if !errors.Is(err, errUsernameExists) {
+		t.Fatalf("expected errUsernameExists, got %v", err)
 	}
 }

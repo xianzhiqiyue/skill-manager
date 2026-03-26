@@ -9,6 +9,7 @@ import (
 	"github.com/skill-home/server/internal/models"
 	"github.com/skill-home/server/internal/storage"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type rateSkillRequest struct {
@@ -52,67 +53,61 @@ func RateSkill(db *storage.Database) gin.HandlerFunc {
 		}
 
 		now := time.Now()
+		comment := strings.TrimSpace(req.Comment)
 		userRating := models.SkillRating{}
 		if err := db.Transaction(func(tx *gorm.DB) error {
-			var existing models.SkillRating
-			err := tx.Where("skill_id = ? AND user_id = ?", skill.ID, user.ID).First(&existing).Error
-			switch err {
-			case nil:
-				delta := req.Rating - existing.Rating
-				existing.Rating = req.Rating
-				existing.Comment = strings.TrimSpace(req.Comment)
-				existing.UpdatedAt = now
-				if err := tx.Save(&existing).Error; err != nil {
-					return err
-				}
-				if err := tx.Model(&models.Skill{}).
-					Where("id = ?", skill.ID).
-					Update("rating_sum", gorm.Expr("rating_sum + ?", delta)).Error; err != nil {
-					return err
-				}
-				if err := writeAuditLogTx(tx, c, &user.ID, "skill.rate", resourceTypeSkill, &skill.ID, models.JSON{
-					"namespace": namespace,
-					"name":      name,
-					"rating":    req.Rating,
-					"comment":   strings.TrimSpace(req.Comment),
-				}); err != nil {
-					return err
-				}
-				userRating = existing
-				return nil
-			case gorm.ErrRecordNotFound:
-				newRating := models.SkillRating{
-					SkillID:   skill.ID,
-					UserID:    user.ID,
-					Rating:    req.Rating,
-					Comment:   strings.TrimSpace(req.Comment),
-					CreatedAt: now,
-					UpdatedAt: now,
-				}
-				if err := tx.Create(&newRating).Error; err != nil {
-					return err
-				}
-				if err := tx.Model(&models.Skill{}).
-					Where("id = ?", skill.ID).
-					Updates(map[string]interface{}{
-						"rating_sum":   gorm.Expr("rating_sum + ?", req.Rating),
-						"rating_count": gorm.Expr("rating_count + 1"),
-					}).Error; err != nil {
-					return err
-				}
-				if err := writeAuditLogTx(tx, c, &user.ID, "skill.rate", resourceTypeSkill, &skill.ID, models.JSON{
-					"namespace": namespace,
-					"name":      name,
-					"rating":    req.Rating,
-					"comment":   strings.TrimSpace(req.Comment),
-				}); err != nil {
-					return err
-				}
-				userRating = newRating
-				return nil
-			default:
+			userRating = models.SkillRating{
+				SkillID:   skill.ID,
+				UserID:    user.ID,
+				Rating:    req.Rating,
+				Comment:   comment,
+				CreatedAt: now,
+				UpdatedAt: now,
+			}
+			if err := tx.Clauses(clause.OnConflict{
+				Columns: []clause.Column{
+					{Name: "skill_id"},
+					{Name: "user_id"},
+				},
+				DoUpdates: clause.Assignments(map[string]interface{}{
+					"rating":     req.Rating,
+					"comment":    comment,
+					"updated_at": now,
+				}),
+			}).Create(&userRating).Error; err != nil {
 				return err
 			}
+			if err := tx.Where("skill_id = ? AND user_id = ?", skill.ID, user.ID).First(&userRating).Error; err != nil {
+				return err
+			}
+
+			var aggregate struct {
+				RatingSum   int64 `gorm:"column:rating_sum"`
+				RatingCount int64 `gorm:"column:rating_count"`
+			}
+			if err := tx.Model(&models.SkillRating{}).
+				Select("COALESCE(SUM(rating), 0) AS rating_sum, COUNT(*) AS rating_count").
+				Where("skill_id = ?", skill.ID).
+				Scan(&aggregate).Error; err != nil {
+				return err
+			}
+			if err := tx.Model(&models.Skill{}).
+				Where("id = ?", skill.ID).
+				Updates(map[string]interface{}{
+					"rating_sum":   aggregate.RatingSum,
+					"rating_count": aggregate.RatingCount,
+				}).Error; err != nil {
+				return err
+			}
+			if err := writeAuditLogTx(tx, c, &user.ID, "skill.rate", resourceTypeSkill, &skill.ID, models.JSON{
+				"namespace": namespace,
+				"name":      name,
+				"rating":    req.Rating,
+				"comment":   comment,
+			}); err != nil {
+				return err
+			}
+			return nil
 		}); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"code": "INTERNAL_ERROR", "message": err.Error()})
 			return
