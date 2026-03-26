@@ -28,6 +28,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: skill-home-cli/go.mod
+          cache-dependency-path: skill-home-cli/go.sum
 
       - name: Resolve version
         id: vars
