@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 
 	"github.com/skill-home/cli/internal/registry"
 )
@@ -38,8 +37,8 @@ func newActivityCmd() *cobra.Command {
 }
 
 func runActivity(opts *activityOptions) error {
-	if viper.GetString("registry.api_key") == "" {
-		return fmt.Errorf("未登录，请运行 'skill-home login'")
+	if err := requireRegistryLogin(); err != nil {
+		return err
 	}
 
 	result, err := newRegistryClient().ListAuditLogs(opts.page, opts.perPage, opts.action)

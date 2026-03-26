@@ -54,7 +54,7 @@ normalize_version() {
   local version="${1:-}"
 
   if [ -z "$version" ]; then
-    echo "正在获取最新版本..."
+    echo "正在获取最新版本..." >&2
     version="$(get_latest_version)"
     if [ -z "$version" ]; then
       echo "无法获取最新版本，请检查 GitHub Release 是否已发布" >&2

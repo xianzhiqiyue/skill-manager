@@ -7,10 +7,8 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 
 	"github.com/skill-home/cli/internal/config"
-	"github.com/skill-home/cli/internal/registry"
 	"github.com/skill-home/cli/pkg/archive"
 )
 
@@ -71,12 +69,6 @@ func runPull(skillRef string, opts *pullOptions) error {
 }
 
 func pullSkillRef(skillRef string, opts *pullOptions) (*pulledSkill, error) {
-	apiKey := viper.GetString("registry.api_key")
-	server := viper.GetString("registry.endpoint")
-	if server == "" {
-		server = "https://registry.skill-home.dev"
-	}
-
 	namespace, name, version, err := config.ParseSkillRef(skillRef)
 	if err != nil {
 		return nil, err
@@ -90,12 +82,12 @@ func pullSkillRef(skillRef string, opts *pullOptions) (*pulledSkill, error) {
 	}
 	fmt.Println()
 
-	client := registry.NewClient(server, apiKey)
+	client := newRegistryClient()
 
 	if version == "" {
 		skillInfo, err := client.GetSkill(namespace, name)
 		if err != nil {
-			return nil, fmt.Errorf("获取技能信息失败: %w", err)
+			return nil, fmt.Errorf("获取技能信息失败: %w", wrapRegistryReadError(err))
 		}
 		version = skillInfo.LatestVersion
 		if version == "" {
@@ -131,7 +123,7 @@ func pullSkillRef(skillRef string, opts *pullOptions) (*pulledSkill, error) {
 
 	fmt.Println("正在下载...")
 	if err := client.Download(namespace, name, version, tmpFile); err != nil {
-		return nil, fmt.Errorf("下载失败: %w", err)
+		return nil, fmt.Errorf("下载失败: %w", wrapRegistryReadError(err))
 	}
 	fmt.Println(color.GreenString("✓"), "下载完成")
 

@@ -19,6 +19,9 @@ Skill-Home 是一个完整的 AI Skill 生态系统，包含：
 curl -fsSL http://47.122.112.210:8080/install.sh -o /tmp/skill-home-install.sh
 bash /tmp/skill-home-install.sh
 
+# 升级已安装 CLI
+skill-home self-update
+
 # 2. 注册账号
 curl -X POST https://registry.skill-home.dev/api/v1/auth/register \
   -H "Content-Type: application/json" \
@@ -32,6 +35,8 @@ cd my-first-skill
 skill-home pack -o my-first-skill.zip .
 skill-home push .
 ```
+
+发布和删除远程 skill 需要先登录；公开 skill 的 `pull / install / update / search / info` 不需要登录。
 
 ## 项目结构
 
@@ -118,6 +123,8 @@ POST   /api/v1/user/api-keys            创建 API Key
 DELETE /api/v1/user/api-keys/:id        撤销 API Key
 POST   /api/v1/skills                   发布技能
 POST   /api/v1/skills/:ns/:name/versions 发布版本
+DELETE /api/v1/skills/:ns/:name         删除技能
+DELETE /api/v1/skills/:ns/:name/versions/:version 删除版本
 POST   /api/v1/skills/:ns/:name/rating  为技能评分
 ```
 

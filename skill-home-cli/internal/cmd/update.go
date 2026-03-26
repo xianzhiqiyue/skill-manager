@@ -56,7 +56,7 @@ func runUpdate(opts *updateOptions) error {
 	for _, entry := range entries {
 		skillInfo, err := client.GetSkill(entry.Namespace, entry.Name)
 		if err != nil {
-			fmt.Printf("%s 获取 @%s/%s 失败: %v\n", color.RedString("✗"), entry.Namespace, entry.Name, err)
+			fmt.Printf("%s 获取 @%s/%s 失败: %v\n", color.RedString("✗"), entry.Namespace, entry.Name, wrapRegistryReadError(err))
 			continue
 		}
 		if skillInfo.LatestVersion == "" {

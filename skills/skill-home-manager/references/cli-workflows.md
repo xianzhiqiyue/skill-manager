@@ -112,7 +112,7 @@ skill-home --debug sync /path/to/skill --ide codex --global --mode mirror
 
 ## registry 相关命令
 
-只有在 API Key、endpoint、健康检查都正常时才继续:
+写操作先确认已登录；公开 skill 的读操作可匿名执行:
 
 ```bash
 skill-home login
@@ -120,6 +120,14 @@ skill-home search keyword
 skill-home pull @namespace/name
 skill-home install @namespace/name --ide codex --global --mode mirror
 skill-home push /path/to/skill
+skill-home delete @namespace/name --yes
+skill-home delete-version @namespace/name@1.2.3 --yes
 ```
+
+规则:
+
+- `push`、`delete`、`delete-version` 必须先 `skill-home login`
+- `pull`、`install`、`update`、`search`、`info` 对公开 skill 不要求登录
+- 匿名读取私有 skill 时，如果看到“该 skill 可能是私有的”，先登录再重试
 
 如果 registry 健康检查失败，回退到本地 `validate/sync/export/pack` 工作流。

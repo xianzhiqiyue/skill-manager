@@ -12,7 +12,7 @@ AI Skill 跨平台管理工具，支持 Claude Code、GitHub Copilot、Cursor、
 - 📦 **技能打包**: 将技能打包为可分发的 .zip 文件
 - 🔄 **多 IDE 同步**: 一键同步技能到 Claude Code、GitHub Copilot、Cursor、Codex
 - 🔗 **双模同步**: 支持符号链接(Symlink)和物理镜像两种同步模式
-- ☁️ **注册中心**: 推送、拉取、搜索、详情查看与评分
+- ☁️ **注册中心**: 推送、删除、拉取、搜索、详情查看与评分
 - 📋 **技能列表**: 查看本地和云端已安装的技能
 - 🩺 **环境诊断**: 检查 registry、认证、路径和 IDE 配置
 - 📦 **生命周期管理**: install / uninstall / update
@@ -30,6 +30,13 @@ bash /tmp/skill-home-install.sh
 
 ```bash
 bash /tmp/skill-home-install.sh v0.2.0
+```
+
+升级已安装 CLI：
+
+```bash
+skill-home self-update
+skill-home self-update v0.2.3
 ```
 
 ### 从源码安装
@@ -147,6 +154,7 @@ skill-home sync --global
 | `skill-home sync [path]` | 同步技能到 IDE |
 | `skill-home list` | 列出已安装的技能 |
 | `skill-home doctor` | 诊断本地环境与 registry 配置 |
+| `skill-home self-update [version]` | 更新当前 CLI 到最新或指定版本 |
 | `skill-home activity` | 查看最近的账号活动 |
 
 ### 注册中心命令
@@ -157,6 +165,8 @@ skill-home sync --global
 | `skill-home logout` | 登出 |
 | `skill-home whoami` | 显示当前登录用户 |
 | `skill-home push [path]` | 推送技能到注册中心 |
+| `skill-home delete <skill-ref>` | 删除已发布的远程技能 |
+| `skill-home delete-version <skill-ref>` | 删除已发布的远程技能版本 |
 | `skill-home pull <skill-ref>` | 从注册中心拉取技能 |
 | `skill-home install <skill-ref>` | 拉取并安装到本地 IDE |
 | `skill-home uninstall <skill-ref>` | 从本地 IDE 卸载技能 |
@@ -172,6 +182,12 @@ skill-home sync --global
 - `@user/my-skill` - 指定命名空间
 - `my-skill@1.0.0` - 指定版本
 - `@user/my-skill@1.0.0` - 完整格式
+
+### 注册中心认证边界
+
+- `push`、`delete`、`delete-version`、`rate`、`activity`、`whoami` 需要先执行 `skill-home login`
+- `pull`、`install`、`update`、`search`、`info`、`list --remote` 对公开 skill 不需要登录
+- 访问私有 skill 时，CLI 会提示先执行 `skill-home login` 并确认你有权限
 
 ## 配置
 

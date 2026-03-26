@@ -39,7 +39,7 @@ func runInfo(skillRef string, opts *infoOptions) error {
 	client := newRegistryClient()
 	skill, err := client.GetSkill(namespace, name)
 	if err != nil {
-		return fmt.Errorf("获取技能详情失败: %w", err)
+		return fmt.Errorf("获取技能详情失败: %w", wrapRegistryReadError(err))
 	}
 
 	if len(skill.Versions) == 0 {

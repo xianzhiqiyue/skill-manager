@@ -77,6 +77,30 @@ func TestRegisterServesInstallScriptFromDeployRoot(t *testing.T) {
 	}
 }
 
+func TestRegisterServesInstallScriptHead(t *testing.T) {
+	t.Setenv(envDistDir, "")
+	gin.SetMode(gin.TestMode)
+
+	rootDir := t.TempDir()
+	distDir := filepath.Join(rootDir, "web")
+	writeFile(t, filepath.Join(distDir, "index.html"), "<html>home</html>")
+	writeFile(t, filepath.Join(rootDir, "install.sh"), "#!/usr/bin/env bash\necho install\n")
+
+	router := gin.New()
+	Register(router, distDir)
+
+	req := httptest.NewRequest(http.MethodHead, "/install.sh", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	if contentType := rec.Header().Get("Content-Type"); !strings.Contains(contentType, "shellscript") && !strings.Contains(contentType, "plain") {
+		t.Fatalf("content-type = %q, want shell-compatible content type", contentType)
+	}
+}
+
 func TestRegisterReturns404ForMissingInstallScript(t *testing.T) {
 	t.Setenv(envDistDir, "")
 	gin.SetMode(gin.TestMode)

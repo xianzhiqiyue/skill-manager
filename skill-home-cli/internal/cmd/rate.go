@@ -5,7 +5,6 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 
 	"github.com/skill-home/cli/internal/config"
 	"github.com/skill-home/cli/internal/registry"
@@ -36,8 +35,8 @@ func newRateCmd() *cobra.Command {
 }
 
 func runRate(skillRef string, opts *rateOptions) error {
-	if viper.GetString("registry.api_key") == "" {
-		return fmt.Errorf("未登录，请先运行 'skill-home login'")
+	if err := requireRegistryLogin(); err != nil {
+		return err
 	}
 	if opts.score < 1 || opts.score > 5 {
 		return fmt.Errorf("评分必须在 1 到 5 之间")
