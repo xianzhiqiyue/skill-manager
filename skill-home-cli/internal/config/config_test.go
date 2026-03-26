@@ -9,8 +9,6 @@ import (
 )
 
 func TestInitLoadsSnakeCaseConfigFields(t *testing.T) {
-	t.Parallel()
-
 	viper.Reset()
 	t.Cleanup(viper.Reset)
 
@@ -66,8 +64,6 @@ security:
 }
 
 func TestInitAllowsRegistryEnvOverrides(t *testing.T) {
-	t.Parallel()
-
 	viper.Reset()
 	t.Cleanup(func() {
 		_ = os.Unsetenv("SKILL_HOME_REGISTRY_ENDPOINT")
