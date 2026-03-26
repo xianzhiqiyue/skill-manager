@@ -125,6 +125,13 @@ func PublishVersion(db *storage.Database, objStorage *storage.ObjectStorage, sca
 			})
 		}); err != nil {
 			_ = objStorage.Delete(c, storagePath)
+			if isSkillVersionConflictError(err) {
+				c.JSON(http.StatusConflict, gin.H{
+					"code":    "VERSION_EXISTS",
+					"message": "Version already exists",
+				})
+				return
+			}
 			c.JSON(http.StatusInternalServerError, gin.H{"code": "INTERNAL_ERROR", "message": err.Error()})
 			return
 		}

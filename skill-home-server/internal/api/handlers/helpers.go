@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -71,6 +72,30 @@ func validateVersion(version string) error {
 		return fmt.Errorf("version must be valid semver, e.g. 1.0.0")
 	}
 	return nil
+}
+
+func isDuplicatedKeyError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, gorm.ErrDuplicatedKey) {
+		return true
+	}
+
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "duplicate key value violates unique constraint") ||
+		strings.Contains(message, "unique constraint failed") ||
+		strings.Contains(message, "duplicated key not allowed")
+}
+
+func isSkillVersionConflictError(err error) bool {
+	if !isDuplicatedKeyError(err) {
+		return false
+	}
+
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "idx_skill_version") ||
+		strings.Contains(message, "skill_versions.skill_id, skill_versions.version")
 }
 
 func parsePagination(pageRaw, perPageRaw string) (int, int) {
