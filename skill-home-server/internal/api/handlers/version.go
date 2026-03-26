@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -111,6 +112,7 @@ func PublishVersion(db *storage.Database, objStorage *storage.ObjectStorage, sca
 			ScanStatus:  scanResult.Status,
 			ScanResult:  models.JSON{"issues": scanResult.Issues},
 			PublishedBy: user.ID,
+			PublishedAt: time.Now(),
 		}
 
 		if err := db.Transaction(func(tx *gorm.DB) error {

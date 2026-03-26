@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -290,6 +291,7 @@ func CreateSkill(db *storage.Database, objStorage *storage.ObjectStorage, scanne
 			ScanStatus:  scanResult.Status,
 			ScanResult:  models.JSON{"issues": scanResult.Issues},
 			PublishedBy: user.ID,
+			PublishedAt: time.Now(),
 		}
 
 		if err := db.Transaction(func(tx *gorm.DB) error {
