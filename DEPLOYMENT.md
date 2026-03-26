@@ -34,13 +34,9 @@
 ### CLI 下载
 
 ```bash
-# 下载 CLI
-curl -fsSL -o skill-home http://47.122.112.210:8080/download/cli
-chmod +x skill-home
-sudo mv skill-home /usr/local/bin/
-
-# 或使用 scp
-scp root@47.122.112.210:/opt/skill-home/skill-home /usr/local/bin/
+# 推荐：通过安装脚本从 GitHub Releases 安装
+curl -fsSL https://get.skill-home.dev/install.sh -o /tmp/skill-home-install.sh
+bash /tmp/skill-home-install.sh
 ```
 
 ### CLI 命令
@@ -106,13 +102,13 @@ curl -X POST http://47.122.112.210:8080/api/v1/skills \
   -F "namespace=testuser" \
   -F "name=my-skill" \
   -F "version=0.1.0" \
-  -F "skill=@skill.tar.gz"
+  -F "skill=@skill.zip"
 
 # 5. 搜索技能
 curl "http://47.122.112.210:8080/api/v1/search?q=my-skill"
 
 # 6. 下载技能
-curl -o skill.tar.gz \
+curl -o skill.zip \
   "http://47.122.112.210:8080/api/v1/download/testuser/my-skill/0.1.0"
 ```
 
@@ -377,28 +373,32 @@ make release
 
 ```bash
 # 从 GitHub Releases 自动下载安装最新版本
-curl -sSL https://get.skill-home.dev | sh
+curl -fsSL https://get.skill-home.dev/install.sh -o /tmp/skill-home-install.sh
+bash /tmp/skill-home-install.sh
 
 # 或指定版本
-curl -sSL https://get.skill-home.dev | sh -s v1.0.0
+bash /tmp/skill-home-install.sh v1.0.0
 ```
 
 安装脚本流程：
 1. 自动检测操作系统和架构
-2. 从 GitHub API 获取最新版本
-3. 下载对应平台的二进制文件
-4. 安装到 `/usr/local/bin`
+2. 从 GitHub Release 获取最新版本或指定版本
+3. 下载对应平台的发布压缩包与 `checksums.txt`
+4. 解压并安装到 `~/.local/bin`
 
 ### A.6 手动下载安装
 
 ```bash
 # 从 GitHub Releases 下载对应平台的二进制文件
-wget https://github.com/skill-home/cli/releases/download/v1.0.0/skill-home-linux-amd64.tar.gz
+wget https://github.com/xianzhiqiyue/skill-manager/releases/download/v1.0.0/skill-home-linux-amd64.tar.gz
+wget https://github.com/xianzhiqiyue/skill-manager/releases/download/v1.0.0/checksums.txt
 
 # 解压并安装
+sha256sum -c checksums.txt --ignore-missing
 tar -xzf skill-home-linux-amd64.tar.gz
 chmod +x skill-home
-sudo mv skill-home /usr/local/bin/
+mkdir -p ~/.local/bin
+mv skill-home ~/.local/bin/
 ```
 
 ### A.7 Makefile 命令速查

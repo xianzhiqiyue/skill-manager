@@ -15,11 +15,12 @@ Skill-Home 是一个完整的 AI Skill 生态系统，包含：
 ### 使用已部署的服务
 
 ```bash
-# 1. 下载 CLI
-scp root@47.122.112.210:/opt/skill-home/skill-home /usr/local/bin/
+# 1. 安装 CLI
+curl -fsSL https://get.skill-home.dev/install.sh -o /tmp/skill-home-install.sh
+bash /tmp/skill-home-install.sh
 
 # 2. 注册账号
-curl -X POST http://47.122.112.210:8080/api/v1/auth/register \
+curl -X POST https://registry.skill-home.dev/api/v1/auth/register \
   -H "Content-Type: application/json" \
   -d '{"username":"yourname","email":"you@example.com","password":"yourpass"}'
 
@@ -28,10 +29,8 @@ skill-home init my-first-skill
 cd my-first-skill
 
 # 4. 编辑 SKILL.md，然后打包上传
-skill-home pack -o skill.tar.gz .
-curl -X POST http://47.122.112.210:8080/api/v1/skills \
-  -H "Authorization: Bearer <your-token>" \
-  -F "skill=@skill.tar.gz"
+skill-home pack -o my-first-skill.zip .
+skill-home push .
 ```
 
 ## 项目结构
@@ -88,7 +87,7 @@ skillManage/
 | 技能初始化 | ✅ | SKILL.md 模板生成 |
 | 格式验证 | ✅ | YAML 前端验证 |
 | 安全扫描 | ✅ | 本地规则检测 |
-| 技能打包 | ✅ | tar.gz 压缩 |
+| 技能打包 | ✅ | ZIP 压缩 |
 | IDE 同步 | ✅ | Claude/Copilot/Cursor/Codex |
 | 注册中心 | ✅ | 推送/拉取/搜索/详情 |
 | 生命周期管理 | ✅ | install / uninstall / update |
@@ -212,6 +211,7 @@ systemctl start skill-home  # 启动 API 服务
 | [技术规格文档.md](技术规格文档.md) | 技术设计文档 |
 | [需求梳理.md](需求梳理.md) | 需求分析 |
 | [docs/skill-home-web-redesign-spec.md](docs/skill-home-web-redesign-spec.md) | Web 重构规格文档 |
+| [docs/github-release-topology.md](docs/github-release-topology.md) | GitHub / Registry 发布拓扑 |
 | skill-home-server/README.md | 服务端说明 |
 | skill-home-cli/README.md | CLI 说明 |
 
