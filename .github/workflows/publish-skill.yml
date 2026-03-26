@@ -17,15 +17,16 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
       SKILL_HOME_API_KEY: ${{ secrets.SKILL_HOME_API_KEY }}
       SKILL_HOME_REGISTRY_ENDPOINT: ${{ vars.SKILL_HOME_REGISTRY_ENDPOINT }}
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: skill-home-cli/go.mod
           cache-dependency-path: skill-home-cli/go.sum
