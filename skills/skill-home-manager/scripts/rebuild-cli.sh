@@ -6,4 +6,4 @@ script_dir="$(
   pwd
 )"
 
-exec "$script_dir/bootstrap-cli.sh" --force-rebuild "$@"
+exec "$script_dir/bootstrap-cli.sh" --force-reinstall "$@"

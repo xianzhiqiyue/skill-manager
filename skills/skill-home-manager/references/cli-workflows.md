@@ -2,32 +2,41 @@
 
 ## 常用路径
 
-- 仓库根目录: `/home/zhuyue/code/skill-manager`
-- CLI 源码目录: `/home/zhuyue/code/skill-manager/skill-home-cli`
-- Codex 全局 skills 目录: `/mnt/c/Users/zhuyu/.codex/skills`
-- skill-home 配置文件: `/home/zhuyue/.config/skill-home/config.yaml`
+- 当前工作目录: `pwd`
+- Codex 全局 skills 目录: 优先使用 `$CODEX_HOME/skills`，常见值是 `~/.codex/skills`
+- skill-home 配置文件: `~/.config/skill-home/config.yaml`
+- 公共 CLI 安装脚本: `http://47.122.112.210:8080/install.sh`
+- GitHub Releases: `https://github.com/xianzhiqiyue/skill-manager/releases`
+
+除非用户明确在维护 `skill-manager` 仓库，否则不要假设本机存在任何 `skill-home` 源码目录。
 
 ## 先确保 CLI 可用
 
-优先跑 bundled script，让 skill 自己把 CLI 补齐:
+优先跑 bundled script，让 skill 自己从公开安装入口补齐 CLI:
 
 ```bash
-/home/zhuyue/code/skill-manager/skills/skill-home-manager/scripts/bootstrap-cli.sh
+scripts/bootstrap-cli.sh
 ```
 
-如果 `skill-home` 已经存在且命中 `~/.local/bin/skill-home`、`/usr/local/bin/skill-home` 或当前仓库本地构建产物，这个脚本会直接打印版本并退出。  
-如果 `skill-home` 不存在，或者当前命中的是别的旧二进制，它会在 apt 环境下自动安装 Go、从当前仓库源码构建 CLI，并默认覆盖 `~/.local/bin/skill-home`。
+这个脚本会优先下载部署页的 `install.sh`，部署页失败时回退到 GitHub 上的安装脚本。  
+默认安装到 `~/.local/bin/skill-home`；如果系统级安装，使用 `--system`。
 
 如果你明确需要系统级安装:
 
 ```bash
-/home/zhuyue/code/skill-manager/skills/skill-home-manager/scripts/bootstrap-cli.sh --system
+scripts/bootstrap-cli.sh --system
 ```
 
-如果你明确要强制按当前源码重建:
+如果你明确要刷新到最新发布版本:
 
 ```bash
-/home/zhuyue/code/skill-manager/skills/skill-home-manager/scripts/rebuild-cli.sh
+scripts/rebuild-cli.sh
+```
+
+如果你明确要安装指定版本:
+
+```bash
+scripts/bootstrap-cli.sh --version v0.2.4
 ```
 
 ## 本地 skill 工作流
@@ -37,36 +46,41 @@
 优先用 bundled script:
 
 ```bash
-/home/zhuyue/code/skill-manager/skills/skill-home-manager/scripts/create-local-skill.sh my-skill "我的 skill 描述"
+scripts/create-local-skill.sh my-skill "我的 skill 描述"
 ```
 
-如果要手动执行 CLI，先切到目标父目录再执行:
+默认情况下：
+
+- 如果当前目录下有 `skills/` 子目录，就优先创建到 `./skills`
+- 否则直接创建到当前目录
+
+如果要手动执行 CLI，先切到目标父目录再执行：
 
 ```bash
-cd /home/zhuyue/code/skill-manager/skills
+mkdir -p ./skills
+cd ./skills
 skill-home init my-skill
 ```
 
 如果需要交互式模板:
 
 ```bash
-cd /home/zhuyue/code/skill-manager/skills
 skill-home create my-skill
 ```
 
 ### 2. 校验与扫描
 
 ```bash
-skill-home validate /home/zhuyue/code/skill-manager/skills/my-skill
-skill-home scan /home/zhuyue/code/skill-manager/skills/my-skill
+skill-home validate ./my-skill
+skill-home scan ./my-skill
 ```
 
 ### 3. 预览、导出、打包
 
 ```bash
-skill-home preview /home/zhuyue/code/skill-manager/skills/my-skill -p codex
-skill-home export /home/zhuyue/code/skill-manager/skills/my-skill -p codex
-skill-home pack /home/zhuyue/code/skill-manager/skills/my-skill
+skill-home preview ./my-skill -p codex
+skill-home export ./my-skill -p codex
+skill-home pack ./my-skill
 ```
 
 ### 4. 安装到 Codex
@@ -74,26 +88,21 @@ skill-home pack /home/zhuyue/code/skill-manager/skills/my-skill
 优先使用镜像模式，避免 WSL 符号链接问题:
 
 ```bash
-/home/zhuyue/code/skill-manager/skills/skill-home-manager/scripts/install-to-codex.sh /home/zhuyue/code/skill-manager/skills/my-skill
+scripts/install-to-codex.sh ./my-skill
 
-skill-home sync /home/zhuyue/code/skill-manager/skills/my-skill --ide codex --global --mode mirror
-find /mnt/c/Users/zhuyu/.codex/skills/my-skill -maxdepth 2 -type f
+skill-home sync ./my-skill --ide codex --global --mode mirror
+find "${CODEX_HOME:-$HOME/.codex}/skills/my-skill" -maxdepth 2 -type f
 ```
 
-## 重新构建本地 CLI
+## 刷新本地 CLI
 
-当 `skill-home --help`、`doctor` 或 `sync` 的行为和源码不一致时:
+当 `skill-home --help`、`doctor` 或 `sync` 的行为看起来不像最新 release 时:
 
 ```bash
-/home/zhuyue/code/skill-manager/skills/skill-home-manager/scripts/bootstrap-cli.sh --force-rebuild
+scripts/bootstrap-cli.sh --force-reinstall
 
-/home/zhuyue/code/skill-manager/skills/skill-home-manager/scripts/rebuild-cli.sh
-
-cd /home/zhuyue/code/skill-manager/skill-home-cli
-go test ./...
-make build
-sudo install -m 0755 /home/zhuyue/code/skill-manager/skill-home-cli/bin/skill-home /usr/local/bin/skill-home
-skill-home version
+scripts/rebuild-cli.sh
+skill-home self-update
 ```
 
 ## 环境排障
@@ -105,8 +114,8 @@ skill-home --debug sync /path/to/skill --ide codex --global --mode mirror
 
 优先检查:
 
-- 配置文件是否是 `/home/zhuyue/.config/skill-home/config.yaml`
-- Codex 全局路径是否是 `/mnt/c/Users/zhuyu/.codex/skills`
+- 配置文件是否是 `~/.config/skill-home/config.yaml`
+- Codex 全局路径是否与 `$CODEX_HOME/skills` 或 `~/.codex/skills` 一致
 - 本地 skill 是否通过了 `validate`
 - 是否把“本地目录”误当成“远程 skill 引用”去执行 `install`
 

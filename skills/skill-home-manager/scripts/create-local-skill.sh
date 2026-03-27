@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-repo_root="${REPO_ROOT:-/home/zhuyue/code/skill-manager}"
-default_output_dir="$repo_root/skills"
 script_dir="$(
   cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
   pwd
 )"
+
+default_output_dir="$PWD"
+if [[ -d "$PWD/skills" ]]; then
+  default_output_dir="$PWD/skills"
+fi
 
 usage() {
   cat <<'EOF'
