@@ -133,6 +133,12 @@ skill-home delete @namespace/name --yes
 skill-home delete-version @namespace/name@1.2.3 --yes
 ```
 
+登录补充:
+
+- 直接运行 `skill-home login` 时，CLI 会提示输入邮箱和密码，并自动创建一把本机可复用的 CLI API Key
+- 如果已经在 Web 端 `/settings/api-keys` 创建好了 Key，也可以执行 `skill-home login --api-key "sk_xxx"`
+- 在 CI 或受控环境里，也可以直接注入 `SKILL_HOME_API_KEY`
+
 规则:
 
 - `push`、`delete`、`delete-version` 必须先 `skill-home login`

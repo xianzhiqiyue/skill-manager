@@ -10,6 +10,59 @@ import (
 	"testing"
 )
 
+func TestLoginPostsJSONAndReturnsAuthResponse(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("unexpected method: %s", r.Method)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		if r.URL.Path != "/api/v1/auth/login" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		if got := r.Header.Get("Content-Type"); got != "application/json" {
+			t.Errorf("unexpected content-type: %s", got)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		var req map[string]string
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			t.Errorf("decode request failed: %v", err)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		if req["email"] != "tester@example.com" || req["password"] != "secret-123" {
+			t.Errorf("unexpected request payload: %+v", req)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		_ = json.NewEncoder(w).Encode(AuthResponse{
+			Token: "jwt_token",
+			User: User{
+				ID:       "user-1",
+				Username: "tester",
+				Email:    "tester@example.com",
+			},
+		})
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "")
+	resp, err := client.Login("tester@example.com", "secret-123")
+	if err != nil {
+		t.Fatalf("Login returned error: %v", err)
+	}
+	if resp.Token != "jwt_token" || resp.User.Username != "tester" {
+		t.Fatalf("unexpected response: %+v", resp)
+	}
+}
+
 func TestSearchIncludesNamespaceTagsAndPagination(t *testing.T) {
 	t.Parallel()
 

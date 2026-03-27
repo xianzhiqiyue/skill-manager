@@ -196,6 +196,24 @@ skill-home sync --global
 - `pull`、`install`、`update`、`search`、`info`、`list --remote` 对公开 skill 不需要登录
 - 访问私有 skill 时，CLI 会提示先执行 `skill-home login` 并确认你有权限
 
+### 登录工作流
+
+`skill-home login` 现在支持两种方式：
+
+1. 直接运行 `skill-home login`，按提示输入邮箱和密码。
+CLI 会先登录 skill-home 服务，再自动创建一把 CLI 专用 API Key 并保存到本地配置。
+2. 如果你已经在 Web 端 `/settings/api-keys` 创建好了 Key，也可以执行：
+
+```bash
+skill-home login --api-key "sk_xxx"
+```
+
+也可以直接通过环境变量注入：
+
+```bash
+export SKILL_HOME_API_KEY="sk_xxx"
+```
+
 ## 配置
 
 配置文件位于 `~/.config/skill-home/config.yaml`：

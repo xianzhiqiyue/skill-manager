@@ -74,8 +74,11 @@ export function APIKeysSettingsPage({
   const revealedCurlCommand = model.revealedAPIKey
     ? `curl -H "Authorization: Bearer ${model.revealedAPIKey.key}" ${API_BASE}/api/v1/user`
     : '';
+  const revealedLoginCommand = model.revealedAPIKey
+    ? `skill-home login --api-key "${model.revealedAPIKey.key}"`
+    : '';
   const revealedEnvCommand = model.revealedAPIKey
-    ? `export SKILL_HOME_TOKEN="${model.revealedAPIKey.key}"`
+    ? `export SKILL_HOME_API_KEY="${model.revealedAPIKey.key}"`
     : '';
 
   return (
@@ -280,8 +283,13 @@ export function APIKeysSettingsPage({
                 value={revealedCurlCommand}
               />
               <CommandCard
+                description="适合本地 CLI 首次登录，命令会校验并保存到本机配置。"
+                title="Login CLI"
+                value={revealedLoginCommand}
+              />
+              <CommandCard
                 description="适合放进本地 shell、CI secret 或受控环境变量。"
-                title="Export env var"
+                title="Export CLI env"
                 value={revealedEnvCommand}
               />
             </div>

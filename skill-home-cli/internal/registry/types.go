@@ -24,24 +24,24 @@ type Skill struct {
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
 	LatestVersion string    `json:"latest_version,omitempty"`
-	Owner         *User         `json:"owner,omitempty"`
+	Owner         *User `json:"owner,omitempty"`
 	Versions      []SkillVersion `json:"versions,omitempty"`
-	UserRating    *SkillRating  `json:"user_rating,omitempty"`
+	UserRating    *SkillRating `json:"user_rating,omitempty"`
 }
 
 // SkillVersion 技能版本
 type SkillVersion struct {
-	ID           string    `json:"id"`
-	SkillID      string    `json:"skill_id"`
-	Version      string    `json:"version"`
-	Manifest     *Manifest `json:"manifest"`
-	Dependencies []string  `json:"dependencies,omitempty"`
-	SizeBytes    int64     `json:"size_bytes"`
-	Checksum     string    `json:"checksum"`
-	ScanStatus   string    `json:"scan_status"`
+	ID           string      `json:"id"`
+	SkillID      string      `json:"skill_id"`
+	Version      string      `json:"version"`
+	Manifest     *Manifest   `json:"manifest"`
+	Dependencies []string    `json:"dependencies,omitempty"`
+	SizeBytes    int64       `json:"size_bytes"`
+	Checksum     string      `json:"checksum"`
+	ScanStatus   string      `json:"scan_status"`
 	ScanResult   *ScanResult `json:"scan_result,omitempty"`
-	PublishedBy  string    `json:"published_by"`
-	PublishedAt  time.Time `json:"published_at"`
+	PublishedBy  string      `json:"published_by"`
+	PublishedAt  time.Time   `json:"published_at"`
 }
 
 // SkillRating 技能评分
@@ -75,10 +75,10 @@ type Manifest struct {
 
 // ScanResult 安全扫描结果
 type ScanResult struct {
-	Status   string      `json:"status"`
-	Summary  string      `json:"summary"`
-	Issues   []ScanIssue `json:"issues"`
-	ScannedAt time.Time  `json:"scanned_at"`
+	Status    string      `json:"status"`
+	Summary   string      `json:"summary"`
+	Issues    []ScanIssue `json:"issues"`
+	ScannedAt time.Time   `json:"scanned_at"`
 }
 
 // ScanIssue 扫描问题
@@ -91,6 +91,12 @@ type ScanIssue struct {
 	Match      string `json:"match"`
 	Message    string `json:"message"`
 	Suggestion string `json:"suggestion"`
+}
+
+// AuthResponse 登录/注册响应
+type AuthResponse struct {
+	Token string `json:"token"`
+	User  User   `json:"user"`
 }
 
 // User 用户信息

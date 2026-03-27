@@ -71,6 +71,7 @@ ide_config:
 
 `install` 适合远程 skill 引用，不适合本地 skill 目录。对本地 skill 目录，优先用 `sync` 或 `export --install`。
 `push`、`delete`、`delete-version` 需要先登录；公开 skill 的 `pull/install/update/search/info` 不需要登录。
+`skill-home login` 默认支持邮箱/密码登录，并会自动为 CLI 创建并保存 API Key；如果用户手上已经有 Key，也可以直接用 `skill-home login --api-key ...`。
 
 ## 用户请求到动作的映射
 
@@ -88,7 +89,7 @@ ide_config:
 - `scripts/bootstrap-cli.sh` 默认从已部署安装页拉取公开安装脚本；如果部署页不可用，再回退到 GitHub 上的安装脚本。它安装的是已发布的 CLI，不依赖本地源码目录。
 - `scripts/rebuild-cli.sh` 在这个公共 skill 里表示“重新安装最新发布版 CLI”，不是从源码重建。
 - 不要默认要求本机存在任何 `skill-home` 源码仓库；只有当用户明确在维护该仓库时，才允许走源码工作流。
-- 涉及 registry 写操作时，先检查是否已登录；未登录时提示用户先执行 `skill-home login`。
+- 涉及 registry 写操作时，先检查是否已登录；未登录时优先提示用户直接执行 `skill-home login` 走邮箱/密码登录流，或在已有 Key 时使用 `skill-home login --api-key ...`。
 - registry 读操作默认可匿名；如果远程接口异常，或私有 skill 因未登录/无权限被拒绝，直接说明原因并给出下一步。
 
 ## 参考资料

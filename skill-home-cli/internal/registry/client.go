@@ -99,6 +99,38 @@ func (c *Client) HealthCheck() error {
 	return nil
 }
 
+// Login 使用邮箱和密码登录
+func (c *Client) Login(email, password string) (*AuthResponse, error) {
+	body, err := json.Marshal(map[string]string{
+		"email":    email,
+		"password": password,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	headers := map[string]string{
+		"Content-Type": "application/json",
+	}
+
+	resp, err := c.doRequest("POST", "/api/v1/auth/login", bytes.NewReader(body), headers)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if err := c.handleError(resp); err != nil {
+		return nil, err
+	}
+
+	var result AuthResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+
+	return &result, nil
+}
+
 // Search 搜索技能
 func (c *Client) Search(query, namespace string, tags []string, page, perPage int) (*SearchResult, error) {
 	opts := ListSkillsOptions{
