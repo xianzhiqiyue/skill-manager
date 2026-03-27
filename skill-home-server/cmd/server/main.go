@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/signal"
@@ -26,6 +27,15 @@ var (
 )
 
 func main() {
+	handled, err := handleVersionCommand(os.Args[1:], os.Stdout)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to print version: %v\n", err)
+		os.Exit(1)
+	}
+	if handled {
+		return
+	}
+
 	if err := config.Load(); err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to load config: %v\n", err)
 		os.Exit(1)
@@ -96,7 +106,7 @@ func setupRouter(db *storage.Database, objStorage *storage.ObjectStorage, scanne
 	r.Use(middleware.Logger())
 	r.Use(middleware.CORS())
 
-	r.GET("/health", handlers.HealthCheck)
+	r.GET("/health", handlers.HealthCheck(version))
 
 	api := r.Group("/api/v1")
 	{
@@ -133,4 +143,18 @@ func setupRouter(db *storage.Database, objStorage *storage.ObjectStorage, scanne
 	}
 
 	return r
+}
+
+func handleVersionCommand(args []string, out io.Writer) (bool, error) {
+	if len(args) != 1 {
+		return false, nil
+	}
+
+	switch args[0] {
+	case "--version", "version":
+		_, err := fmt.Fprintf(out, "skill-home-server\n  Version:   %s\n  Commit:    %s\n  BuildDate: %s\n", version, commit, buildDate)
+		return true, err
+	default:
+		return false, nil
+	}
 }
