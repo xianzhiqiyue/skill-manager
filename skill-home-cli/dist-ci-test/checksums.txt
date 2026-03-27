@@ -1,0 +1,5 @@
+84818107cec37c4ae74a4676ac9e9e9ccd6f61e41c6ee62c51a7afcc746eb533  ./skill-home-darwin-amd64.tar.gz
+32432a99c0c4d26cbf7d873ce5d8222dadc13772198bab001e95d23dbb9f455c  ./skill-home-darwin-arm64.tar.gz
+310681f9f97d425fbc7417217e828e8f561c5822d748b937e3c412c2445a9868  ./skill-home-linux-amd64.tar.gz
+e4133ce528823eaa1d7246e7b9ad9c90da924ae82b4da4a48fdc0a3745130956  ./skill-home-linux-arm64.tar.gz
+ad7ad0b7efb30efc6e4e4bc31fca31032570512bb8ff091a200b984c9dec6f26  ./skill-home-windows-amd64.zip

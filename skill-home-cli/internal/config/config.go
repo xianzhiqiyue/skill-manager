@@ -34,10 +34,11 @@ type Local struct {
 
 // IDEConfig IDE 配置
 type IDEConfig struct {
-	Claude  IDE `yaml:"claude" mapstructure:"claude"`
-	Copilot IDE `yaml:"copilot" mapstructure:"copilot"`
-	Cursor  IDE `yaml:"cursor" mapstructure:"cursor"`
-	Codex   IDE `yaml:"codex" mapstructure:"codex"`
+	Claude   IDE `yaml:"claude" mapstructure:"claude"`
+	Copilot  IDE `yaml:"copilot" mapstructure:"copilot"`
+	Cursor   IDE `yaml:"cursor" mapstructure:"cursor"`
+	Codex    IDE `yaml:"codex" mapstructure:"codex"`
+	OpenClaw IDE `yaml:"openclaw" mapstructure:"openclaw"`
 }
 
 // IDE 单个 IDE 配置
@@ -139,6 +140,10 @@ func applyViperValues(cfg *Config) {
 	cfg.IDE.Codex.ProjectPath = viper.GetString("ide.codex.project_path")
 	cfg.IDE.Codex.GlobalPath = viper.GetString("ide.codex.global_path")
 
+	cfg.IDE.OpenClaw.Enabled = viper.GetBool("ide.openclaw.enabled")
+	cfg.IDE.OpenClaw.ProjectPath = viper.GetString("ide.openclaw.project_path")
+	cfg.IDE.OpenClaw.GlobalPath = viper.GetString("ide.openclaw.global_path")
+
 	cfg.Sync.Mode = viper.GetString("sync.mode")
 	cfg.Sync.ConflictStrategy = viper.GetString("sync.conflict_strategy")
 	cfg.Sync.AutoSyncOnPush = viper.GetBool("sync.auto_sync_on_push")
@@ -165,6 +170,9 @@ func setDefaults() {
 	viper.SetDefault("ide.codex.enabled", true)
 	viper.SetDefault("ide.codex.project_path", ".agents/skills")
 	viper.SetDefault("ide.codex.global_path", "~/.agents/skills")
+	viper.SetDefault("ide.openclaw.enabled", false)
+	viper.SetDefault("ide.openclaw.project_path", "skills")
+	viper.SetDefault("ide.openclaw.global_path", "~/.openclaw/skills")
 	viper.SetDefault("sync.mode", "auto")
 	viper.SetDefault("sync.conflict_strategy", "project_wins")
 	viper.SetDefault("sync.auto_sync_on_push", false)
@@ -189,6 +197,7 @@ func expandPaths() {
 	C.IDE.Claude.GlobalPath = expandPath(C.IDE.Claude.GlobalPath, home)
 	C.IDE.Copilot.GlobalPath = expandPath(C.IDE.Copilot.GlobalPath, home)
 	C.IDE.Codex.GlobalPath = expandPath(C.IDE.Codex.GlobalPath, home)
+	C.IDE.OpenClaw.GlobalPath = expandPath(C.IDE.OpenClaw.GlobalPath, home)
 }
 
 // expandPath 扩展单个路径

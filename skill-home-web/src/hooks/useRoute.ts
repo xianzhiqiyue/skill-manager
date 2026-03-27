@@ -6,19 +6,42 @@ type NavigateOptions = {
   replace?: boolean;
 };
 
-function getPathname() {
+function getLocationState() {
   if (typeof window === 'undefined') {
-    return '/';
+    return {
+      pathname: '/',
+      search: '',
+    };
   }
-  return window.location.pathname || '/';
+
+  return {
+    pathname: window.location.pathname || '/',
+    search: window.location.search || '',
+  };
+}
+
+function parseNextLocation(path: string) {
+  const target = path || '/';
+  const url = new URL(target, typeof window === 'undefined' ? 'http://localhost' : window.location.origin);
+
+  return {
+    pathname: url.pathname || '/',
+    search: url.search || '',
+  };
 }
 
 export function useRoute() {
-  const [route, setRoute] = useState(() => parseRoute(getPathname()));
+  const [location, setLocation] = useState(getLocationState);
+  const [route, setRoute] = useState(() => parseRoute(getLocationState().pathname));
+
+  function syncRoute(nextLocation: ReturnType<typeof getLocationState>) {
+    setLocation(nextLocation);
+    setRoute(parseRoute(nextLocation.pathname));
+  }
 
   useEffect(() => {
     function handlePopState() {
-      setRoute(parseRoute(getPathname()));
+      syncRoute(getLocationState());
     }
 
     window.addEventListener('popstate', handlePopState);
@@ -30,16 +53,20 @@ export function useRoute() {
       return;
     }
 
-    const nextPath = path || '/';
+    const nextLocation = parseNextLocation(path);
+    const nextPath = `${nextLocation.pathname}${nextLocation.search}`;
     const method = options.replace ? 'replaceState' : 'pushState';
+    const currentPath = `${window.location.pathname || '/'}${window.location.search || ''}`;
 
-    if (window.location.pathname !== nextPath) {
+    if (currentPath !== nextPath) {
       window.history[method](null, '', nextPath);
-      window.scrollTo({ top: 0, behavior: 'auto' });
+      if (typeof window.scrollTo === 'function') {
+        window.scrollTo({ top: 0, behavior: 'auto' });
+      }
     }
 
-    setRoute(parseRoute(nextPath));
+    syncRoute(nextLocation);
   }
 
-  return { route, navigate };
+  return { route, location, navigate };
 }

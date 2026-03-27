@@ -15,11 +15,11 @@ import (
 )
 
 type syncOptions struct {
-	all      bool
-	ide      string
-	dryRun   bool
-	mode     string
-	global   bool
+	all    bool
+	ide    string
+	dryRun bool
+	mode   string
+	global bool
 }
 
 func newSyncCmd() *cobra.Command {
@@ -28,7 +28,7 @@ func newSyncCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "sync [skill-path]",
 		Short: "同步技能到 IDE",
-		Long:  "将技能同步到本地 IDE 配置目录（Claude、Copilot、Cursor、Codex）",
+		Long:  "将技能同步到本地 IDE 配置目录（Claude、Copilot、Cursor、Codex、OpenClaw）",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "."
@@ -40,7 +40,7 @@ func newSyncCmd() *cobra.Command {
 	}
 
 	cmd.Flags().BoolVarP(&opts.all, "all", "a", false, "同步到所有启用的 IDE")
-	cmd.Flags().StringVar(&opts.ide, "ide", "", "指定 IDE (claude/copilot/cursor/codex)")
+	cmd.Flags().StringVar(&opts.ide, "ide", "", targetIDEUsageText())
 	cmd.Flags().BoolVar(&opts.dryRun, "dry-run", false, "预览同步结果，不实际执行")
 	cmd.Flags().StringVar(&opts.mode, "mode", "", "同步模式 (auto/symlink/mirror)")
 	cmd.Flags().BoolVar(&opts.global, "global", false, "同步到全局配置而非项目配置")
@@ -157,8 +157,15 @@ func getTargetIDEs(opts *syncOptions) []string {
 	if config.C.IDE.Codex.Enabled {
 		ides = append(ides, "codex")
 	}
+	if config.C.IDE.OpenClaw.Enabled {
+		ides = append(ides, "openclaw")
+	}
 
 	return ides
+}
+
+func targetIDEUsageText() string {
+	return "指定 IDE (claude/copilot/cursor/codex/openclaw)"
 }
 
 // listInstalledSkills 列出已安装的技能

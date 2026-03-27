@@ -65,6 +65,7 @@ func runDoctor() error {
 		checkIDEPath("copilot", config.C.IDE.Copilot.Enabled, config.C.IDE.Copilot.GlobalPath, resolver)
 		checkIDEPath("cursor", config.C.IDE.Cursor.Enabled, config.C.IDE.Cursor.GlobalPath, resolver)
 		checkIDEPath("codex", config.C.IDE.Codex.Enabled, config.C.IDE.Codex.GlobalPath, resolver)
+		checkIDEPath("openclaw", config.C.IDE.OpenClaw.Enabled, config.C.IDE.OpenClaw.GlobalPath, resolver)
 	}
 
 	fmt.Printf("%s 符号链接支持: %t\n", color.GreenString("✓"), sync.SymlinkSupported)

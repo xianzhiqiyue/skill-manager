@@ -37,6 +37,8 @@ func (p *PathResolver) GetIDEProjectPath(ideType string) (string, error) {
 		return filepath.Join(p.projectRoot, C.IDE.Cursor.ProjectPath), nil
 	case "codex":
 		return filepath.Join(p.projectRoot, C.IDE.Codex.ProjectPath), nil
+	case "openclaw":
+		return filepath.Join(p.projectRoot, C.IDE.OpenClaw.ProjectPath), nil
 	default:
 		return "", fmt.Errorf("未知的 IDE 类型: %s", ideType)
 	}
@@ -53,6 +55,8 @@ func (p *PathResolver) GetIDEGlobalPath(ideType string) (string, error) {
 		return "", fmt.Errorf("Cursor 不支持全局路径")
 	case "codex":
 		return C.IDE.Codex.GlobalPath, nil
+	case "openclaw":
+		return C.IDE.OpenClaw.GlobalPath, nil
 	default:
 		return "", fmt.Errorf("未知的 IDE 类型: %s", ideType)
 	}

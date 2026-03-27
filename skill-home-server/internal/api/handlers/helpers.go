@@ -182,6 +182,7 @@ func applySkillFilters(query *gorm.DB, namespace, tag string) *gorm.DB {
 	if namespace != "" {
 		query = query.Where("namespace IN ?", namespaceVariants(namespace))
 	}
+	tag = normalizeTagValue(tag)
 	if tag != "" {
 		dialect := ""
 		if query != nil && query.Dialector != nil {
@@ -344,4 +345,91 @@ func loadUserRating(db *storage.Database, skill *models.Skill, userID *uuid.UUID
 
 	skill.UserRating = &rating
 	return nil
+}
+
+func normalizeTagValue(value string) string {
+	value = strings.ToLower(strings.TrimSpace(value))
+	if value == "" {
+		return ""
+	}
+
+	return strings.Join(strings.Fields(value), "-")
+}
+
+func normalizeTags(values []string) []string {
+	normalized := make([]string, 0, len(values))
+	seen := make(map[string]struct{}, len(values))
+
+	for _, value := range values {
+		tag := normalizeTagValue(value)
+		if tag == "" || len(tag) > 64 {
+			continue
+		}
+		if _, exists := seen[tag]; exists {
+			continue
+		}
+		seen[tag] = struct{}{}
+		normalized = append(normalized, tag)
+	}
+
+	return normalized
+}
+
+func parseTagList(raw string) []string {
+	parts := strings.FieldsFunc(raw, func(r rune) bool {
+		return r == ',' || r == '，' || r == ';' || r == '；' || r == '\n' || r == '\r'
+	})
+	return normalizeTags(parts)
+}
+
+func loadCommunityTags(db *storage.Database, skill *models.Skill, userID *uuid.UUID) error {
+	if db == nil || skill == nil || skill.ID == uuid.Nil {
+		return nil
+	}
+
+	var communityTags []models.SkillCommunityTagSummary
+	if err := db.Model(&models.SkillCommunityTag{}).
+		Select("tag, COUNT(*) as count").
+		Where("skill_id = ?", skill.ID).
+		Group("tag").
+		Order("count DESC").
+		Order("tag ASC").
+		Scan(&communityTags).Error; err != nil {
+		return err
+	}
+	skill.CommunityTags = communityTags
+	skill.ViewerTags = nil
+
+	if userID == nil || *userID == uuid.Nil {
+		return nil
+	}
+
+	var viewerTags []string
+	if err := db.Model(&models.SkillCommunityTag{}).
+		Where("skill_id = ? AND user_id = ?", skill.ID, *userID).
+		Order("tag ASC").
+		Pluck("tag", &viewerTags).Error; err != nil {
+		return err
+	}
+
+	skill.ViewerTags = viewerTags
+	return nil
+}
+
+func populateSkillDetailResponse(db *storage.Database, skill *models.Skill, viewer *models.User) error {
+	if skill == nil {
+		return nil
+	}
+
+	populateSkillComputedFields(skill)
+
+	var viewerID *uuid.UUID
+	if viewer != nil {
+		viewerID = &viewer.ID
+		if err := loadUserRating(db, skill, viewerID); err != nil {
+			return err
+		}
+	}
+
+	return loadCommunityTags(db, skill, viewerID)
 }

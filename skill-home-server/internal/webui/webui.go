@@ -10,6 +10,7 @@ import (
 )
 
 const envDistDir = "SKILL_HOME_WEB_DIST_DIR"
+const envInstallScript = "SKILL_HOME_INSTALL_SCRIPT"
 
 // ResolveDistDir finds a usable frontend dist directory for the web UI.
 func ResolveDistDir() string {
@@ -33,6 +34,23 @@ func ResolveDistDir() string {
 // Register mounts the frontend UI on the root path while leaving API routes intact.
 func Register(router *gin.Engine, distDir string) {
 	indexPath := filepath.Join(distDir, "index.html")
+	installScriptPath := ResolveInstallScriptPath(distDir)
+
+	serveInstallScript := func(c *gin.Context) {
+		if installScriptPath == "" {
+			c.JSON(http.StatusNotFound, gin.H{
+				"code":    "NOT_FOUND",
+				"message": "Install script not found",
+			})
+			return
+		}
+
+		c.Header("Content-Type", "text/plain; charset=utf-8")
+		c.File(installScriptPath)
+	}
+
+	router.GET("/install.sh", serveInstallScript)
+	router.HEAD("/install.sh", serveInstallScript)
 
 	router.GET("/", func(c *gin.Context) {
 		c.File(indexPath)
@@ -76,6 +94,30 @@ func cleanRelativePath(path string) (string, bool) {
 
 func hasIndexFile(dir string) bool {
 	return isFile(filepath.Join(dir, "index.html"))
+}
+
+func ResolveInstallScriptPath(distDir string) string {
+	candidates := make([]string, 0, 5)
+
+	if fromEnv := strings.TrimSpace(os.Getenv(envInstallScript)); fromEnv != "" {
+		candidates = append(candidates, fromEnv)
+	}
+
+	distParent := filepath.Dir(distDir)
+	candidates = append(candidates,
+		filepath.Join(distParent, "install.sh"),
+		"./install.sh",
+		"../skill-home-cli/install.sh",
+		filepath.Join(distParent, "..", "skill-home-cli", "install.sh"),
+	)
+
+	for _, candidate := range candidates {
+		if isFile(candidate) {
+			return candidate
+		}
+	}
+
+	return ""
 }
 
 func isFile(path string) bool {

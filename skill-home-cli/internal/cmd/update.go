@@ -32,7 +32,7 @@ func newUpdateCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&opts.ide, "ide", "", "指定 IDE (claude/copilot/cursor/codex)")
+	cmd.Flags().StringVar(&opts.ide, "ide", "", targetIDEUsageText())
 	cmd.Flags().StringVar(&opts.mode, "mode", "", "同步模式 (auto/symlink/mirror)")
 	cmd.Flags().BoolVar(&opts.global, "global", false, "同步到全局配置而非项目配置")
 	cmd.Flags().BoolVarP(&opts.force, "force", "f", false, "即使本地已存在最新版也重新下载")
@@ -56,7 +56,7 @@ func runUpdate(opts *updateOptions) error {
 	for _, entry := range entries {
 		skillInfo, err := client.GetSkill(entry.Namespace, entry.Name)
 		if err != nil {
-			fmt.Printf("%s 获取 @%s/%s 失败: %v\n", color.RedString("✗"), entry.Namespace, entry.Name, err)
+			fmt.Printf("%s 获取 @%s/%s 失败: %v\n", color.RedString("✗"), entry.Namespace, entry.Name, wrapRegistryReadError(err))
 			continue
 		}
 		if skillInfo.LatestVersion == "" {

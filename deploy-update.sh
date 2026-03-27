@@ -20,6 +20,9 @@ fi
 if [ -f "$DEPLOY_DIR/skill-home" ]; then
     cp "$DEPLOY_DIR/skill-home" "$BACKUP_DIR/skill-home"
 fi
+if [ -f "$DEPLOY_DIR/install.sh" ]; then
+    cp "$DEPLOY_DIR/install.sh" "$BACKUP_DIR/install.sh"
+fi
 
 # 停止服务
 echo "[2/5] 停止 API 服务..."
@@ -39,6 +42,12 @@ if [ -f "$DEPLOY_DIR/skill-home.new" ]; then
     chmod +x "$DEPLOY_DIR/skill-home"
 fi
 
+if [ -f "$DEPLOY_DIR/install.sh.new" ]; then
+    mv "$DEPLOY_DIR/install.sh" "$DEPLOY_DIR/install.sh.old" 2>/dev/null || true
+    mv "$DEPLOY_DIR/install.sh.new" "$DEPLOY_DIR/install.sh"
+    chmod +x "$DEPLOY_DIR/install.sh"
+fi
+
 # 启动服务
 echo "[4/5] 启动 API 服务..."
 systemctl start skill-home
@@ -46,7 +55,7 @@ systemctl start skill-home
 # 健康检查
 echo "[5/5] 健康检查..."
 sleep 2
-if curl -s http://localhost:8080/health > /dev/null; then
+if curl -s http://localhost:8080/health > /dev/null && curl -fsSL http://localhost:8080/install.sh | grep -q "skill-home CLI 安装脚本"; then
     echo "✅ 部署成功！服务运行正常"
     echo ""
     echo "版本信息:"
@@ -57,6 +66,9 @@ else
     systemctl stop skill-home
     mv "$DEPLOY_DIR/server.old" "$DEPLOY_DIR/server"
     mv "$DEPLOY_DIR/skill-home.old" "$DEPLOY_DIR/skill-home"
+    if [ -f "$DEPLOY_DIR/install.sh.old" ]; then
+        mv "$DEPLOY_DIR/install.sh.old" "$DEPLOY_DIR/install.sh"
+    fi
     systemctl start skill-home
     echo "✅ 已回滚到之前的版本"
     exit 1
