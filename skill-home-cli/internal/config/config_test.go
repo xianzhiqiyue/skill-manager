@@ -24,6 +24,10 @@ ide:
     enabled: true
     project_path: ".codex/skills"
     global_path: "/tmp/codex-skills"
+  openclaw:
+    enabled: true
+    project_path: "custom-skills"
+    global_path: "/tmp/openclaw-skills"
 sync:
   mode: "mirror"
   conflict_strategy: "project_wins"
@@ -52,6 +56,15 @@ security:
 	if got := C.IDE.Codex.GlobalPath; got != "/tmp/codex-skills" {
 		t.Fatalf("unexpected codex global_path: %q", got)
 	}
+	if got := C.IDE.OpenClaw.Enabled; !got {
+		t.Fatalf("unexpected openclaw enabled: %t", got)
+	}
+	if got := C.IDE.OpenClaw.ProjectPath; got != "custom-skills" {
+		t.Fatalf("unexpected openclaw project_path: %q", got)
+	}
+	if got := C.IDE.OpenClaw.GlobalPath; got != "/tmp/openclaw-skills" {
+		t.Fatalf("unexpected openclaw global_path: %q", got)
+	}
 	if got := C.Sync.ConflictStrategy; got != "project_wins" {
 		t.Fatalf("unexpected conflict_strategy: %q", got)
 	}
@@ -60,6 +73,38 @@ security:
 	}
 	if got := C.Security.ScanOnInstall; !got {
 		t.Fatalf("unexpected scan_on_install: %t", got)
+	}
+}
+
+func TestInitAppliesOpenClawDefaultsAndExpandsGlobalPath(t *testing.T) {
+	viper.Reset()
+	t.Cleanup(viper.Reset)
+
+	tempDir := t.TempDir()
+	configFile := filepath.Join(tempDir, "config.yaml")
+	if err := os.WriteFile(configFile, []byte("{}\n"), 0644); err != nil {
+		t.Fatalf("WriteFile returned error: %v", err)
+	}
+
+	homeDir := filepath.Join(tempDir, "home")
+	if err := os.MkdirAll(homeDir, 0755); err != nil {
+		t.Fatalf("MkdirAll returned error: %v", err)
+	}
+	t.Setenv("HOME", homeDir)
+	t.Setenv("USERPROFILE", homeDir)
+
+	if err := Init(configFile); err != nil {
+		t.Fatalf("Init returned error: %v", err)
+	}
+
+	if got := C.IDE.OpenClaw.Enabled; got {
+		t.Fatalf("unexpected openclaw enabled default: %t", got)
+	}
+	if got := C.IDE.OpenClaw.ProjectPath; got != "skills" {
+		t.Fatalf("unexpected openclaw project_path default: %q", got)
+	}
+	if got := C.IDE.OpenClaw.GlobalPath; got != filepath.Join(homeDir, ".openclaw", "skills") {
+		t.Fatalf("unexpected openclaw global_path default: %q", got)
 	}
 }
 
@@ -77,6 +122,10 @@ func TestInitAllowsRegistryEnvOverrides(t *testing.T) {
 	if err := os.Setenv("SKILL_HOME_API_KEY", "token-123"); err != nil {
 		t.Fatalf("Setenv(api_key) returned error: %v", err)
 	}
+
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+	t.Setenv("USERPROFILE", homeDir)
 
 	if err := Init(""); err != nil {
 		t.Fatalf("Init returned error: %v", err)

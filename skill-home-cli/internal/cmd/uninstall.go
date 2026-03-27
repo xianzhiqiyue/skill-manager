@@ -30,7 +30,7 @@ func newUninstallCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&opts.ide, "ide", "", "指定 IDE (claude/copilot/cursor/codex)")
+	cmd.Flags().StringVar(&opts.ide, "ide", "", targetIDEUsageText())
 	cmd.Flags().BoolVar(&opts.global, "global", false, "从全局配置卸载而非项目配置")
 	cmd.Flags().BoolVar(&opts.keepCache, "keep-cache", false, "保留本地缓存")
 

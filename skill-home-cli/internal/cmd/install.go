@@ -30,7 +30,7 @@ func newInstallCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&opts.ide, "ide", "", "指定 IDE (claude/copilot/cursor/codex)")
+	cmd.Flags().StringVar(&opts.ide, "ide", "", targetIDEUsageText())
 	cmd.Flags().StringVar(&opts.mode, "mode", "", "同步模式 (auto/symlink/mirror)")
 	cmd.Flags().BoolVar(&opts.global, "global", false, "同步到全局配置而非项目配置")
 	cmd.Flags().BoolVarP(&opts.force, "force", "f", false, "重新下载并在扫描失败时继续安装")

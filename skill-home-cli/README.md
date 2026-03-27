@@ -10,7 +10,7 @@ AI Skill 跨平台管理工具，支持 Claude Code、GitHub Copilot、Cursor、
 - ✅ **格式验证**: 验证 SKILL.md 格式是否符合标准
 - 🔒 **安全扫描**: 本地检测恶意命令和提示词注入攻击
 - 📦 **技能打包**: 将技能打包为可分发的 .zip 文件
-- 🔄 **多 IDE 同步**: 一键同步技能到 Claude Code、GitHub Copilot、Cursor、Codex
+- 🔄 **多 IDE 同步**: 一键同步技能到 Claude Code、GitHub Copilot、Cursor、Codex、OpenClaw
 - 🔗 **双模同步**: 支持符号链接(Symlink)和物理镜像两种同步模式
 - ☁️ **注册中心**: 推送、删除、拉取、搜索、详情查看与评分
 - 📋 **技能列表**: 查看本地和云端已安装的技能
@@ -137,6 +137,9 @@ skill-home install @user/my-skill
 # 仅同步到特定 IDE
 skill-home sync --ide cursor
 
+# 同步到 OpenClaw
+skill-home sync --ide openclaw
+
 # 同步到全局配置
 skill-home sync --global
 ```
@@ -216,6 +219,10 @@ ide:
     enabled: true
     project_path: ".agents/skills"
     global_path: "~/.agents/skills"
+  openclaw:
+    enabled: true
+    project_path: "skills"
+    global_path: "~/.openclaw/skills"
 
 # 同步配置
 sync:
