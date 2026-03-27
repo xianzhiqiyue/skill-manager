@@ -27,11 +27,11 @@ func NewRootCmd(version, commit, buildDate string) *cobra.Command {
    _____ _    _       _   _
   / ____| |  | |     | | | |
  | (___ | | _| | ___ | |_| |__   ___  _ __ ___
-  \___ \| |/ / |/ _ \| __| '_ \ / _ \| '_ ` + "`" + ` _ \
+  \___ \| |/ / |/ _ \| __| '_ \ / _ \| '_ `+"`"+` _ \
   ____) |   <| | (_) | |_| | | | (_) | | | | | |
  |_____/|_|\_\_|\___/ \__|_| |_|\___/|_| |_| |_|
 
-`)+ `skill-home 是一个跨平台的 AI 技能管理工具，支持 Claude Code、GitHub Copilot、
+`) + `skill-home 是一个跨平台的 AI 技能管理工具，支持 Claude Code、GitHub Copilot、
 Cursor、Codex 等多个 IDE，实现技能的"一次编写，到处同步"。
 
 使用 "skill-home [command] --help" 查看具体命令的帮助信息。`,
@@ -80,6 +80,8 @@ Cursor、Codex 等多个 IDE，实现技能的"一次编写，到处同步"。
 	rootCmd.AddCommand(newWhoamiCmd())
 	rootCmd.AddCommand(newActivityCmd())
 	rootCmd.AddCommand(newPushCmd())
+	rootCmd.AddCommand(newDeleteCmd())
+	rootCmd.AddCommand(newDeleteVersionCmd())
 	rootCmd.AddCommand(newPullCmd())
 	rootCmd.AddCommand(newInstallCmd())
 	rootCmd.AddCommand(newUninstallCmd())

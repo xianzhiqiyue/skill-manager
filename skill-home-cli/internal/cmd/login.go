@@ -101,10 +101,10 @@ func newWhoamiCmd() *cobra.Command {
 		Use:   "whoami",
 		Short: "显示当前登录用户",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			apiKey := viper.GetString("registry.api_key")
-			if apiKey == "" {
-				return fmt.Errorf("未登录，请运行 'skill-home login'")
+			if err := requireRegistryLogin(); err != nil {
+				return err
 			}
+			apiKey := viper.GetString("registry.api_key")
 
 			server := viper.GetString("registry.endpoint")
 			client := registry.NewClient(server, apiKey)

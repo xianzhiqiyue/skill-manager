@@ -33,9 +33,20 @@ func ResolveDistDir() string {
 // Register mounts the frontend UI on the root path while leaving API routes intact.
 func Register(router *gin.Engine, distDir string) {
 	indexPath := filepath.Join(distDir, "index.html")
+	installScriptPath := filepath.Join(filepath.Dir(distDir), "install.sh")
 
 	router.GET("/", func(c *gin.Context) {
 		c.File(indexPath)
+	})
+	router.GET("/install.sh", func(c *gin.Context) {
+		if !isFile(installScriptPath) {
+			c.JSON(http.StatusNotFound, gin.H{
+				"code":    "NOT_FOUND",
+				"message": "Route not found",
+			})
+			return
+		}
+		c.File(installScriptPath)
 	})
 
 	router.NoRoute(func(c *gin.Context) {

@@ -3,6 +3,7 @@ package handlers
 import (
 	"archive/zip"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/skill-home/server/internal/api/middleware"
 	"github.com/skill-home/server/internal/config"
 	"github.com/skill-home/server/internal/models"
 	"github.com/skill-home/server/internal/storage"
@@ -196,6 +198,277 @@ func newCreateSkillRequest(t *testing.T, fields map[string]string, archive []byt
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/skills", body)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 	return req, writer.FormDataContentType()
+}
+
+func TestCreateSkillRequiresAuth(t *testing.T) {
+	db := newTestDatabase(t)
+
+	router := gin.New()
+	router.POST("/api/v1/skills", middleware.Auth(db), CreateSkill(db, newTestObjectStorage(t), validator.NewScanner()))
+
+	req, _ := newCreateSkillRequest(t, map[string]string{
+		"namespace": "team",
+		"name":      "github",
+		"version":   "1.0.0",
+	}, newSkillArchive(t))
+
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestDeleteSkillRequiresAuth(t *testing.T) {
+	db := newTestDatabase(t)
+	user := &models.User{ID: uuid.New(), Username: "owner", Email: "owner@example.com"}
+	if err := db.Create(user).Error; err != nil {
+		t.Fatalf("create user failed: %v", err)
+	}
+
+	skill := models.Skill{
+		ID:          uuid.New(),
+		Namespace:   "team",
+		Name:        "github",
+		OwnerID:     user.ID,
+		Description: "code review skill",
+		IsPublic:    true,
+	}
+	if err := db.Create(&skill).Error; err != nil {
+		t.Fatalf("create skill failed: %v", err)
+	}
+
+	router := gin.New()
+	router.DELETE("/api/v1/skills/:namespace/:name", middleware.Auth(db), DeleteSkill(db, newTestObjectStorage(t)))
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/skills/team/github", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestDeleteVersionRequiresAuth(t *testing.T) {
+	db := newTestDatabase(t)
+	user := &models.User{ID: uuid.New(), Username: "owner", Email: "owner@example.com"}
+	if err := db.Create(user).Error; err != nil {
+		t.Fatalf("create user failed: %v", err)
+	}
+
+	skill := models.Skill{
+		ID:            uuid.New(),
+		Namespace:     "team",
+		Name:          "github",
+		OwnerID:       user.ID,
+		Description:   "code review skill",
+		IsPublic:      true,
+		LatestVersion: "1.0.0",
+	}
+	if err := db.Create(&skill).Error; err != nil {
+		t.Fatalf("create skill failed: %v", err)
+	}
+
+	version := models.SkillVersion{
+		ID:          uuid.New(),
+		SkillID:     skill.ID,
+		Version:     "1.0.0",
+		StoragePath: "skills/team/github/test.zip",
+		SizeBytes:   128,
+		ScanStatus:  "pass",
+		PublishedBy: user.ID,
+	}
+	if err := db.Create(&version).Error; err != nil {
+		t.Fatalf("create version failed: %v", err)
+	}
+
+	router := gin.New()
+	router.DELETE("/api/v1/skills/:namespace/:name/versions/:version", middleware.Auth(db), DeleteVersion(db, newTestObjectStorage(t)))
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/skills/team/github/versions/1.0.0", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestPublicSkillDetailAllowsAnonymousAccess(t *testing.T) {
+	db := newTestDatabase(t)
+	user := &models.User{ID: uuid.New(), Username: "owner", Email: "owner@example.com"}
+	if err := db.Create(user).Error; err != nil {
+		t.Fatalf("create user failed: %v", err)
+	}
+
+	skill := models.Skill{
+		ID:          uuid.New(),
+		Namespace:   "team",
+		Name:        "github",
+		OwnerID:     user.ID,
+		Description: "public skill",
+		IsPublic:    true,
+	}
+	if err := db.Create(&skill).Error; err != nil {
+		t.Fatalf("create skill failed: %v", err)
+	}
+
+	router := gin.New()
+	router.GET("/api/v1/skills/:namespace/:name", middleware.OptionalAuth(db), GetSkill(db))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/skills/team/github", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestPrivateSkillDetailRejectsAnonymousAccess(t *testing.T) {
+	db := newTestDatabase(t)
+	user := &models.User{ID: uuid.New(), Username: "owner", Email: "owner@example.com"}
+	if err := db.Create(user).Error; err != nil {
+		t.Fatalf("create user failed: %v", err)
+	}
+
+	skill := models.Skill{
+		ID:          uuid.New(),
+		Namespace:   "team",
+		Name:        "private-skill",
+		OwnerID:     user.ID,
+		Description: "private skill",
+		IsPublic:    false,
+	}
+	if err := db.Create(&skill).Error; err != nil {
+		t.Fatalf("create skill failed: %v", err)
+	}
+	if err := db.Model(&skill).Update("is_public", false).Error; err != nil {
+		t.Fatalf("set skill private failed: %v", err)
+	}
+
+	router := gin.New()
+	router.GET("/api/v1/skills/:namespace/:name", middleware.OptionalAuth(db), GetSkill(db))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/skills/team/private-skill", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("expected 403, got %d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestPublicDownloadAllowsAnonymousAccess(t *testing.T) {
+	db := newTestDatabase(t)
+	objStorage := newTestObjectStorage(t)
+	user := &models.User{ID: uuid.New(), Username: "owner", Email: "owner@example.com"}
+	if err := db.Create(user).Error; err != nil {
+		t.Fatalf("create user failed: %v", err)
+	}
+
+	archive := newSkillArchive(t)
+	storagePath := "skills/team/github/test.zip"
+	if err := objStorage.Upload(context.Background(), storagePath, bytes.NewReader(archive), int64(len(archive))); err != nil {
+		t.Fatalf("upload archive failed: %v", err)
+	}
+
+	skill := models.Skill{
+		ID:            uuid.New(),
+		Namespace:     "team",
+		Name:          "github",
+		OwnerID:       user.ID,
+		Description:   "public skill",
+		IsPublic:      true,
+		LatestVersion: "1.0.0",
+	}
+	if err := db.Create(&skill).Error; err != nil {
+		t.Fatalf("create skill failed: %v", err)
+	}
+
+	version := models.SkillVersion{
+		ID:          uuid.New(),
+		SkillID:     skill.ID,
+		Version:     "1.0.0",
+		StoragePath: storagePath,
+		SizeBytes:   int64(len(archive)),
+		ScanStatus:  "pass",
+		PublishedBy: user.ID,
+	}
+	if err := db.Create(&version).Error; err != nil {
+		t.Fatalf("create version failed: %v", err)
+	}
+
+	router := gin.New()
+	router.GET("/api/v1/download/:namespace/:name/:version", middleware.OptionalAuth(db), DownloadSkill(db, objStorage))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/download/team/github/1.0.0?format=zip", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	if len(rec.Body.Bytes()) == 0 {
+		t.Fatalf("expected download payload")
+	}
+}
+
+func TestPrivateDownloadRejectsAnonymousAccess(t *testing.T) {
+	db := newTestDatabase(t)
+	objStorage := newTestObjectStorage(t)
+	user := &models.User{ID: uuid.New(), Username: "owner", Email: "owner@example.com"}
+	if err := db.Create(user).Error; err != nil {
+		t.Fatalf("create user failed: %v", err)
+	}
+
+	archive := newSkillArchive(t)
+	storagePath := "skills/team/private-skill/test.zip"
+	if err := objStorage.Upload(context.Background(), storagePath, bytes.NewReader(archive), int64(len(archive))); err != nil {
+		t.Fatalf("upload archive failed: %v", err)
+	}
+
+	skill := models.Skill{
+		ID:            uuid.New(),
+		Namespace:     "team",
+		Name:          "private-skill",
+		OwnerID:       user.ID,
+		Description:   "private skill",
+		IsPublic:      false,
+		LatestVersion: "1.0.0",
+	}
+	if err := db.Create(&skill).Error; err != nil {
+		t.Fatalf("create skill failed: %v", err)
+	}
+	if err := db.Model(&skill).Update("is_public", false).Error; err != nil {
+		t.Fatalf("set skill private failed: %v", err)
+	}
+
+	version := models.SkillVersion{
+		ID:          uuid.New(),
+		SkillID:     skill.ID,
+		Version:     "1.0.0",
+		StoragePath: storagePath,
+		SizeBytes:   int64(len(archive)),
+		ScanStatus:  "pass",
+		PublishedBy: user.ID,
+	}
+	if err := db.Create(&version).Error; err != nil {
+		t.Fatalf("create version failed: %v", err)
+	}
+
+	router := gin.New()
+	router.GET("/api/v1/download/:namespace/:name/:version", middleware.OptionalAuth(db), DownloadSkill(db, objStorage))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/download/team/private-skill/1.0.0?format=zip", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("expected 403, got %d body=%s", rec.Code, rec.Body.String())
+	}
 }
 
 func TestRateSkillCreatesRatingAndAuditLog(t *testing.T) {

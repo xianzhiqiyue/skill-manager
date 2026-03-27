@@ -48,11 +48,10 @@ func newPushCmd() *cobra.Command {
 }
 
 func runPush(path string, opts *pushOptions) error {
-	// 检查登录状态
-	apiKey := viper.GetString("registry.api_key")
-	if apiKey == "" {
-		return fmt.Errorf("未登录，请先运行 'skill-home login'")
+	if err := requireRegistryLogin(); err != nil {
+		return err
 	}
+	apiKey := viper.GetString("registry.api_key")
 
 	// 解析技能
 	s, err := skill.Parse(path)
