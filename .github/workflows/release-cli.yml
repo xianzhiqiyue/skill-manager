@@ -19,6 +19,13 @@ jobs:
     runs-on: ubuntu-latest
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+      SKILL_HOME_DEPLOY_HOST: ${{ vars.SKILL_HOME_DEPLOY_HOST }}
+      SKILL_HOME_DEPLOY_USER: ${{ vars.SKILL_HOME_DEPLOY_USER }}
+      SKILL_HOME_DEPLOY_PORT: ${{ vars.SKILL_HOME_DEPLOY_PORT }}
+      SKILL_HOME_DEPLOY_DIR: ${{ vars.SKILL_HOME_DEPLOY_DIR }}
+      SKILL_HOME_PUBLIC_BASE_URL: ${{ vars.SKILL_HOME_PUBLIC_BASE_URL }}
+      SKILL_HOME_DEPLOY_KNOWN_HOSTS: ${{ secrets.SKILL_HOME_DEPLOY_KNOWN_HOSTS }}
+      SKILL_HOME_DEPLOY_SSH_KEY: ${{ secrets.SKILL_HOME_DEPLOY_SSH_KEY }}
 
     steps:
       - name: Checkout
@@ -54,12 +61,13 @@ jobs:
         working-directory: skill-home-cli
         run: bash ./scripts/package-release.sh "${{ steps.vars.outputs.version }}" dist
 
-      - name: Publish GitHub release
+      - name: Create draft GitHub release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.vars.outputs.version }}
           name: skill-home ${{ steps.vars.outputs.version }}
           generate_release_notes: true
+          draft: true
           files: |
             skill-home-cli/dist/skill-home-darwin-amd64.tar.gz
             skill-home-cli/dist/skill-home-darwin-arm64.tar.gz
@@ -68,3 +76,57 @@ jobs:
             skill-home-cli/dist/skill-home-windows-amd64.zip
             skill-home-cli/dist/checksums.txt
             skill-home-cli/dist/latest.json
+
+      - name: Ensure deploy credentials exist
+        shell: bash
+        run: |
+          if [ -z "${SKILL_HOME_DEPLOY_HOST}" ]; then
+            echo "Missing GitHub variable: SKILL_HOME_DEPLOY_HOST" >&2
+            exit 1
+          fi
+          if [ -z "${SKILL_HOME_DEPLOY_SSH_KEY}" ]; then
+            echo "Missing GitHub secret: SKILL_HOME_DEPLOY_SSH_KEY" >&2
+            exit 1
+          fi
+
+      - name: Configure SSH
+        shell: bash
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "${SKILL_HOME_DEPLOY_SSH_KEY}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          if [ -n "${SKILL_HOME_DEPLOY_KNOWN_HOSTS}" ]; then
+            printf '%s\n' "${SKILL_HOME_DEPLOY_KNOWN_HOSTS}" > ~/.ssh/known_hosts
+          else
+            ssh-keyscan -p "${SKILL_HOME_DEPLOY_PORT:-22}" "${SKILL_HOME_DEPLOY_HOST}" >> ~/.ssh/known_hosts
+          fi
+
+      - name: Promote hosted release to Skill Home server
+        working-directory: skill-home-cli
+        run: bash ./scripts/promote-hosted-release.sh "${{ steps.vars.outputs.version }}" dist ./install.sh
+
+      - name: Publish GitHub release
+        uses: actions/github-script@v7
+        env:
+          RELEASE_TAG: ${{ steps.vars.outputs.version }}
+        with:
+          script: |
+            const tagName = process.env.RELEASE_TAG;
+            const { owner, repo } = context.repo;
+            const releases = await github.paginate(github.rest.repos.listReleases, {
+              owner,
+              repo,
+              per_page: 100,
+            });
+            const release = releases.find((item) => item.tag_name === tagName);
+            if (!release) {
+              core.setFailed(`未找到 tag ${tagName} 对应的 draft release`);
+              return;
+            }
+            await github.rest.repos.updateRelease({
+              owner,
+              repo,
+              release_id: release.id,
+              draft: false,
+              prerelease: false,
+            });

@@ -77,6 +77,31 @@ func TestRegisterServesInstallScriptFromDeployRoot(t *testing.T) {
 	}
 }
 
+func TestRegisterInjectsInstallScriptReleaseBaseURLFromRequest(t *testing.T) {
+	t.Setenv(envDistDir, "")
+	gin.SetMode(gin.TestMode)
+
+	rootDir := t.TempDir()
+	distDir := filepath.Join(rootDir, "web")
+	writeFile(t, filepath.Join(distDir, "index.html"), "<html>home</html>")
+	writeFile(t, filepath.Join(rootDir, "install.sh"), "#!/usr/bin/env bash\nBASE=\"__SKILL_HOME_RELEASES_BASE_URL__\"\n")
+
+	router := gin.New()
+	Register(router, distDir)
+
+	req := httptest.NewRequest(http.MethodGet, "/install.sh", nil)
+	req.Host = "127.0.0.1:8080"
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	if body := rec.Body.String(); !strings.Contains(body, "http://127.0.0.1:8080/releases") {
+		t.Fatalf("body %q does not contain injected releases base URL", body)
+	}
+}
+
 func TestRegisterServesInstallScriptHead(t *testing.T) {
 	t.Setenv(envDistDir, "")
 	gin.SetMode(gin.TestMode)

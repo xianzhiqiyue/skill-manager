@@ -2,6 +2,7 @@ import { PageHeader } from '../components/layout/PageHeader';
 import { SidebarLayout } from '../components/layout/SidebarLayout';
 import { CopyActionButton } from '../components/object/CopyActionButton';
 import { useRegistryApp } from '../hooks/useRegistryApp';
+import { API_BASE } from '../api';
 import { formatDate, skillKey } from '../lib/format';
 import { buildSkillPath } from '../lib/routes';
 
@@ -12,10 +13,13 @@ type HomePageProps = {
   navigate: (path: string) => void;
 };
 
-const CLI_INSTALL_COMMAND = 'curl -fsSL http://47.122.112.210:8080/install.sh | bash';
 const CLI_VERIFY_COMMAND = 'skill-home doctor';
 
 export function HomePage({ model, navigate }: HomePageProps) {
+  const serviceBaseURL = API_BASE.replace(/\/$/, '');
+  const cliInstallCommand = `curl -fsSL ${serviceBaseURL}/install.sh | bash`;
+  const installEntry = serviceBaseURL.replace(/^https?:\/\//, '');
+
   return (
     <div className="page-stack">
       <section className="surface-panel gh-release-shell">
@@ -92,7 +96,7 @@ export function HomePage({ model, navigate }: HomePageProps) {
                     <CopyActionButton
                       className="button button--primary"
                       label="复制安装命令"
-                      value={CLI_INSTALL_COMMAND}
+                      value={cliInstallCommand}
                     />
                     <button className="button button--secondary" onClick={() => navigate('/install')} type="button">
                       Open install guide
@@ -106,19 +110,19 @@ export function HomePage({ model, navigate }: HomePageProps) {
                       <strong>Primary install command</strong>
                       <p>用固定入口脚本拉取对应平台的最新 CLI 版本。</p>
                     </div>
-                    <CopyActionButton className="button button--quiet" label="复制命令" value={CLI_INSTALL_COMMAND} />
+                    <CopyActionButton className="button button--quiet" label="复制命令" value={cliInstallCommand} />
                   </div>
-                  <code>{CLI_INSTALL_COMMAND}</code>
+                  <code>{cliInstallCommand}</code>
                 </div>
 
                 <div className="gh-settings-summary-grid">
                   <article className="gh-settings-summary-item">
                     <span>Entry</span>
-                    <strong>get.skill-home.dev</strong>
+                    <strong>{installEntry}</strong>
                   </article>
                   <article className="gh-settings-summary-item">
                     <span>Artifacts</span>
-                    <strong>GitHub Releases</strong>
+                    <strong>Skill Home /releases</strong>
                   </article>
                   <article className="gh-settings-summary-item">
                     <span>Verify</span>

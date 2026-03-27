@@ -23,7 +23,7 @@ bash /tmp/skill-home-install.sh
 skill-home self-update
 
 # 2. 注册账号
-curl -X POST https://registry.skill-home.dev/api/v1/auth/register \
+curl -X POST http://47.122.112.210:8080/api/v1/auth/register \
   -H "Content-Type: application/json" \
   -d '{"username":"yourname","email":"you@example.com","password":"yourpass"}'
 
@@ -36,7 +36,7 @@ skill-home pack -o my-first-skill.zip .
 skill-home push .
 ```
 
-CLI 安装与自更新会优先从 Skill Home 自身托管的 `/releases` 目录下载版本元数据、校验文件和各平台二进制；只有镜像缺失或不可用时才回退到 GitHub Release。
+CLI 安装与自更新统一从当前 Skill Home 服务托管的 `/releases` 目录下载版本元数据、校验文件和各平台二进制。
 
 发布和删除远程 skill 需要先登录；公开 skill 的 `pull / install / update / search / info` 不需要登录。
 

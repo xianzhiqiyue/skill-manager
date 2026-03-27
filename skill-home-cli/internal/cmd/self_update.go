@@ -32,8 +32,8 @@ func newSelfUpdateCmd(version string) *cobra.Command {
 			}
 
 			updater := selfupdate.Updater{
-				Repo:           selfupdate.ResolveRepo(),
-				CurrentVersion: version,
+				CurrentVersion:        version,
+				HostedReleasesBaseURL: selfupdate.ResolveHostedReleasesBaseURL(registryEndpoint()),
 			}
 
 			resolvedVersion, err := updater.Update(targetVersion)

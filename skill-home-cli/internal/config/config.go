@@ -9,6 +9,8 @@ import (
 	"github.com/spf13/viper"
 )
 
+const DefaultRegistryEndpoint = "http://47.122.112.210:8080"
+
 // Config 应用配置结构
 type Config struct {
 	Version  string    `yaml:"version" mapstructure:"version"`
@@ -155,7 +157,7 @@ func applyViperValues(cfg *Config) {
 // setDefaults 设置默认值
 func setDefaults() {
 	viper.SetDefault("version", "1.0")
-	viper.SetDefault("registry.endpoint", "https://registry.skill-home.dev")
+	viper.SetDefault("registry.endpoint", DefaultRegistryEndpoint)
 	viper.SetDefault("registry.timeout", 30)
 	viper.SetDefault("local.skills_dir", "~/.skill-home/skills")
 	viper.SetDefault("local.default_namespace", "@user")

@@ -5,6 +5,7 @@ import (
 
 	"github.com/spf13/viper"
 
+	"github.com/skill-home/cli/internal/config"
 	"github.com/skill-home/cli/internal/registry"
 )
 
@@ -30,7 +31,7 @@ var registryClientFactory = func() registryClient {
 func registryEndpoint() string {
 	server := viper.GetString("registry.endpoint")
 	if server == "" {
-		return "https://registry.skill-home.dev"
+		return config.DefaultRegistryEndpoint
 	}
 	return server
 }

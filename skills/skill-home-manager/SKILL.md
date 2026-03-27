@@ -86,7 +86,7 @@ ide_config:
 ## Codex 特别约束
 
 - 这台机器是 WSL + Windows 混合环境，向 Codex 安装 skill 时优先 `--mode mirror`，避免生成指向 Linux 路径的符号链接。
-- `scripts/bootstrap-cli.sh` 默认从已部署安装页拉取公开安装脚本；如果部署页不可用，再回退到 GitHub 上的安装脚本。它安装的是已发布的 CLI，不依赖本地源码目录。
+- `scripts/bootstrap-cli.sh` 默认从已部署 Skill Home 服务拉取公开安装脚本和 `/releases` 产物。它安装的是已发布的 CLI，不依赖本地源码目录。
 - `scripts/rebuild-cli.sh` 在这个公共 skill 里表示“重新安装最新发布版 CLI”，不是从源码重建。
 - 不要默认要求本机存在任何 `skill-home` 源码仓库；只有当用户明确在维护该仓库时，才允许走源码工作流。
 - 涉及 registry 写操作时，先检查是否已登录；未登录时优先提示用户直接执行 `skill-home login` 走邮箱/密码登录流，或在已有 Key 时使用 `skill-home login --api-key ...`。

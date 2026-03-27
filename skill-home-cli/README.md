@@ -26,7 +26,7 @@ curl -fsSL http://47.122.112.210:8080/install.sh -o /tmp/skill-home-install.sh
 bash /tmp/skill-home-install.sh
 ```
 
-安装脚本会优先从 Skill Home 自身的 `/releases` 镜像下载 `checksums.txt` 和平台包；如果站内镜像缺失或不可用，才会回退到 GitHub Release。
+安装脚本和 `self-update` 都只从当前 Skill Home 服务的 `/releases` 下载版本元数据、校验文件和平台包。
 
 指定版本：
 
@@ -41,7 +41,7 @@ skill-home self-update
 skill-home self-update v0.2.3
 ```
 
-`self-update` 也使用同样的 hosted-first、GitHub-fallback 策略。如需覆盖站内镜像地址，可设置 `SKILL_HOME_RELEASES_BASE_URL`。
+`self-update` 会优先读取当前 registry endpoint 对应服务下的 `/releases/latest.json`，也可以用 `SKILL_HOME_RELEASES_BASE_URL` 显式覆盖下载源。
 
 ### 从源码安装
 
@@ -221,7 +221,7 @@ export SKILL_HOME_API_KEY="sk_xxx"
 ```yaml
 # 注册中心配置
 registry:
-  endpoint: "https://registry.skill-home.dev"
+  endpoint: "http://47.122.112.210:8080"
   api_key: "your-api-key"  # 或设置环境变量 SKILL_HOME_API_KEY
 
 # IDE 配置

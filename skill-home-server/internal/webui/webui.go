@@ -12,6 +12,7 @@ import (
 const envDistDir = "SKILL_HOME_WEB_DIST_DIR"
 const envInstallScript = "SKILL_HOME_INSTALL_SCRIPT"
 const envReleaseAssetsDir = "SKILL_HOME_RELEASES_DIR"
+const installScriptReleasesBasePlaceholder = "__SKILL_HOME_RELEASES_BASE_URL__"
 
 // ResolveDistDir finds a usable frontend dist directory for the web UI.
 func ResolveDistDir() string {
@@ -47,8 +48,17 @@ func Register(router *gin.Engine, distDir string) {
 			return
 		}
 
+		content, err := os.ReadFile(installScriptPath)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"code":    "INTERNAL_ERROR",
+				"message": "Install script could not be loaded",
+			})
+			return
+		}
+
 		c.Header("Content-Type", "text/plain; charset=utf-8")
-		c.File(installScriptPath)
+		c.Data(http.StatusOK, "text/plain; charset=utf-8", injectInstallScriptReleasesBaseURL(content, publicReleasesBaseURL(c)))
 	}
 
 	router.GET("/install.sh", serveInstallScript)
@@ -181,4 +191,33 @@ func ResolveReleaseAssetsDir(distDir string) string {
 func isFile(path string) bool {
 	info, err := os.Stat(path)
 	return err == nil && !info.IsDir()
+}
+
+func publicReleasesBaseURL(c *gin.Context) string {
+	return strings.TrimRight(publicBaseURL(c), "/") + "/releases"
+}
+
+func publicBaseURL(c *gin.Context) string {
+	host := strings.TrimSpace(c.GetHeader("X-Forwarded-Host"))
+	if host == "" {
+		host = c.Request.Host
+	}
+
+	scheme := strings.TrimSpace(strings.Split(c.GetHeader("X-Forwarded-Proto"), ",")[0])
+	if scheme == "" {
+		if c.Request.TLS != nil {
+			scheme = "https"
+		} else {
+			scheme = "http"
+		}
+	}
+
+	return scheme + "://" + host
+}
+
+func injectInstallScriptReleasesBaseURL(script []byte, releasesBaseURL string) []byte {
+	if len(script) == 0 || releasesBaseURL == "" {
+		return script
+	}
+	return []byte(strings.ReplaceAll(string(script), installScriptReleasesBasePlaceholder, releasesBaseURL))
 }

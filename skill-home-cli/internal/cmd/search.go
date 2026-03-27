@@ -48,10 +48,7 @@ func newSearchCmd() *cobra.Command {
 func runSearch(query string, opts *searchOptions) error {
 	// API Key 可选
 	apiKey := viper.GetString("registry.api_key")
-	server := viper.GetString("registry.endpoint")
-	if server == "" {
-		server = "https://registry.skill-home.dev"
-	}
+	server := registryEndpoint()
 
 	fmt.Printf("搜索: %s\n", color.CyanString(query))
 	if len(opts.tags) > 0 {

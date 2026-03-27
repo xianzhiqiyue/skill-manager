@@ -18,7 +18,7 @@
 scripts/bootstrap-cli.sh
 ```
 
-这个脚本会优先下载部署页的 `install.sh`，部署页失败时回退到 GitHub 上的安装脚本。  
+这个脚本会从 Skill Home 服务下载 `install.sh`，再由脚本继续从同一服务的 `/releases` 拉取对应平台 CLI。
 默认安装到 `~/.local/bin/skill-home`；如果系统级安装，使用 `--system`。
 
 如果你明确需要系统级安装:
@@ -116,6 +116,7 @@ skill-home --debug sync /path/to/skill --ide codex --global --mode mirror
 
 - 配置文件是否是 `~/.config/skill-home/config.yaml`
 - Codex 全局路径是否与 `$CODEX_HOME/skills` 或 `~/.codex/skills` 一致
+- `/releases/latest.json` 和对应版本产物是否已经同步到当前 Skill Home 服务
 - 本地 skill 是否通过了 `validate`
 - 是否把“本地目录”误当成“远程 skill 引用”去执行 `install`
 

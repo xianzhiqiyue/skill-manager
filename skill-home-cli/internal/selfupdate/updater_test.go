@@ -11,7 +11,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"sync/atomic"
 	"strings"
 	"testing"
 )
@@ -28,8 +27,6 @@ func TestUpdaterUsesHostedReleaseAssetsFirst(t *testing.T) {
 	archiveData := createTarGzArchive(t, "skill-home", []byte("new-binary"))
 	checksums := fmt.Sprintf("%s  %s\n", sha256Hex(archiveData), assetName)
 
-	var githubHits atomic.Int32
-
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/releases/latest.json":
@@ -39,9 +36,6 @@ func TestUpdaterUsesHostedReleaseAssetsFirst(t *testing.T) {
 			w.Write(archiveData)
 		case "/releases/v1.2.3/checksums.txt":
 			fmt.Fprint(w, checksums)
-		case "/repos/test/repo/releases/latest", "/test/repo/releases/download/v1.2.3/" + assetName, "/test/repo/releases/download/v1.2.3/checksums.txt":
-			githubHits.Add(1)
-			http.NotFound(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -49,13 +43,10 @@ func TestUpdaterUsesHostedReleaseAssetsFirst(t *testing.T) {
 	defer server.Close()
 
 	updater := Updater{
-		Repo:                  "test/repo",
 		CurrentVersion:        "v1.0.0",
 		ExecutablePath:        currentExec,
 		GOOS:                  "linux",
 		GOARCH:                "amd64",
-		APIBaseURL:            server.URL,
-		DownloadBaseURL:       server.URL,
 		HostedReleasesBaseURL: server.URL + "/releases",
 		Client:                server.Client(),
 	}
@@ -67,14 +58,11 @@ func TestUpdaterUsesHostedReleaseAssetsFirst(t *testing.T) {
 	if version != "v1.2.3" {
 		t.Fatalf("version = %q, want %q", version, "v1.2.3")
 	}
-	if githubHits.Load() != 0 {
-		t.Fatalf("expected no GitHub fallback requests, got %d", githubHits.Load())
-	}
 
 	assertFileContent(t, currentExec, "new-binary")
 }
 
-func TestUpdaterFallsBackToGitHubWhenHostedAssetsFail(t *testing.T) {
+func TestUpdaterFailsWhenHostedAssetsAreMissing(t *testing.T) {
 	t.Parallel()
 
 	currentExec := filepath.Join(t.TempDir(), "skill-home")
@@ -82,32 +70,11 @@ func TestUpdaterFallsBackToGitHubWhenHostedAssetsFail(t *testing.T) {
 		t.Fatalf("WriteFile(currentExec) failed: %v", err)
 	}
 
-	assetName := "skill-home-linux-amd64.tar.gz"
-	archiveData := createTarGzArchive(t, "skill-home", []byte("new-binary"))
-	checksums := fmt.Sprintf("%s  %s\n", sha256Hex(archiveData), assetName)
-
-	var hostedHits atomic.Int32
-	var githubHits atomic.Int32
-
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/releases/latest.json":
-			hostedHits.Add(1)
 			w.Header().Set("Content-Type", "application/json")
 			fmt.Fprint(w, `{"tag_name":"v1.2.3"}`)
-		case "/releases/v1.2.3/" + assetName, "/releases/v1.2.3/checksums.txt":
-			hostedHits.Add(1)
-			http.NotFound(w, r)
-		case "/repos/test/repo/releases/latest":
-			githubHits.Add(1)
-			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprint(w, `{"tag_name":"v1.2.3"}`)
-		case "/test/repo/releases/download/v1.2.3/" + assetName:
-			githubHits.Add(1)
-			w.Write(archiveData)
-		case "/test/repo/releases/download/v1.2.3/checksums.txt":
-			githubHits.Add(1)
-			fmt.Fprint(w, checksums)
 		default:
 			http.NotFound(w, r)
 		}
@@ -115,32 +82,22 @@ func TestUpdaterFallsBackToGitHubWhenHostedAssetsFail(t *testing.T) {
 	defer server.Close()
 
 	updater := Updater{
-		Repo:                  "test/repo",
 		CurrentVersion:        "v1.0.0",
 		ExecutablePath:        currentExec,
 		GOOS:                  "linux",
 		GOARCH:                "amd64",
-		APIBaseURL:            server.URL,
-		DownloadBaseURL:       server.URL,
 		HostedReleasesBaseURL: server.URL + "/releases",
 		Client:                server.Client(),
 	}
 
-	version, err := updater.Update("")
-	if err != nil {
-		t.Fatalf("Update returned error: %v", err)
+	_, err := updater.Update("")
+	if err == nil {
+		t.Fatal("Update expected error, got nil")
 	}
-	if version != "v1.2.3" {
-		t.Fatalf("version = %q, want %q", version, "v1.2.3")
+	if !strings.Contains(err.Error(), "Skill Home") {
+		t.Fatalf("error = %q, want Skill Home context", err)
 	}
-	if hostedHits.Load() == 0 {
-		t.Fatal("expected hosted release endpoints to be attempted")
-	}
-	if githubHits.Load() == 0 {
-		t.Fatal("expected GitHub fallback endpoints to be used")
-	}
-
-	assertFileContent(t, currentExec, "new-binary")
+	assertFileContent(t, currentExec, "old-binary")
 }
 
 func TestUpdaterUpdateLatestInstallsBinaryAndCreatesBackup(t *testing.T) {
@@ -157,12 +114,12 @@ func TestUpdaterUpdateLatestInstallsBinaryAndCreatesBackup(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case "/repos/test/repo/releases/latest":
+		case "/releases/latest.json":
 			w.Header().Set("Content-Type", "application/json")
 			fmt.Fprint(w, `{"tag_name":"v1.2.3"}`)
-		case "/test/repo/releases/download/v1.2.3/" + assetName:
+		case "/releases/v1.2.3/" + assetName:
 			w.Write(archiveData)
-		case "/test/repo/releases/download/v1.2.3/checksums.txt":
+		case "/releases/v1.2.3/checksums.txt":
 			fmt.Fprint(w, checksums)
 		default:
 			http.NotFound(w, r)
@@ -171,14 +128,11 @@ func TestUpdaterUpdateLatestInstallsBinaryAndCreatesBackup(t *testing.T) {
 	defer server.Close()
 
 	updater := Updater{
-		Repo:                  "test/repo",
 		CurrentVersion:        "v1.0.0",
 		ExecutablePath:        currentExec,
 		GOOS:                  "linux",
 		GOARCH:                "amd64",
-		APIBaseURL:            server.URL,
-		DownloadBaseURL:       server.URL,
-		HostedReleasesBaseURL: server.URL + "/releases-unavailable",
+		HostedReleasesBaseURL: server.URL + "/releases",
 		Client:                server.Client(),
 	}
 
@@ -199,6 +153,23 @@ func TestUpdaterUpdateLatestInstallsBinaryAndCreatesBackup(t *testing.T) {
 	}
 	if info.Mode().Perm()&0o111 == 0 {
 		t.Fatalf("expected executable mode, got %v", info.Mode())
+	}
+}
+
+func TestResolveHostedReleasesBaseURLUsesRegistryEndpoint(t *testing.T) {
+	t.Parallel()
+
+	got := ResolveHostedReleasesBaseURL("http://127.0.0.1:8080/api/v1")
+	if got != "http://127.0.0.1:8080/releases" {
+		t.Fatalf("ResolveHostedReleasesBaseURL() = %q, want %q", got, "http://127.0.0.1:8080/releases")
+	}
+}
+
+func TestResolveHostedReleasesBaseURLPrefersEnvOverride(t *testing.T) {
+	t.Setenv(envHostedBaseURL, "http://custom.example/releases/")
+	got := ResolveHostedReleasesBaseURL("http://127.0.0.1:8080/api/v1")
+	if got != "http://custom.example/releases" {
+		t.Fatalf("ResolveHostedReleasesBaseURL() = %q, want %q", got, "http://custom.example/releases")
 	}
 }
 

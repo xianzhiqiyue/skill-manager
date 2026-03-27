@@ -204,6 +204,7 @@ describe('App shell', () => {
 
     expect(screen.getByRole('heading', { name: 'Install CLI' })).toBeInTheDocument();
     expect(screen.getByText('curl -fsSL http://47.122.112.210:8080/install.sh | bash')).toBeInTheDocument();
+    expect(screen.getByText('Skill Home /releases')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Open install guide' }));
 

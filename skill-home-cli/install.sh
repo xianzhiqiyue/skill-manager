@@ -2,11 +2,13 @@
 
 set -euo pipefail
 
-REPO="${SKILL_HOME_RELEASE_REPO:-xianzhiqiyue/skill-manager}"
 BINARY_NAME="skill-home"
 INSTALL_DIR="${SKILL_HOME_INSTALL_DIR:-${HOME}/.local/bin}"
-HOSTED_RELEASES_BASE_URL="${SKILL_HOME_RELEASES_BASE_URL:-http://47.122.112.210:8080/releases}"
-SELECTED_RELEASE_SOURCE=""
+DEFAULT_RELEASES_BASE_URL="__SKILL_HOME_RELEASES_BASE_URL__"
+if [[ "$DEFAULT_RELEASES_BASE_URL" == "__SKILL_HOME_RELEASES_BASE_URL__" ]]; then
+  DEFAULT_RELEASES_BASE_URL="http://47.122.112.210:8080/releases"
+fi
+HOSTED_RELEASES_BASE_URL="${SKILL_HOME_RELEASES_BASE_URL:-$DEFAULT_RELEASES_BASE_URL}"
 
 detect_platform() {
   local os arch
@@ -63,13 +65,6 @@ try_download_file() {
   exit 1
 }
 
-get_latest_version_from_github() {
-  curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" \
-    | grep '"tag_name":' \
-    | head -n1 \
-    | sed -E 's/.*"([^"]+)".*/\1/'
-}
-
 get_latest_version_from_hosted() {
   local tmp_file version
 
@@ -88,14 +83,7 @@ get_latest_version_from_hosted() {
 }
 
 get_latest_version() {
-  local version
-
-  if version="$(get_latest_version_from_hosted 2>/dev/null)"; then
-    echo "$version"
-    return
-  fi
-
-  get_latest_version_from_github
+  get_latest_version_from_hosted
 }
 
 normalize_version() {
@@ -105,7 +93,7 @@ normalize_version() {
     echo "正在获取最新版本..." >&2
     version="$(get_latest_version)"
     if [ -z "$version" ]; then
-      echo "无法获取最新版本，请检查 GitHub Release 是否已发布" >&2
+      echo "无法获取最新版本，请确认 Skill Home 服务已同步该 CLI 发布" >&2
       exit 1
     fi
   fi
@@ -183,50 +171,30 @@ build_hosted_release_url() {
   echo "${HOSTED_RELEASES_BASE_URL%/}/${version}/${asset_name}"
 }
 
-build_github_release_url() {
-  local version="$1"
-  local asset_name="$2"
-
-  echo "https://github.com/${REPO}/releases/download/${version}/${asset_name}"
-}
-
 download_release_bundle() {
   local version="$1"
   local asset_name="$2"
   local archive_path="$3"
   local checksums_path="$4"
-  local release_url checksum_url source_name last_error
+  local release_url checksum_url
 
-  for source_name in hosted github; do
-    if [ "$source_name" = "hosted" ]; then
-      release_url="$(build_hosted_release_url "$version" "$asset_name")"
-      checksum_url="$(build_hosted_release_url "$version" "checksums.txt")"
-    else
-      release_url="$(build_github_release_url "$version" "$asset_name")"
-      checksum_url="$(build_github_release_url "$version" "checksums.txt")"
-    fi
+  release_url="$(build_hosted_release_url "$version" "$asset_name")"
+  checksum_url="$(build_hosted_release_url "$version" "checksums.txt")"
 
-    if ! try_download_file "$release_url" "$archive_path"; then
-      last_error="${source_name} 发布包下载失败"
-      continue
-    fi
+  try_download_file "$release_url" "$archive_path" || {
+    echo "Skill Home 发布包下载失败" >&2
+    return 1
+  }
 
-    if ! try_download_file "$checksum_url" "$checksums_path"; then
-      last_error="${source_name} 校验文件下载失败"
-      continue
-    fi
+  try_download_file "$checksum_url" "$checksums_path" || {
+    echo "Skill Home 校验文件下载失败" >&2
+    return 1
+  }
 
-    if ! verify_checksum "$archive_path" "$checksums_path" "$asset_name"; then
-      last_error="${source_name} checksum 校验失败"
-      continue
-    fi
-
-    SELECTED_RELEASE_SOURCE="$source_name"
-    return 0
-  done
-
-  echo "${last_error:-无法下载发布包}" >&2
-  return 1
+  verify_checksum "$archive_path" "$checksums_path" "$asset_name" || {
+    echo "Skill Home checksum 校验失败" >&2
+    return 1
+  }
 }
 
 main() {
@@ -240,11 +208,9 @@ main() {
   ASSET_NAME="${BINARY_NAME}-${PLATFORM}.${ARCHIVE_EXT}"
 
   echo "版本: ${VERSION}"
-  echo "仓库: ${REPO}"
   echo "平台: ${PLATFORM}"
   echo "安装目录: ${INSTALL_DIR}"
-  echo "站内发布源: ${HOSTED_RELEASES_BASE_URL%/}"
-  echo "GitHub 回退源: https://github.com/${REPO}/releases/download/${VERSION}"
+  echo "Skill Home 发布源: ${HOSTED_RELEASES_BASE_URL%/}"
   echo ""
 
   TMP_DIR="$(mktemp -d)"
@@ -259,7 +225,6 @@ main() {
   if ! download_release_bundle "$VERSION" "$ASSET_NAME" "$ARCHIVE_PATH" "$CHECKSUMS_PATH"; then
     exit 1
   fi
-  echo "已使用 ${SELECTED_RELEASE_SOURCE} 发布源"
 
   echo "正在解压..."
   extract_archive "$ARCHIVE_PATH" "$ARCHIVE_EXT" "$EXTRACT_DIR"

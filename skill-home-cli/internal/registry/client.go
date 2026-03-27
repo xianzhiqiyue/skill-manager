@@ -12,6 +12,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/skill-home/cli/internal/config"
 )
 
 // Client 注册中心客户端
@@ -24,7 +26,7 @@ type Client struct {
 // NewClient 创建注册中心客户端
 func NewClient(baseURL, apiKey string) *Client {
 	if baseURL == "" {
-		baseURL = "https://registry.skill-home.dev"
+		baseURL = config.DefaultRegistryEndpoint
 	}
 
 	return &Client{
