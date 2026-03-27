@@ -11,6 +11,7 @@ import (
 
 const envDistDir = "SKILL_HOME_WEB_DIST_DIR"
 const envInstallScript = "SKILL_HOME_INSTALL_SCRIPT"
+const envReleaseAssetsDir = "SKILL_HOME_RELEASES_DIR"
 
 // ResolveDistDir finds a usable frontend dist directory for the web UI.
 func ResolveDistDir() string {
@@ -35,6 +36,7 @@ func ResolveDistDir() string {
 func Register(router *gin.Engine, distDir string) {
 	indexPath := filepath.Join(distDir, "index.html")
 	installScriptPath := ResolveInstallScriptPath(distDir)
+	releaseAssetsDir := ResolveReleaseAssetsDir(distDir)
 
 	serveInstallScript := func(c *gin.Context) {
 		if installScriptPath == "" {
@@ -51,6 +53,39 @@ func Register(router *gin.Engine, distDir string) {
 
 	router.GET("/install.sh", serveInstallScript)
 	router.HEAD("/install.sh", serveInstallScript)
+
+	serveReleaseAsset := func(c *gin.Context) {
+		if releaseAssetsDir == "" {
+			c.JSON(http.StatusNotFound, gin.H{
+				"code":    "NOT_FOUND",
+				"message": "Release asset not found",
+			})
+			return
+		}
+
+		relPath, ok := cleanRelativePath(c.Param("assetPath"))
+		if !ok {
+			c.JSON(http.StatusNotFound, gin.H{
+				"code":    "NOT_FOUND",
+				"message": "Release asset not found",
+			})
+			return
+		}
+
+		candidate := filepath.Join(releaseAssetsDir, relPath)
+		if !isFile(candidate) {
+			c.JSON(http.StatusNotFound, gin.H{
+				"code":    "NOT_FOUND",
+				"message": "Release asset not found",
+			})
+			return
+		}
+
+		c.File(candidate)
+	}
+
+	router.GET("/releases/*assetPath", serveReleaseAsset)
+	router.HEAD("/releases/*assetPath", serveReleaseAsset)
 
 	router.GET("/", func(c *gin.Context) {
 		c.File(indexPath)
@@ -113,6 +148,29 @@ func ResolveInstallScriptPath(distDir string) string {
 
 	for _, candidate := range candidates {
 		if isFile(candidate) {
+			return candidate
+		}
+	}
+
+	return ""
+}
+
+func ResolveReleaseAssetsDir(distDir string) string {
+	candidates := make([]string, 0, 4)
+
+	if fromEnv := strings.TrimSpace(os.Getenv(envReleaseAssetsDir)); fromEnv != "" {
+		candidates = append(candidates, fromEnv)
+	}
+
+	distParent := filepath.Dir(distDir)
+	candidates = append(candidates,
+		filepath.Join(distParent, "releases"),
+		"./releases",
+		filepath.Join(distParent, "..", "releases"),
+	)
+
+	for _, candidate := range candidates {
+		if info, err := os.Stat(candidate); err == nil && info.IsDir() {
 			return candidate
 		}
 	}

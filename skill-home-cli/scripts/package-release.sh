@@ -73,6 +73,8 @@ package_unix linux amd64
 package_unix linux arm64
 package_windows amd64
 
+printf '{"tag_name":"%s"}\n' "$VERSION" > "${DIST_ABS}/latest.json"
+
 if command -v sha256sum >/dev/null 2>&1; then
   (
     cd "$DIST_ABS"

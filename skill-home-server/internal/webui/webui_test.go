@@ -101,6 +101,67 @@ func TestRegisterServesInstallScriptHead(t *testing.T) {
 	}
 }
 
+func TestRegisterServesHostedReleaseAssets(t *testing.T) {
+	t.Setenv(envDistDir, "")
+	gin.SetMode(gin.TestMode)
+
+	rootDir := t.TempDir()
+	distDir := filepath.Join(rootDir, "web")
+	writeFile(t, filepath.Join(distDir, "index.html"), "<html>home</html>")
+	writeFile(t, filepath.Join(rootDir, "releases", "latest.json"), `{"tag_name":"v1.2.3"}`)
+	writeFile(t, filepath.Join(rootDir, "releases", "v1.2.3", "skill-home-linux-amd64.tar.gz"), "archive-bytes")
+
+	router := gin.New()
+	Register(router, distDir)
+
+	tests := []struct {
+		name       string
+		path       string
+		wantSubstr string
+	}{
+		{name: "latest", path: "/releases/latest.json", wantSubstr: `"tag_name":"v1.2.3"`},
+		{name: "archive", path: "/releases/v1.2.3/skill-home-linux-amd64.tar.gz", wantSubstr: "archive-bytes"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, tt.path, nil)
+			rec := httptest.NewRecorder()
+			router.ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+			}
+			if body := rec.Body.String(); !strings.Contains(body, tt.wantSubstr) {
+				t.Fatalf("body %q does not contain %q", body, tt.wantSubstr)
+			}
+		})
+	}
+}
+
+func TestRegisterMissingReleaseAssetReturns404(t *testing.T) {
+	t.Setenv(envDistDir, "")
+	gin.SetMode(gin.TestMode)
+
+	rootDir := t.TempDir()
+	distDir := filepath.Join(rootDir, "web")
+	writeFile(t, filepath.Join(distDir, "index.html"), "<html>home</html>")
+
+	router := gin.New()
+	Register(router, distDir)
+
+	req := httptest.NewRequest(http.MethodGet, "/releases/v9.9.9/checksums.txt", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusNotFound)
+	}
+	if body := rec.Body.String(); strings.Contains(body, "home") {
+		t.Fatalf("body %q unexpectedly fell back to index", body)
+	}
+}
+
 func TestRegisterReturns404ForMissingInstallScript(t *testing.T) {
 	t.Setenv(envDistDir, "")
 	gin.SetMode(gin.TestMode)

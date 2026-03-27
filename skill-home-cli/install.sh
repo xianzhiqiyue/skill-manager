@@ -5,6 +5,8 @@ set -euo pipefail
 REPO="${SKILL_HOME_RELEASE_REPO:-xianzhiqiyue/skill-manager}"
 BINARY_NAME="skill-home"
 INSTALL_DIR="${SKILL_HOME_INSTALL_DIR:-${HOME}/.local/bin}"
+HOSTED_RELEASES_BASE_URL="${SKILL_HOME_RELEASES_BASE_URL:-http://47.122.112.210:8080/releases}"
+SELECTED_RELEASE_SOURCE=""
 
 detect_platform() {
   local os arch
@@ -43,11 +45,57 @@ detect_platform() {
   esac
 }
 
-get_latest_version() {
+try_download_file() {
+  local url="$1"
+  local output="$2"
+
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsSL -o "$output" "$url"
+    return
+  fi
+
+  if command -v wget >/dev/null 2>&1; then
+    wget -qO "$output" "$url"
+    return
+  fi
+
+  echo "需要 curl 或 wget 来下载安装包" >&2
+  exit 1
+}
+
+get_latest_version_from_github() {
   curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" \
     | grep '"tag_name":' \
     | head -n1 \
     | sed -E 's/.*"([^"]+)".*/\1/'
+}
+
+get_latest_version_from_hosted() {
+  local tmp_file version
+
+  tmp_file="$(mktemp)"
+
+  if ! try_download_file "${HOSTED_RELEASES_BASE_URL%/}/latest.json" "$tmp_file"; then
+    rm -f "$tmp_file"
+    return 1
+  fi
+
+  version="$(grep '"tag_name":' "$tmp_file" | head -n1 | sed -E 's/.*"([^"]+)".*/\1/')"
+  rm -f "$tmp_file"
+  [ -n "$version" ] || return 1
+
+  echo "$version"
+}
+
+get_latest_version() {
+  local version
+
+  if version="$(get_latest_version_from_hosted 2>/dev/null)"; then
+    echo "$version"
+    return
+  fi
+
+  get_latest_version_from_github
 }
 
 normalize_version() {
@@ -69,24 +117,6 @@ normalize_version() {
   echo "$version"
 }
 
-download_file() {
-  local url="$1"
-  local output="$2"
-
-  if command -v curl >/dev/null 2>&1; then
-    curl -fsSL -o "$output" "$url"
-    return
-  fi
-
-  if command -v wget >/dev/null 2>&1; then
-    wget -qO "$output" "$url"
-    return
-  fi
-
-  echo "需要 curl 或 wget 来下载安装包" >&2
-  exit 1
-}
-
 verify_checksum() {
   local archive_path="$1"
   local checksums_path="$2"
@@ -100,12 +130,12 @@ verify_checksum() {
     actual="$(shasum -a 256 "$archive_path" | awk '{print $1}')"
     [ -n "$expected" ] && [ "$expected" = "$actual" ] && return
   else
-    echo "未找到 sha256sum/shasum，跳过 checksum 校验"
+    echo "未找到 sha256sum/shasum，跳过 checksum 校验" >&2
     return
   fi
 
   echo "checksum 校验失败: ${asset_name}" >&2
-  exit 1
+  return 1
 }
 
 extract_archive() {
@@ -146,6 +176,59 @@ show_path_hint() {
   esac
 }
 
+build_hosted_release_url() {
+  local version="$1"
+  local asset_name="$2"
+
+  echo "${HOSTED_RELEASES_BASE_URL%/}/${version}/${asset_name}"
+}
+
+build_github_release_url() {
+  local version="$1"
+  local asset_name="$2"
+
+  echo "https://github.com/${REPO}/releases/download/${version}/${asset_name}"
+}
+
+download_release_bundle() {
+  local version="$1"
+  local asset_name="$2"
+  local archive_path="$3"
+  local checksums_path="$4"
+  local release_url checksum_url source_name last_error
+
+  for source_name in hosted github; do
+    if [ "$source_name" = "hosted" ]; then
+      release_url="$(build_hosted_release_url "$version" "$asset_name")"
+      checksum_url="$(build_hosted_release_url "$version" "checksums.txt")"
+    else
+      release_url="$(build_github_release_url "$version" "$asset_name")"
+      checksum_url="$(build_github_release_url "$version" "checksums.txt")"
+    fi
+
+    if ! try_download_file "$release_url" "$archive_path"; then
+      last_error="${source_name} 发布包下载失败"
+      continue
+    fi
+
+    if ! try_download_file "$checksum_url" "$checksums_path"; then
+      last_error="${source_name} 校验文件下载失败"
+      continue
+    fi
+
+    if ! verify_checksum "$archive_path" "$checksums_path" "$asset_name"; then
+      last_error="${source_name} checksum 校验失败"
+      continue
+    fi
+
+    SELECTED_RELEASE_SOURCE="$source_name"
+    return 0
+  done
+
+  echo "${last_error:-无法下载发布包}" >&2
+  return 1
+}
+
 main() {
   echo "================================"
   echo "  skill-home CLI 安装脚本"
@@ -155,13 +238,13 @@ main() {
   detect_platform
   VERSION="$(normalize_version "${1:-}")"
   ASSET_NAME="${BINARY_NAME}-${PLATFORM}.${ARCHIVE_EXT}"
-  RELEASE_URL="https://github.com/${REPO}/releases/download/${VERSION}/${ASSET_NAME}"
-  CHECKSUM_URL="https://github.com/${REPO}/releases/download/${VERSION}/checksums.txt"
 
   echo "版本: ${VERSION}"
   echo "仓库: ${REPO}"
   echo "平台: ${PLATFORM}"
   echo "安装目录: ${INSTALL_DIR}"
+  echo "站内发布源: ${HOSTED_RELEASES_BASE_URL%/}"
+  echo "GitHub 回退源: https://github.com/${REPO}/releases/download/${VERSION}"
   echo ""
 
   TMP_DIR="$(mktemp -d)"
@@ -173,13 +256,10 @@ main() {
   mkdir -p "$EXTRACT_DIR"
 
   echo "正在下载发布包..."
-  download_file "$RELEASE_URL" "$ARCHIVE_PATH"
-
-  echo "正在下载校验文件..."
-  download_file "$CHECKSUM_URL" "$CHECKSUMS_PATH"
-
-  echo "正在校验 checksum..."
-  verify_checksum "$ARCHIVE_PATH" "$CHECKSUMS_PATH" "$ASSET_NAME"
+  if ! download_release_bundle "$VERSION" "$ASSET_NAME" "$ARCHIVE_PATH" "$CHECKSUMS_PATH"; then
+    exit 1
+  fi
+  echo "已使用 ${SELECTED_RELEASE_SOURCE} 发布源"
 
   echo "正在解压..."
   extract_archive "$ARCHIVE_PATH" "$ARCHIVE_EXT" "$EXTRACT_DIR"

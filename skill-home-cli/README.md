@@ -26,6 +26,8 @@ curl -fsSL http://47.122.112.210:8080/install.sh -o /tmp/skill-home-install.sh
 bash /tmp/skill-home-install.sh
 ```
 
+安装脚本会优先从 Skill Home 自身的 `/releases` 镜像下载 `checksums.txt` 和平台包；如果站内镜像缺失或不可用，才会回退到 GitHub Release。
+
 指定版本：
 
 ```bash
@@ -38,6 +40,8 @@ bash /tmp/skill-home-install.sh v0.2.0
 skill-home self-update
 skill-home self-update v0.2.3
 ```
+
+`self-update` 也使用同样的 hosted-first、GitHub-fallback 策略。如需覆盖站内镜像地址，可设置 `SKILL_HOME_RELEASES_BASE_URL`。
 
 ### 从源码安装
 

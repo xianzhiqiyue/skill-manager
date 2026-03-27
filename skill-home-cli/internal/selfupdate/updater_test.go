@@ -11,9 +11,137 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"strings"
 	"testing"
 )
+
+func TestUpdaterUsesHostedReleaseAssetsFirst(t *testing.T) {
+	t.Parallel()
+
+	currentExec := filepath.Join(t.TempDir(), "skill-home")
+	if err := os.WriteFile(currentExec, []byte("old-binary"), 0o755); err != nil {
+		t.Fatalf("WriteFile(currentExec) failed: %v", err)
+	}
+
+	assetName := "skill-home-linux-amd64.tar.gz"
+	archiveData := createTarGzArchive(t, "skill-home", []byte("new-binary"))
+	checksums := fmt.Sprintf("%s  %s\n", sha256Hex(archiveData), assetName)
+
+	var githubHits atomic.Int32
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/releases/latest.json":
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprint(w, `{"tag_name":"v1.2.3"}`)
+		case "/releases/v1.2.3/" + assetName:
+			w.Write(archiveData)
+		case "/releases/v1.2.3/checksums.txt":
+			fmt.Fprint(w, checksums)
+		case "/repos/test/repo/releases/latest", "/test/repo/releases/download/v1.2.3/" + assetName, "/test/repo/releases/download/v1.2.3/checksums.txt":
+			githubHits.Add(1)
+			http.NotFound(w, r)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	updater := Updater{
+		Repo:                  "test/repo",
+		CurrentVersion:        "v1.0.0",
+		ExecutablePath:        currentExec,
+		GOOS:                  "linux",
+		GOARCH:                "amd64",
+		APIBaseURL:            server.URL,
+		DownloadBaseURL:       server.URL,
+		HostedReleasesBaseURL: server.URL + "/releases",
+		Client:                server.Client(),
+	}
+
+	version, err := updater.Update("")
+	if err != nil {
+		t.Fatalf("Update returned error: %v", err)
+	}
+	if version != "v1.2.3" {
+		t.Fatalf("version = %q, want %q", version, "v1.2.3")
+	}
+	if githubHits.Load() != 0 {
+		t.Fatalf("expected no GitHub fallback requests, got %d", githubHits.Load())
+	}
+
+	assertFileContent(t, currentExec, "new-binary")
+}
+
+func TestUpdaterFallsBackToGitHubWhenHostedAssetsFail(t *testing.T) {
+	t.Parallel()
+
+	currentExec := filepath.Join(t.TempDir(), "skill-home")
+	if err := os.WriteFile(currentExec, []byte("old-binary"), 0o755); err != nil {
+		t.Fatalf("WriteFile(currentExec) failed: %v", err)
+	}
+
+	assetName := "skill-home-linux-amd64.tar.gz"
+	archiveData := createTarGzArchive(t, "skill-home", []byte("new-binary"))
+	checksums := fmt.Sprintf("%s  %s\n", sha256Hex(archiveData), assetName)
+
+	var hostedHits atomic.Int32
+	var githubHits atomic.Int32
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/releases/latest.json":
+			hostedHits.Add(1)
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprint(w, `{"tag_name":"v1.2.3"}`)
+		case "/releases/v1.2.3/" + assetName, "/releases/v1.2.3/checksums.txt":
+			hostedHits.Add(1)
+			http.NotFound(w, r)
+		case "/repos/test/repo/releases/latest":
+			githubHits.Add(1)
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprint(w, `{"tag_name":"v1.2.3"}`)
+		case "/test/repo/releases/download/v1.2.3/" + assetName:
+			githubHits.Add(1)
+			w.Write(archiveData)
+		case "/test/repo/releases/download/v1.2.3/checksums.txt":
+			githubHits.Add(1)
+			fmt.Fprint(w, checksums)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	updater := Updater{
+		Repo:                  "test/repo",
+		CurrentVersion:        "v1.0.0",
+		ExecutablePath:        currentExec,
+		GOOS:                  "linux",
+		GOARCH:                "amd64",
+		APIBaseURL:            server.URL,
+		DownloadBaseURL:       server.URL,
+		HostedReleasesBaseURL: server.URL + "/releases",
+		Client:                server.Client(),
+	}
+
+	version, err := updater.Update("")
+	if err != nil {
+		t.Fatalf("Update returned error: %v", err)
+	}
+	if version != "v1.2.3" {
+		t.Fatalf("version = %q, want %q", version, "v1.2.3")
+	}
+	if hostedHits.Load() == 0 {
+		t.Fatal("expected hosted release endpoints to be attempted")
+	}
+	if githubHits.Load() == 0 {
+		t.Fatal("expected GitHub fallback endpoints to be used")
+	}
+
+	assertFileContent(t, currentExec, "new-binary")
+}
 
 func TestUpdaterUpdateLatestInstallsBinaryAndCreatesBackup(t *testing.T) {
 	t.Parallel()

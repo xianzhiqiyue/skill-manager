@@ -21,7 +21,9 @@ const (
 	DefaultRepo         = "xianzhiqiyue/skill-manager"
 	defaultAPIBaseURL   = "https://api.github.com"
 	defaultDownloadBase = "https://github.com"
+	defaultHostedBase   = "http://47.122.112.210:8080/releases"
 	envReleaseRepo      = "SKILL_HOME_RELEASE_REPO"
+	envHostedBaseURL    = "SKILL_HOME_RELEASES_BASE_URL"
 	supportedBinaryName = "skill-home"
 )
 
@@ -33,6 +35,7 @@ type Updater struct {
 	GOARCH          string
 	APIBaseURL      string
 	DownloadBaseURL string
+	HostedReleasesBaseURL string
 	Client          *http.Client
 }
 
@@ -64,16 +67,7 @@ func (u Updater) Update(targetVersion string) (string, error) {
 	checksumsPath := filepath.Join(tmpDir, "checksums.txt")
 	extractDir := filepath.Join(tmpDir, "extract")
 
-	releaseURL := fmt.Sprintf("%s/%s/releases/download/%s/%s", strings.TrimRight(u.DownloadBaseURL, "/"), u.Repo, version, assetName)
-	checksumURL := fmt.Sprintf("%s/%s/releases/download/%s/checksums.txt", strings.TrimRight(u.DownloadBaseURL, "/"), u.Repo, version)
-
-	if err := u.downloadFile(releaseURL, archivePath); err != nil {
-		return "", fmt.Errorf("下载发布包失败: %w", err)
-	}
-	if err := u.downloadFile(checksumURL, checksumsPath); err != nil {
-		return "", fmt.Errorf("下载校验文件失败: %w", err)
-	}
-	if err := verifyChecksum(archivePath, checksumsPath, assetName); err != nil {
+	if err := u.downloadReleaseAsset(version, assetName, archivePath, checksumsPath); err != nil {
 		return "", err
 	}
 	if err := os.MkdirAll(extractDir, 0o755); err != nil {
@@ -116,6 +110,9 @@ func (u *Updater) applyDefaults() {
 	if strings.TrimSpace(u.DownloadBaseURL) == "" {
 		u.DownloadBaseURL = defaultDownloadBase
 	}
+	if strings.TrimSpace(u.HostedReleasesBaseURL) == "" {
+		u.HostedReleasesBaseURL = ResolveHostedReleasesBaseURL()
+	}
 	if u.Client == nil {
 		u.Client = http.DefaultClient
 	}
@@ -128,10 +125,56 @@ func ResolveRepo() string {
 	return DefaultRepo
 }
 
+func ResolveHostedReleasesBaseURL() string {
+	if baseURL := strings.TrimSpace(os.Getenv(envHostedBaseURL)); baseURL != "" {
+		return strings.TrimRight(baseURL, "/")
+	}
+	return defaultHostedBase
+}
+
 func (u Updater) resolveTargetVersion(targetVersion string) (string, error) {
 	if normalized := normalizeVersion(targetVersion); normalized != "" {
 		return normalized, nil
 	}
+
+	if version, err := u.resolveHostedLatestVersion(); err == nil {
+		return version, nil
+	}
+
+	return u.resolveGitHubLatestVersion()
+}
+
+func (u Updater) resolveHostedLatestVersion() (string, error) {
+	if strings.TrimSpace(u.HostedReleasesBaseURL) == "" {
+		return "", errors.New("hosted releases base URL is empty")
+	}
+
+	requestURL := fmt.Sprintf("%s/latest.json", strings.TrimRight(u.HostedReleasesBaseURL, "/"))
+	resp, err := u.Client.Get(requestURL)
+	if err != nil {
+		return "", fmt.Errorf("获取站内最新版本失败: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("获取站内最新版本失败: HTTP %d", resp.StatusCode)
+	}
+
+	var payload struct {
+		TagName string `json:"tag_name"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		return "", fmt.Errorf("解析站内最新版本响应失败: %w", err)
+	}
+
+	version := normalizeVersion(payload.TagName)
+	if version == "" {
+		return "", errors.New("站内最新版本响应缺少 tag_name")
+	}
+	return version, nil
+}
+
+func (u Updater) resolveGitHubLatestVersion() (string, error) {
 
 	requestURL := fmt.Sprintf("%s/repos/%s/releases/latest", strings.TrimRight(u.APIBaseURL, "/"), u.Repo)
 	resp, err := u.Client.Get(requestURL)
@@ -156,6 +199,58 @@ func (u Updater) resolveTargetVersion(targetVersion string) (string, error) {
 		return "", errors.New("最新版本响应缺少 tag_name")
 	}
 	return version, nil
+}
+
+type releaseDownloadSource struct {
+	name        string
+	releaseURL  string
+	checksumURL string
+}
+
+func (u Updater) releaseDownloadSources(version string, assetName string) []releaseDownloadSource {
+	sources := make([]releaseDownloadSource, 0, 2)
+
+	if hostedBase := strings.TrimRight(u.HostedReleasesBaseURL, "/"); hostedBase != "" {
+		sources = append(sources, releaseDownloadSource{
+			name:        "hosted",
+			releaseURL:  fmt.Sprintf("%s/%s/%s", hostedBase, version, assetName),
+			checksumURL: fmt.Sprintf("%s/%s/checksums.txt", hostedBase, version),
+		})
+	}
+
+	githubBase := strings.TrimRight(u.DownloadBaseURL, "/")
+	sources = append(sources, releaseDownloadSource{
+		name:        "github",
+		releaseURL:  fmt.Sprintf("%s/%s/releases/download/%s/%s", githubBase, u.Repo, version, assetName),
+		checksumURL: fmt.Sprintf("%s/%s/releases/download/%s/checksums.txt", githubBase, u.Repo, version),
+	})
+
+	return sources
+}
+
+func (u Updater) downloadReleaseAsset(version string, assetName string, archivePath string, checksumsPath string) error {
+	var lastErr error
+
+	for _, source := range u.releaseDownloadSources(version, assetName) {
+		if err := u.downloadFile(source.releaseURL, archivePath); err != nil {
+			lastErr = fmt.Errorf("%s 下载发布包失败: %w", source.name, err)
+			continue
+		}
+		if err := u.downloadFile(source.checksumURL, checksumsPath); err != nil {
+			lastErr = fmt.Errorf("%s 下载校验文件失败: %w", source.name, err)
+			continue
+		}
+		if err := verifyChecksum(archivePath, checksumsPath, assetName); err != nil {
+			lastErr = fmt.Errorf("%s checksum 校验失败: %w", source.name, err)
+			continue
+		}
+		return nil
+	}
+
+	if lastErr != nil {
+		return lastErr
+	}
+	return errors.New("下载发布包失败: no download sources configured")
 }
 
 func normalizeVersion(version string) string {

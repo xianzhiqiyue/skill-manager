@@ -36,6 +36,8 @@ skill-home pack -o my-first-skill.zip .
 skill-home push .
 ```
 
+CLI 安装与自更新会优先从 Skill Home 自身托管的 `/releases` 目录下载版本元数据、校验文件和各平台二进制；只有镜像缺失或不可用时才回退到 GitHub Release。
+
 发布和删除远程 skill 需要先登录；公开 skill 的 `pull / install / update / search / info` 不需要登录。
 
 ## 项目结构

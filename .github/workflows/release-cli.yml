@@ -67,3 +67,4 @@ jobs:
             skill-home-cli/dist/skill-home-linux-arm64.tar.gz
             skill-home-cli/dist/skill-home-windows-amd64.zip
             skill-home-cli/dist/checksums.txt
+            skill-home-cli/dist/latest.json
