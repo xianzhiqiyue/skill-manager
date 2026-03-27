@@ -171,14 +171,15 @@ func TestUpdaterUpdateLatestInstallsBinaryAndCreatesBackup(t *testing.T) {
 	defer server.Close()
 
 	updater := Updater{
-		Repo:            "test/repo",
-		CurrentVersion:  "v1.0.0",
-		ExecutablePath:  currentExec,
-		GOOS:            "linux",
-		GOARCH:          "amd64",
-		APIBaseURL:      server.URL,
-		DownloadBaseURL: server.URL,
-		Client:          server.Client(),
+		Repo:                  "test/repo",
+		CurrentVersion:        "v1.0.0",
+		ExecutablePath:        currentExec,
+		GOOS:                  "linux",
+		GOARCH:                "amd64",
+		APIBaseURL:            server.URL,
+		DownloadBaseURL:       server.URL,
+		HostedReleasesBaseURL: server.URL + "/releases-unavailable",
+		Client:                server.Client(),
 	}
 
 	version, err := updater.Update("")

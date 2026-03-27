@@ -75,6 +75,10 @@ func TestRunDoctorReportsOpenClawPathsAndSymlinkSupport(t *testing.T) {
 			t.Fatalf("restore cwd returned error: %v", err)
 		}
 	})
+	resolvedWorkspaceDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Getwd after chdir returned error: %v", err)
+	}
 	globalPath := filepath.Join(tempDir, ".openclaw", "skills")
 
 	config.C = &config.Config{
@@ -88,7 +92,7 @@ func TestRunDoctorReportsOpenClawPathsAndSymlinkSupport(t *testing.T) {
 		},
 	}
 
-	projectPath := filepath.Join(workspaceDir, "skills")
+	projectPath := filepath.Join(resolvedWorkspaceDir, "skills")
 
 	restore := swapRegistryClientFactory(func() registryClient {
 		return &fakeRegistryClient{}
