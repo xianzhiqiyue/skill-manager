@@ -14,6 +14,7 @@ DIST_DIR="${TMP_DIR}/dist"
 FAKE_BIN_DIR="${TMP_DIR}/bin"
 INSTALL_SCRIPT_PATH="${TMP_DIR}/install.sh"
 SCP_ARGS_PATH="${TMP_DIR}/scp.args"
+SSH_ARGS_PATH="${TMP_DIR}/ssh.args"
 
 mkdir -p "${DIST_DIR}" "${FAKE_BIN_DIR}"
 
@@ -41,11 +42,15 @@ cat > "${FAKE_BIN_DIR}/ssh" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 
+printf '%s\n' "$@" >> "__SSH_ARGS_PATH__"
+
 if [[ " $* " == *" bash -s "* ]]; then
   cat >/dev/null
 fi
 exit 0
 EOF
+
+sed -i "s|__SSH_ARGS_PATH__|${SSH_ARGS_PATH}|g" "${FAKE_BIN_DIR}/ssh"
 
 cat > "${FAKE_BIN_DIR}/scp" <<EOF
 #!/usr/bin/env bash
@@ -69,7 +74,7 @@ set -euo pipefail
 
 case "$*" in
   *"/install.sh"*)
-    printf 'http://example.test/releases\n'
+    printf 'https://example.test/skill-home/releases\n'
     ;;
   *"/releases/latest.json"*)
     printf '{"tag_name":"v0.0.0"}\n'
@@ -87,7 +92,7 @@ SKILL_HOME_DEPLOY_HOST="example.test" \
 SKILL_HOME_DEPLOY_USER="root" \
 SKILL_HOME_DEPLOY_PORT="22" \
 SKILL_HOME_DEPLOY_DIR="/opt/skill-home" \
-SKILL_HOME_PUBLIC_BASE_URL="http://example.test" \
+SKILL_HOME_PUBLIC_BASE_URL="https://example.test/skill-home" \
 bash "${TARGET_SCRIPT}" v0.0.0 "${DIST_DIR}" "${INSTALL_SCRIPT_PATH}"
 
 if ! grep -qx -- '-P' "${SCP_ARGS_PATH}"; then
@@ -98,6 +103,16 @@ fi
 if ! grep -qx -- '22' "${SCP_ARGS_PATH}"; then
   echo "scp arguments did not include port 22" >&2
   exit 45
+fi
+
+if ! grep -qx -- 'https://example.test/skill-home/install.sh' "${SSH_ARGS_PATH}"; then
+  echo "ssh arguments did not include prefixed install check url" >&2
+  exit 46
+fi
+
+if ! grep -qx -- 'https://example.test/skill-home/releases/latest.json' "${SSH_ARGS_PATH}"; then
+  echo "ssh arguments did not include prefixed releases latest url" >&2
+  exit 47
 fi
 
 echo "test-promote-hosted-release: ok"

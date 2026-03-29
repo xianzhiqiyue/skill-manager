@@ -117,12 +117,19 @@ scp "${scp_opts[@]}" \
   "${remote_target}:${remote_tmp}/"
 
 echo "正在切换 Skill Home hosted release..."
-ssh "${ssh_opts[@]}" "$remote_target" "bash -s" -- "$DEPLOY_DIR" "$remote_tmp" "$VERSION" <<'EOF'
+ssh "${ssh_opts[@]}" "$remote_target" "bash -s" -- \
+  "$DEPLOY_DIR" \
+  "$remote_tmp" \
+  "$VERSION" \
+  "${PUBLIC_BASE_URL%/}/install.sh" \
+  "${PUBLIC_BASE_URL%/}/releases/latest.json" <<'EOF'
 set -euo pipefail
 
 deploy_dir="$1"
 remote_tmp="$2"
 version="$3"
+installcheck_url="$4"
+releases_latest_url="$5"
 stage_dir="${deploy_dir}/releases.new"
 
 rm -rf "$stage_dir"
@@ -147,7 +154,10 @@ do
 done
 
 install -m 0755 "${remote_tmp}/install.sh" "${deploy_dir}/install.sh.new"
-DEPLOY_DIR="$deploy_dir" bash "${remote_tmp}/deploy-update.sh"
+SKILL_HOME_INSTALLCHECK_URL="$installcheck_url" \
+SKILL_HOME_RELEASES_LATEST_URL="$releases_latest_url" \
+DEPLOY_DIR="$deploy_dir" \
+bash "${remote_tmp}/deploy-update.sh"
 rm -rf "$remote_tmp"
 EOF
 
