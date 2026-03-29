@@ -384,7 +384,7 @@ func parseTagList(raw string) []string {
 
 func resolvePublicDownloadURL(objStorage *storage.ObjectStorage, isPublic bool, storagePath, namespace, name, version string) string {
 	if isPublic && storagePath != "" {
-		if objStorage != nil {
+		if objStorage != nil && canExposePublicObjectURL(storagePath) {
 			if storageURL, ok := objStorage.PublicURL(storagePath); ok {
 				return storageURL
 			}
@@ -402,6 +402,15 @@ func resolvePublicDownloadURL(objStorage *storage.ObjectStorage, isPublic bool, 
 	}
 
 	return ""
+}
+
+func canExposePublicObjectURL(storagePath string) bool {
+	format, err := detectArchiveFormat(storagePath, nil)
+	if err != nil {
+		return false
+	}
+
+	return format == archiveFormatZip
 }
 
 func firstObjectStorage(objStorages ...*storage.ObjectStorage) *storage.ObjectStorage {
