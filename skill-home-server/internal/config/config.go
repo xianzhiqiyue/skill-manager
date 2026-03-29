@@ -45,6 +45,9 @@ type StorageConfig struct {
 	Region    string `mapstructure:"region"`
 	UseSSL    bool   `mapstructure:"use_ssl"`
 	LocalPath string `mapstructure:"local_path"`
+	// PublicBaseURL must already point at the object root, such as
+	// https://cdn.example.com/skill-home-assets.
+	PublicBaseURL string `mapstructure:"public_base_url"`
 }
 
 // AuthConfig 认证配置
@@ -156,6 +159,9 @@ func loadFromEnv() {
 	}
 	if v := os.Getenv("SKILL_HOME_STORAGE_LOCAL_PATH"); v != "" {
 		cfg.Storage.LocalPath = v
+	}
+	if v := os.Getenv("SKILL_HOME_STORAGE_PUBLIC_BASE_URL"); v != "" {
+		cfg.Storage.PublicBaseURL = v
 	}
 
 	// Auth

@@ -15,10 +15,12 @@ import (
 
 // ObjectStorage 对象存储
 type ObjectStorage struct {
-	client *minio.Client
-	bucket string
-	type_  string
+	client    *minio.Client
+	bucket    string
+	type_     string
 	localPath string
+	// publicBaseURL must already target the object root, not just the provider endpoint.
+	publicBaseURL string
 }
 
 // NewObjectStorage 创建对象存储连接
@@ -32,7 +34,7 @@ func NewObjectStorage(cfg config.StorageConfig) (*ObjectStorage, error) {
 		if err != nil {
 			return nil, err
 		}
-		return &ObjectStorage{client: client, bucket: cfg.Bucket, type_: cfg.Type}, nil
+		return &ObjectStorage{client: client, bucket: cfg.Bucket, type_: cfg.Type, publicBaseURL: cfg.PublicBaseURL}, nil
 
 	case "local":
 		path := cfg.LocalPath
@@ -42,7 +44,7 @@ func NewObjectStorage(cfg config.StorageConfig) (*ObjectStorage, error) {
 		if err := os.MkdirAll(path, 0755); err != nil {
 			return nil, err
 		}
-		return &ObjectStorage{type_: "local", localPath: path}, nil
+		return &ObjectStorage{type_: "local", localPath: path, publicBaseURL: cfg.PublicBaseURL}, nil
 
 	default:
 		return nil, fmt.Errorf("unsupported storage type: %s", cfg.Type)
@@ -72,6 +74,21 @@ func (s *ObjectStorage) Delete(ctx context.Context, key string) error {
 		return s.deleteLocal(key)
 	}
 	return s.client.RemoveObject(ctx, s.bucket, key, minio.RemoveObjectOptions{})
+}
+
+// PublicURL 返回对象的公共直链；如果未配置对象根路径则返回空结果。
+func (s *ObjectStorage) PublicURL(key string) (string, bool) {
+	if s == nil {
+		return "", false
+	}
+
+	baseURL := strings.TrimSpace(s.publicBaseURL)
+	key = strings.TrimSpace(key)
+	if baseURL == "" || key == "" {
+		return "", false
+	}
+
+	return strings.TrimRight(baseURL, "/") + "/" + strings.TrimLeft(key, "/"), true
 }
 
 // 本地存储实现
