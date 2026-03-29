@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -163,6 +164,7 @@ func loadFromEnv() {
 	if v := os.Getenv("SKILL_HOME_STORAGE_PUBLIC_BASE_URL"); v != "" {
 		cfg.Storage.PublicBaseURL = v
 	}
+	applySoulstoreSkillOSSFallback()
 
 	// Auth
 	if v := os.Getenv("SKILL_HOME_AUTH_JWT_SECRET"); v != "" {
@@ -190,6 +192,138 @@ func loadFromEnv() {
 	if v := os.Getenv("SKILL_HOME_SEARCH_MEILI_KEY"); v != "" {
 		cfg.Search.MeiliKey = v
 	}
+}
+
+func applySoulstoreSkillOSSFallback() {
+	if !hasSoulstoreSkillOSSConfig() {
+		return
+	}
+
+	if _, ok := os.LookupEnv("SKILL_HOME_STORAGE_TYPE"); !ok {
+		cfg.Storage.Type = "s3"
+	}
+	if _, ok := os.LookupEnv("SKILL_HOME_STORAGE_ENDPOINT"); !ok {
+		if endpoint := soulstoreSkillOSSEndpoint(); endpoint != "" {
+			cfg.Storage.Endpoint = endpoint
+		}
+	}
+	if _, ok := os.LookupEnv("SKILL_HOME_STORAGE_ACCESS_KEY"); !ok {
+		if v := os.Getenv("SOULSTORE_SKILL_OSS_ACCESS_KEY_ID"); v != "" {
+			cfg.Storage.AccessKey = v
+		}
+	}
+	if _, ok := os.LookupEnv("SKILL_HOME_STORAGE_SECRET_KEY"); !ok {
+		if v := os.Getenv("SOULSTORE_SKILL_OSS_ACCESS_KEY_SECRET"); v != "" {
+			cfg.Storage.SecretKey = v
+		}
+	}
+	if _, ok := os.LookupEnv("SKILL_HOME_STORAGE_BUCKET"); !ok {
+		if v := os.Getenv("SOULSTORE_SKILL_OSS_BUCKET_RELEASE"); v != "" {
+			cfg.Storage.Bucket = v
+		}
+	}
+	if _, ok := os.LookupEnv("SKILL_HOME_STORAGE_REGION"); !ok {
+		if v := os.Getenv("SOULSTORE_SKILL_OSS_REGION"); v != "" {
+			cfg.Storage.Region = v
+		}
+	}
+	if _, ok := os.LookupEnv("SKILL_HOME_STORAGE_USE_SSL"); !ok {
+		cfg.Storage.UseSSL = soulstoreSkillOSSUseSSL()
+	}
+	if _, ok := os.LookupEnv("SKILL_HOME_STORAGE_PUBLIC_BASE_URL"); !ok {
+		if publicBaseURL := soulstoreSkillOSSPublicBaseURL(); publicBaseURL != "" {
+			cfg.Storage.PublicBaseURL = publicBaseURL
+		}
+	}
+}
+
+func hasSoulstoreSkillOSSConfig() bool {
+	keys := []string{
+		"SOULSTORE_SKILL_OSS_INTERNAL_ENDPOINT",
+		"SOULSTORE_SKILL_OSS_PUBLIC_CNAME_ENDPOINT",
+		"SOULSTORE_SKILL_OSS_ACCESS_KEY_ID",
+		"SOULSTORE_SKILL_OSS_ACCESS_KEY_SECRET",
+		"SOULSTORE_SKILL_OSS_BUCKET_RELEASE",
+		"SOULSTORE_SKILL_OSS_REGION",
+	}
+
+	for _, key := range keys {
+		if os.Getenv(key) != "" {
+			return true
+		}
+	}
+
+	return false
+}
+
+func soulstoreSkillOSSEndpoint() string {
+	useInternal := strings.EqualFold(os.Getenv("SOULSTORE_SKILL_OSS_USE_INTERNAL_ENDPOINT"), "true")
+	if useInternal {
+		if endpoint := sanitizeStorageEndpoint(os.Getenv("SOULSTORE_SKILL_OSS_INTERNAL_ENDPOINT")); endpoint != "" {
+			return endpoint
+		}
+	}
+
+	if endpoint := sanitizeStorageEndpoint(os.Getenv("SOULSTORE_SKILL_OSS_PUBLIC_CNAME_ENDPOINT")); endpoint != "" {
+		return endpoint
+	}
+
+	return sanitizeStorageEndpoint(os.Getenv("SOULSTORE_SKILL_OSS_INTERNAL_ENDPOINT"))
+}
+
+func soulstoreSkillOSSPublicBaseURL() string {
+	if v := strings.TrimSpace(os.Getenv("SOULSTORE_SKILL_OSS_PUBLIC_CNAME_ENDPOINT")); v != "" {
+		return ensureURLScheme(v, "https")
+	}
+
+	return ""
+}
+
+func soulstoreSkillOSSUseSSL() bool {
+	rawEndpoint := os.Getenv("SOULSTORE_SKILL_OSS_INTERNAL_ENDPOINT")
+	if !strings.EqualFold(os.Getenv("SOULSTORE_SKILL_OSS_USE_INTERNAL_ENDPOINT"), "true") {
+		rawEndpoint = os.Getenv("SOULSTORE_SKILL_OSS_PUBLIC_CNAME_ENDPOINT")
+	}
+
+	rawEndpoint = strings.TrimSpace(rawEndpoint)
+	switch {
+	case strings.HasPrefix(strings.ToLower(rawEndpoint), "http://"):
+		return false
+	case strings.HasPrefix(strings.ToLower(rawEndpoint), "https://"):
+		return true
+	default:
+		return true
+	}
+}
+
+func sanitizeStorageEndpoint(raw string) string {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return ""
+	}
+
+	if !strings.Contains(trimmed, "://") {
+		return strings.TrimSuffix(trimmed, "/")
+	}
+
+	parsed, err := url.Parse(trimmed)
+	if err != nil {
+		return strings.TrimSuffix(strings.TrimPrefix(strings.TrimPrefix(trimmed, "https://"), "http://"), "/")
+	}
+
+	return strings.TrimSuffix(parsed.Host, "/")
+}
+
+func ensureURLScheme(raw string, defaultScheme string) string {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return ""
+	}
+	if strings.Contains(trimmed, "://") {
+		return strings.TrimRight(trimmed, "/")
+	}
+
+	return strings.TrimRight(defaultScheme+"://"+trimmed, "/")
 }
 
 func setDefaults() {
