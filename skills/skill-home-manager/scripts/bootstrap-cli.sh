@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-primary_install_url="${SKILL_HOME_INSTALL_URL:-http://47.122.112.210:8080/install.sh}"
+primary_install_url="${SKILL_HOME_INSTALL_URL:-https://soulstore.ciqtek.com/skill-home/install.sh}"
 user_bin_dir="${HOME}/.local/bin"
 install_dir="${SKILL_HOME_INSTALL_DIR:-$user_bin_dir}"
 user_install_target="$install_dir/skill-home"

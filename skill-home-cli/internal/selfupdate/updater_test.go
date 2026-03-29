@@ -173,6 +173,15 @@ func TestResolveHostedReleasesBaseURLPrefersEnvOverride(t *testing.T) {
 	}
 }
 
+func TestResolveHostedReleasesBaseURLFallsBackToSoulHostedReleases(t *testing.T) {
+	t.Parallel()
+
+	got := ResolveHostedReleasesBaseURL("")
+	if got != "https://soulstore.ciqtek.com/skill-home/releases" {
+		t.Fatalf("ResolveHostedReleasesBaseURL() = %q, want %q", got, "https://soulstore.ciqtek.com/skill-home/releases")
+	}
+}
+
 func TestInstallUpdatedBinaryRollsBackOnCopyFailure(t *testing.T) {
 	t.Parallel()
 

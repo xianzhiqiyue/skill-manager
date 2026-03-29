@@ -1,5 +1,6 @@
 import { startTransition, useDeferredValue, useEffect, useState } from 'react';
 
+import { APP_BASE_PATH, stripBasePath } from '../basePath';
 import {
   addCommunityTag,
   createAPIKey,
@@ -512,7 +513,7 @@ export function useRegistryApp(
       return '/';
     }
 
-    return `${window.location.pathname || '/'}${window.location.search || ''}`;
+    return `${stripBasePath(window.location.pathname || '/', APP_BASE_PATH)}${window.location.search || ''}`;
   }
 
   async function submitAuth(mode: 'login' | 'register') {

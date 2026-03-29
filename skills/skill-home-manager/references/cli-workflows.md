@@ -5,7 +5,7 @@
 - 当前工作目录: `pwd`
 - Codex 全局 skills 目录: 优先使用 `$CODEX_HOME/skills`，常见值是 `~/.codex/skills`
 - skill-home 配置文件: `~/.config/skill-home/config.yaml`
-- 公共 CLI 安装脚本: `http://47.122.112.210:8080/install.sh`
+- 公共 CLI 安装脚本: `https://soulstore.ciqtek.com/skill-home/install.sh`
 - GitHub Releases: `https://github.com/xianzhiqiyue/skill-manager/releases`
 
 除非用户明确在维护 `skill-manager` 仓库，否则不要假设本机存在任何 `skill-home` 源码目录。

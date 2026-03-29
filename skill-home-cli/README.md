@@ -22,7 +22,7 @@ AI Skill 跨平台管理工具，支持 Claude Code、GitHub Copilot、Cursor、
 ### 使用安装脚本（推荐）
 
 ```bash
-curl -fsSL http://47.122.112.210:8080/install.sh -o /tmp/skill-home-install.sh
+curl -fsSL https://soulstore.ciqtek.com/skill-home/install.sh -o /tmp/skill-home-install.sh
 bash /tmp/skill-home-install.sh
 ```
 
@@ -221,7 +221,7 @@ export SKILL_HOME_API_KEY="sk_xxx"
 ```yaml
 # 注册中心配置
 registry:
-  endpoint: "http://47.122.112.210:8080"
+  endpoint: "https://soulstore.ciqtek.com/skill-home/api/v1"
   api_key: "your-api-key"  # 或设置环境变量 SKILL_HOME_API_KEY
 
 # IDE 配置

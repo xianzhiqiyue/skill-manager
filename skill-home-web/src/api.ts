@@ -1,12 +1,10 @@
-const DEFAULT_API_BASE =
-  typeof window !== 'undefined' &&
-  window.location.hostname !== '127.0.0.1' &&
-  window.location.hostname !== 'localhost'
-    ? window.location.origin
-    : 'http://47.122.112.210:8080';
+import { APP_BASE_PATH, resolveAPIBase } from './basePath';
 
-export const API_BASE =
-  import.meta.env.VITE_REGISTRY_BASE_URL?.trim() || DEFAULT_API_BASE;
+export const API_BASE = resolveAPIBase(
+  typeof window !== 'undefined' ? window.location : null,
+  import.meta.env.VITE_REGISTRY_BASE_URL,
+  APP_BASE_PATH,
+);
 
 export type HealthResponse = {
   service: string;

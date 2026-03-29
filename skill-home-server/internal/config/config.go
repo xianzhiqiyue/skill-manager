@@ -20,8 +20,9 @@ type Config struct {
 
 // ServerConfig 服务器配置
 type ServerConfig struct {
-	Port int    `mapstructure:"port"`
-	Mode string `mapstructure:"mode"`
+	Port     int    `mapstructure:"port"`
+	Mode     string `mapstructure:"mode"`
+	BasePath string `mapstructure:"base_path"`
 }
 
 // DatabaseConfig 数据库配置
@@ -89,6 +90,7 @@ func Load() error {
 
 	// 从环境变量读取（覆盖 viper 配置）
 	loadFromEnv()
+	cfg.Server.BasePath = NormalizeBasePath(cfg.Server.BasePath)
 
 	return validate(cfg)
 }
@@ -103,6 +105,9 @@ func loadFromEnv() {
 	}
 	if v := os.Getenv("SKILL_HOME_SERVER_MODE"); v != "" {
 		cfg.Server.Mode = v
+	}
+	if v := os.Getenv("SKILL_HOME_SERVER_BASE_PATH"); v != "" {
+		cfg.Server.BasePath = v
 	}
 
 	// Database
@@ -184,6 +189,7 @@ func loadFromEnv() {
 func setDefaults() {
 	viper.SetDefault("server.port", 8080)
 	viper.SetDefault("server.mode", "development")
+	viper.SetDefault("server.base_path", "")
 	viper.SetDefault("database.host", "localhost")
 	viper.SetDefault("database.port", 5432)
 	viper.SetDefault("database.ssl_mode", "disable")
@@ -215,4 +221,30 @@ func Get() *Config {
 func (c *DatabaseConfig) GetDSN() string {
 	return fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
 		c.Host, c.Port, c.User, c.Password, c.Name, c.SSLMode)
+}
+
+func NormalizeBasePath(basePath string) string {
+	trimmed := strings.TrimSpace(basePath)
+	if trimmed == "" || trimmed == "/" {
+		return ""
+	}
+
+	return "/" + strings.Trim(trimmed, "/")
+}
+
+func JoinBasePath(basePath string, path string) string {
+	normalizedBasePath := NormalizeBasePath(basePath)
+	if path == "" || path == "/" {
+		if normalizedBasePath == "" {
+			return "/"
+		}
+		return normalizedBasePath + "/"
+	}
+
+	normalizedPath := "/" + strings.TrimPrefix(path, "/")
+	if normalizedBasePath == "" {
+		return normalizedPath
+	}
+
+	return normalizedBasePath + normalizedPath
 }

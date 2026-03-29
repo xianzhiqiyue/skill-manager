@@ -16,14 +16,14 @@ Skill-Home 是一个完整的 AI Skill 生态系统，包含：
 
 ```bash
 # 1. 安装 CLI
-curl -fsSL http://47.122.112.210:8080/install.sh -o /tmp/skill-home-install.sh
+curl -fsSL https://soulstore.ciqtek.com/skill-home/install.sh -o /tmp/skill-home-install.sh
 bash /tmp/skill-home-install.sh
 
 # 升级已安装 CLI
 skill-home self-update
 
 # 2. 注册账号
-curl -X POST http://47.122.112.210:8080/api/v1/auth/register \
+curl -X POST https://soulstore.ciqtek.com/skill-home/api/v1/auth/register \
   -H "Content-Type: application/json" \
   -d '{"username":"yourname","email":"you@example.com","password":"yourpass"}'
 
@@ -238,5 +238,5 @@ MIT License
 
 ## 联系
 
-- 项目主页: http://47.122.112.210:8080
+- 项目主页: https://soulstore.ciqtek.com/skill-home/
 - MinIO 控制台: http://47.122.112.210:19001

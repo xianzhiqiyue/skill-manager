@@ -65,7 +65,7 @@ func main() {
 	}
 
 	scanner := validator.NewScanner()
-	router := setupRouter(db, objStorage, scanner)
+	router := setupRouter(db, objStorage, scanner, cfg.Server.BasePath)
 
 	srv := &http.Server{
 		Addr:    fmt.Sprintf(":%d", cfg.Server.Port),
@@ -99,16 +99,17 @@ func main() {
 	fmt.Println("Server exited")
 }
 
-func setupRouter(db *storage.Database, objStorage *storage.ObjectStorage, scanner *validator.Scanner) *gin.Engine {
+func setupRouter(db *storage.Database, objStorage *storage.ObjectStorage, scanner *validator.Scanner, basePath string) *gin.Engine {
 	r := gin.New()
+	basePath = config.NormalizeBasePath(basePath)
 
 	r.Use(gin.Recovery())
 	r.Use(middleware.Logger())
 	r.Use(middleware.CORS())
 
-	r.GET("/health", handlers.HealthCheck(version))
+	r.GET(config.JoinBasePath(basePath, "/health"), handlers.HealthCheck(version))
 
-	api := r.Group("/api/v1")
+	api := r.Group(config.JoinBasePath(basePath, "/api/v1"))
 	{
 		api.POST("/auth/register", handlers.Register(db))
 		api.POST("/auth/login", handlers.Login(db))
@@ -139,7 +140,7 @@ func setupRouter(db *storage.Database, objStorage *storage.ObjectStorage, scanne
 	}
 
 	if distDir := webui.ResolveDistDir(); distDir != "" {
-		webui.Register(r, distDir)
+		webui.Register(r, distDir, webui.Options{BasePath: basePath})
 	}
 
 	return r

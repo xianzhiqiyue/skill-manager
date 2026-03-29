@@ -138,3 +138,29 @@ func TestInitAllowsRegistryEnvOverrides(t *testing.T) {
 		t.Fatalf("unexpected registry api key: %q", got)
 	}
 }
+
+func TestInitUsesSoulRegistryEndpointByDefault(t *testing.T) {
+	viper.Reset()
+	t.Cleanup(viper.Reset)
+
+	tempDir := t.TempDir()
+	configFile := filepath.Join(tempDir, "config.yaml")
+	if err := os.WriteFile(configFile, []byte("{}\n"), 0644); err != nil {
+		t.Fatalf("WriteFile returned error: %v", err)
+	}
+
+	homeDir := filepath.Join(tempDir, "home")
+	if err := os.MkdirAll(homeDir, 0755); err != nil {
+		t.Fatalf("MkdirAll returned error: %v", err)
+	}
+	t.Setenv("HOME", homeDir)
+	t.Setenv("USERPROFILE", homeDir)
+
+	if err := Init(configFile); err != nil {
+		t.Fatalf("Init returned error: %v", err)
+	}
+
+	if got := C.Registry.Endpoint; got != "https://soulstore.ciqtek.com/skill-home/api/v1" {
+		t.Fatalf("unexpected default registry endpoint: %q", got)
+	}
+}

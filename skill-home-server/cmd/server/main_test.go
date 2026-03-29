@@ -47,3 +47,26 @@ func TestHandleVersionCommandIgnoresNonVersionArgs(t *testing.T) {
 		t.Fatalf("buffer = %q, want empty", buffer.String())
 	}
 }
+
+func TestSetupRouterPrefixesHealthAndAPIRoutes(t *testing.T) {
+	router := setupRouter(nil, nil, nil, "/skill-home")
+	routes := make(map[string]struct{})
+
+	for _, route := range router.Routes() {
+		routes[route.Method+" "+route.Path] = struct{}{}
+	}
+
+	for _, want := range []string{
+		"GET /skill-home/health",
+		"POST /skill-home/api/v1/auth/login",
+		"GET /skill-home/api/v1/skills",
+	} {
+		if _, ok := routes[want]; !ok {
+			t.Fatalf("missing route %q", want)
+		}
+	}
+
+	if _, ok := routes["GET /health"]; ok {
+		t.Fatal("unexpected unprefixed health route")
+	}
+}

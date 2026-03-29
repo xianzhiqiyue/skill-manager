@@ -203,7 +203,7 @@ describe('App shell', () => {
     renderApp();
 
     expect(screen.getByRole('heading', { name: 'Install CLI' })).toBeInTheDocument();
-    expect(screen.getByText('curl -fsSL http://47.122.112.210:8080/install.sh | bash')).toBeInTheDocument();
+    expect(screen.getByText('curl -fsSL https://soulstore.ciqtek.com/skill-home/install.sh | bash')).toBeInTheDocument();
     expect(screen.getByText('Skill Home /releases')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Open install guide' }));

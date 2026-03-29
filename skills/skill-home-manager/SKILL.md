@@ -34,7 +34,7 @@ ide_config:
 
 - 当前工作目录: 以用户当前任务目录为准，不默认假设存在特定仓库
 - 本机配置文件: `~/.config/skill-home/config.yaml`
-- 公共安装入口: `http://47.122.112.210:8080/install.sh`
+- 公共安装入口: `https://soulstore.ciqtek.com/skill-home/install.sh`
 - GitHub Releases: `https://github.com/xianzhiqiyue/skill-manager/releases`
 - Codex 全局 skills 目录: 优先使用 `$CODEX_HOME/skills`，常见值是 `~/.codex/skills`
 

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 
+import { APP_BASE_PATH, applyBasePath, stripBasePath } from '../basePath';
 import { parseRoute } from '../lib/routes';
 
 type NavigateOptions = {
@@ -15,7 +16,7 @@ function getLocationState() {
   }
 
   return {
-    pathname: window.location.pathname || '/',
+    pathname: stripBasePath(window.location.pathname || '/', APP_BASE_PATH),
     search: window.location.search || '',
   };
 }
@@ -25,7 +26,7 @@ function parseNextLocation(path: string) {
   const url = new URL(target, typeof window === 'undefined' ? 'http://localhost' : window.location.origin);
 
   return {
-    pathname: url.pathname || '/',
+    pathname: stripBasePath(url.pathname || '/', APP_BASE_PATH),
     search: url.search || '',
   };
 }
@@ -54,7 +55,7 @@ export function useRoute() {
     }
 
     const nextLocation = parseNextLocation(path);
-    const nextPath = `${nextLocation.pathname}${nextLocation.search}`;
+    const nextPath = `${applyBasePath(nextLocation.pathname, APP_BASE_PATH)}${nextLocation.search}`;
     const method = options.replace ? 'replaceState' : 'pushState';
     const currentPath = `${window.location.pathname || '/'}${window.location.search || ''}`;
 

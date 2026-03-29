@@ -20,10 +20,11 @@ import (
 )
 
 const (
-	defaultHostedBase   = config.DefaultRegistryEndpoint + "/releases"
 	envHostedBaseURL    = "SKILL_HOME_RELEASES_BASE_URL"
 	supportedBinaryName = "skill-home"
 )
+
+var defaultHostedBase = resolveDefaultHostedBase()
 
 type Updater struct {
 	CurrentVersion        string
@@ -112,6 +113,13 @@ func ResolveHostedReleasesBaseURL(registryEndpoint string) string {
 		return resolved
 	}
 	return defaultHostedBase
+}
+
+func resolveDefaultHostedBase() string {
+	if resolved := resolveHostedBaseFromRegistryEndpoint(config.DefaultRegistryEndpoint); resolved != "" {
+		return resolved
+	}
+	return strings.TrimRight(config.DefaultRegistryEndpoint, "/") + "/releases"
 }
 
 func (u Updater) resolveTargetVersion(targetVersion string) (string, error) {

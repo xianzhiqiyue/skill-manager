@@ -50,6 +50,48 @@ func TestRegisterServesIndexAndStaticFiles(t *testing.T) {
 	}
 }
 
+func TestRegisterSupportsBasePath(t *testing.T) {
+	t.Setenv(envDistDir, "")
+	gin.SetMode(gin.TestMode)
+
+	rootDir := t.TempDir()
+	distDir := filepath.Join(rootDir, "web")
+	writeFile(t, filepath.Join(distDir, "index.html"), "<html>prefixed-home</html>")
+	writeFile(t, filepath.Join(distDir, "assets", "app.js"), "console.log('prefixed');")
+	writeFile(t, filepath.Join(rootDir, "install.sh"), "#!/usr/bin/env bash\nBASE=\"__SKILL_HOME_RELEASES_BASE_URL__\"\n")
+
+	router := gin.New()
+	Register(router, distDir, Options{BasePath: "/skill-home"})
+
+	tests := []struct {
+		name       string
+		path       string
+		wantCode   int
+		wantSubstr string
+	}{
+		{name: "install script", path: "/skill-home/install.sh", wantCode: http.StatusOK, wantSubstr: "http://127.0.0.1:8080/skill-home/releases"},
+		{name: "static asset", path: "/skill-home/assets/app.js", wantCode: http.StatusOK, wantSubstr: "console.log('prefixed')"},
+		{name: "spa fallback", path: "/skill-home/console/publish", wantCode: http.StatusOK, wantSubstr: "prefixed-home"},
+		{name: "api stays 404", path: "/skill-home/api/v1/missing", wantCode: http.StatusNotFound, wantSubstr: "NOT_FOUND"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, tt.path, nil)
+			req.Host = "127.0.0.1:8080"
+			rec := httptest.NewRecorder()
+			router.ServeHTTP(rec, req)
+
+			if rec.Code != tt.wantCode {
+				t.Fatalf("status = %d, want %d", rec.Code, tt.wantCode)
+			}
+			if body := rec.Body.String(); !strings.Contains(body, tt.wantSubstr) {
+				t.Fatalf("body %q does not contain %q", body, tt.wantSubstr)
+			}
+		})
+	}
+}
+
 func TestRegisterServesInstallScriptFromDeployRoot(t *testing.T) {
 	t.Setenv(envDistDir, "")
 	gin.SetMode(gin.TestMode)

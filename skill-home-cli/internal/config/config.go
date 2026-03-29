@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-const DefaultRegistryEndpoint = "http://47.122.112.210:8080"
+const DefaultRegistryEndpoint = "https://soulstore.ciqtek.com/skill-home/api/v1"
 
 // Config 应用配置结构
 type Config struct {
