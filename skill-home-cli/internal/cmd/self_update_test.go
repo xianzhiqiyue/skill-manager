@@ -3,8 +3,6 @@ package cmd
 import "testing"
 
 func TestRootCommandIncludesSelfUpdate(t *testing.T) {
-	t.Parallel()
-
 	rootCmd := NewRootCmd("v1.2.3", "abc123", "2026-03-26T00:00:00Z")
 	found, _, err := rootCmd.Find([]string{"self-update"})
 	if err != nil {
