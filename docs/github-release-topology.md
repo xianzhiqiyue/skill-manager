@@ -14,9 +14,9 @@
 
 - GitHub 仓库：`https://github.com/xianzhiqiyue/skill-manager`
 - GitHub Releases：`https://github.com/xianzhiqiyue/skill-manager/releases`
-- Web 门户：`https://skill-home.dev`
-- Registry API：`https://registry.skill-home.dev`
-- CLI 安装脚本：`http://47.122.112.210:8080/install.sh`
+- Web 门户：`https://soulstore.ciqtek.com/skill-home/`
+- Registry API：`https://soulstore.ciqtek.com/skill-home/api/v1`
+- CLI 安装脚本：`https://soulstore.ciqtek.com/skill-home/install.sh`
 
 ### 发布职责
 
@@ -48,7 +48,7 @@
 推荐入口：
 
 ```bash
-curl -fsSL http://47.122.112.210:8080/install.sh -o /tmp/skill-home-install.sh
+curl -fsSL https://soulstore.ciqtek.com/skill-home/install.sh -o /tmp/skill-home-install.sh
 bash /tmp/skill-home-install.sh
 ```
 
@@ -119,17 +119,16 @@ bash /tmp/skill-home-install.sh v0.2.0
 - 验证和扫描目标 skill
 - 推送到 registry
 
-## 建议的域名落地
+## 当前域名落地
 
-### DNS 与托管
+### Path-Based 入口
 
-- `skill-home.dev`
-  - 指向现有 Web 门户
-- `registry.skill-home.dev`
-  - 反向代理到现有 registry 服务
-- `get.skill-home.dev`
-  - 返回固定安装脚本
-  - 可托管在 GitHub Pages、Cloudflare Pages 或现有 Web 服务静态目录
+- `https://soulstore.ciqtek.com/skill-home/`
+  - Web 门户、安装引导和控制台首页
+- `https://soulstore.ciqtek.com/skill-home/api/v1`
+  - Registry API
+- `https://soulstore.ciqtek.com/skill-home/install.sh`
+  - CLI 安装入口
 
 ## 维护约束
 

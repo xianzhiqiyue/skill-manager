@@ -2,7 +2,7 @@
 
 ## 基本信息
 
-- **基础 URL**: `http://47.122.112.210:8080`
+- **基础 URL**: `https://soulstore.ciqtek.com/skill-home`
 - **API 版本**: `v1`
 - **数据格式**: JSON
 - **认证方式**: Bearer Token (JWT 或 API Key)
@@ -477,7 +477,7 @@ Authorization: Bearer <token>
 
 ```bash
 # 1. 登录获取 Token
-TOKEN=$(curl -s -X POST http://47.122.112.210:8080/api/v1/auth/login \
+TOKEN=$(curl -s -X POST https://soulstore.ciqtek.com/skill-home/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"test@example.com","password":"testpass123"}' \
   | jq -r '.token')
@@ -499,7 +499,7 @@ EOF
 tar -czf skill.tar.gz SKILL.md
 
 # 3. 发布技能
-curl -X POST http://47.122.112.210:8080/api/v1/skills \
+curl -X POST https://soulstore.ciqtek.com/skill-home/api/v1/skills \
   -H "Authorization: Bearer $TOKEN" \
   -F "namespace=testuser" \
   -F "name=my-skill" \
@@ -508,11 +508,11 @@ curl -X POST http://47.122.112.210:8080/api/v1/skills \
   -F "skill=@skill.tar.gz"
 
 # 4. 搜索技能
-curl "http://47.122.112.210:8080/api/v1/search?q=my-skill"
+curl "https://soulstore.ciqtek.com/skill-home/api/v1/search?q=my-skill"
 
 # 5. 下载技能
 curl -o my-skill-1.0.0.tar.gz \
-  "http://47.122.112.210:8080/api/v1/download/testuser/my-skill/1.0.0"
+  "https://soulstore.ciqtek.com/skill-home/api/v1/download/testuser/my-skill/1.0.0"
 ```
 
 ## 限流

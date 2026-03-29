@@ -239,4 +239,4 @@ MIT License
 ## 联系
 
 - 项目主页: https://soulstore.ciqtek.com/skill-home/
-- MinIO 控制台: http://47.122.112.210:19001
+- MinIO 控制台: http://121.40.85.95:19001
