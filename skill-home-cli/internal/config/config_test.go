@@ -160,7 +160,7 @@ func TestInitUsesSoulRegistryEndpointByDefault(t *testing.T) {
 		t.Fatalf("Init returned error: %v", err)
 	}
 
-	if got := C.Registry.Endpoint; got != "https://soulstore.ciqtek.com/skill-home/api/v1" {
+	if got := C.Registry.Endpoint; got != "https://soulstore.ciqtek.com/skill-home" {
 		t.Fatalf("unexpected default registry endpoint: %q", got)
 	}
 }

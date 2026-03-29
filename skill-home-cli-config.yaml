@@ -5,7 +5,7 @@ version: "1.0"
 
 # 注册中心配置
 registry:
-  endpoint: "https://soulstore.ciqtek.com/skill-home/api/v1"
+  endpoint: "https://soulstore.ciqtek.com/skill-home"
   api_key: "sk_Fe7wUNYNv5VrTxPK5zjFM1IYb0P9K6s1SzTsS5iRm80="  # 生产环境 API Key
   timeout: 30
 

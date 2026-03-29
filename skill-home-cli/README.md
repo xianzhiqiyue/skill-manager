@@ -221,7 +221,7 @@ export SKILL_HOME_API_KEY="sk_xxx"
 ```yaml
 # 注册中心配置
 registry:
-  endpoint: "https://soulstore.ciqtek.com/skill-home/api/v1"
+  endpoint: "https://soulstore.ciqtek.com/skill-home"
   api_key: "your-api-key"  # 或设置环境变量 SKILL_HOME_API_KEY
 
 # IDE 配置

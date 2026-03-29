@@ -9,7 +9,9 @@ import (
 	"github.com/spf13/viper"
 )
 
-const DefaultRegistryEndpoint = "https://soulstore.ciqtek.com/skill-home/api/v1"
+// DefaultRegistryEndpoint points at the registry service root. The CLI client
+// appends /api/v1 internally when calling the registry API.
+const DefaultRegistryEndpoint = "https://soulstore.ciqtek.com/skill-home"
 
 // Config 应用配置结构
 type Config struct {
