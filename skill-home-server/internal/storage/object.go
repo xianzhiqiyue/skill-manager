@@ -1,7 +1,9 @@
 package storage
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -76,6 +78,51 @@ func (s *ObjectStorage) Delete(ctx context.Context, key string) error {
 	return s.client.RemoveObject(ctx, s.bucket, key, minio.RemoveObjectOptions{})
 }
 
+// Exists 检查对象是否存在。
+func (s *ObjectStorage) Exists(ctx context.Context, key string) (bool, error) {
+	if s == nil {
+		return false, fmt.Errorf("object storage is nil")
+	}
+
+	if s.type_ == "local" {
+		return s.existsLocal(key)
+	}
+
+	_, err := s.client.StatObject(ctx, s.bucket, key, minio.StatObjectOptions{})
+	if err == nil {
+		return true, nil
+	}
+
+	if isObjectNotFoundError(err) {
+		return false, nil
+	}
+
+	return false, err
+}
+
+// CopyFrom 从另一个对象存储复制对象到当前存储。
+func (s *ObjectStorage) CopyFrom(ctx context.Context, key string, source *ObjectStorage, sourceKey string) error {
+	if s == nil {
+		return fmt.Errorf("destination object storage is nil")
+	}
+	if source == nil {
+		return fmt.Errorf("source object storage is nil")
+	}
+
+	reader, err := source.Download(ctx, sourceKey)
+	if err != nil {
+		return err
+	}
+	defer reader.Close()
+
+	content, err := io.ReadAll(reader)
+	if err != nil {
+		return err
+	}
+
+	return s.Upload(ctx, key, bytes.NewReader(content), int64(len(content)))
+}
+
 // PublicURL 返回对象的公共直链；如果未配置对象根路径则返回空结果。
 func (s *ObjectStorage) PublicURL(key string) (string, bool) {
 	if s == nil {
@@ -126,6 +173,29 @@ func (s *ObjectStorage) deleteLocal(key string) error {
 		return err
 	}
 	return nil
+}
+
+func (s *ObjectStorage) existsLocal(key string) (bool, error) {
+	path, err := s.resolveLocalPath(key)
+	if err != nil {
+		return false, err
+	}
+	if _, err := os.Stat(path); err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
+func isObjectNotFoundError(err error) bool {
+	var errResponse minio.ErrorResponse
+	if !errors.As(err, &errResponse) {
+		return false
+	}
+
+	return errResponse.Code == "NoSuchKey"
 }
 
 func (s *ObjectStorage) resolveLocalPath(key string) (string, error) {

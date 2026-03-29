@@ -6,9 +6,11 @@ AI Skill 跨平台管理工具链，实现 AI 技能在 Claude Code、GitHub Cop
 
 Skill-Home 是一个完整的 AI Skill 生态系统，包含：
 
-- **注册中心 (Registry)**: 云端技能存储与分发
+- **注册中心 (Registry)**: 负责技能元数据管理、搜索发现、发布流程与兼容下载入口
 - **CLI 工具**: 本地技能管理与 IDE 同步
 - **多 IDE 支持**: Claude Code、GitHub Copilot、Cursor、Codex 等
+
+其中公开 skill 包本体由对象存储/OSS 承载，Skill Home 服务端主要负责元数据、权限、搜索和分发地址编排。
 
 ## 快速开始
 
@@ -39,6 +41,8 @@ skill-home push .
 CLI 安装与自更新统一从当前 Skill Home 服务托管的 `/releases` 目录下载版本元数据、校验文件和各平台二进制。
 
 发布和删除远程 skill 需要先登录；公开 skill 的 `pull / install / update / search / info` 不需要登录。
+
+对于公开 skill，CLI / Web 会优先使用服务端返回的 `download_url` 直连 OSS；`/api/v1/download/...` 仍作为兼容入口保留，便于旧客户端和平滑迁移。
 
 ## 项目结构
 
@@ -82,7 +86,7 @@ skillManage/
 | 用户认证 | ✅ | JWT + 密码登录 |
 | API Key | ✅ | 命令行工具认证 |
 | 技能管理 | ✅ | CRUD + 版本控制 |
-| 对象存储 | ✅ | MinIO 集成 |
+| 对象存储 | ✅ | Skill Home 管理元数据，公开 skill 包由 OSS/对象存储承载 |
 | 安全扫描 | ✅ | 基础规则检测 |
 | 技能评分 | ✅ | 1-5 星评分与评论 |
 | 搜索排序 | ✅ | PostgreSQL 全文搜索 + 下载量排序 |

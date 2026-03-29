@@ -133,12 +133,15 @@ GET /api/v1/skills?page=1&per_page=20&q=keyword&tag=tag1&namespace=testuser
       "rating": 4.8,
       "rating_count": 5,
       "latest_version": "1.0.0",
+      "download_url": "https://oss-example.aliyuncs.com/public-skills/testuser/my-skill/1.0.0.zip",
       "created_at": "2026-03-01T10:00:00Z",
       "updated_at": "2026-03-01T12:00:00Z"
     }
   ]
 }
 ```
+
+公开 skill 的 `download_url` 可能直接是 OSS 公网绝对地址；旧服务或未配置公共对象地址时，也可能继续返回 `/api/v1/download/...` 兼容路径。
 
 #### 获取技能详情
 
@@ -163,6 +166,7 @@ Authorization: Bearer <token>  // 可选，访问私有技能或返回 user_rati
   "rating_count": 5,
   "is_public": true,
   "latest_version": "1.0.0",
+  "download_url": "https://oss-example.aliyuncs.com/public-skills/testuser/my-skill/1.0.0.zip",
   "created_at": "2026-03-01T10:00:00Z",
   "updated_at": "2026-03-01T12:00:00Z",
   "owner": {
@@ -181,6 +185,7 @@ Authorization: Bearer <token>  // 可选，访问私有技能或返回 user_rati
     {
       "id": "...",
       "version": "1.0.0",
+      "download_url": "https://oss-example.aliyuncs.com/public-skills/testuser/my-skill/1.0.0.zip",
       "size_bytes": 1024,
       "scan_status": "pass",
       "published_at": "2026-03-01T10:00:00Z"
@@ -212,9 +217,11 @@ skill: <文件>
   "namespace": "testuser",
   "name": "my-skill",
   "version": "1.0.0",
-  "download_url": "/api/v1/download/testuser/my-skill/1.0.0"
+  "download_url": "https://oss-example.aliyuncs.com/public-skills/testuser/my-skill/1.0.0.zip"
 }
 ```
+
+当 skill 是公开包且对象存储已配置公共地址时，`download_url` 会返回可直接下载的 OSS 绝对地址；否则仍会返回 `/api/v1/download/...` 兼容路径。
 
 #### 更新技能
 
@@ -288,6 +295,7 @@ GET /api/v1/skills/:namespace/:name/versions
     "id": "...",
     "skill_id": "...",
     "version": "1.0.0",
+    "download_url": "https://oss-example.aliyuncs.com/public-skills/testuser/my-skill/1.0.0.zip",
     "manifest": null,
     "size_bytes": 1024,
     "scan_status": "pass",
@@ -308,6 +316,17 @@ Content-Type: multipart/form-data
 
 version: 1.1.0
 skill: <文件>
+```
+
+**响应**:
+
+```json
+{
+  "namespace": "testuser",
+  "name": "my-skill",
+  "version": "1.1.0",
+  "download_url": "https://oss-example.aliyuncs.com/public-skills/testuser/my-skill/1.1.0.zip"
+}
 ```
 
 #### 删除版本
@@ -331,7 +350,12 @@ GET /api/v1/search?q=keyword&tag=tag1&namespace=testuser&page=1&per_page=20
 GET /api/v1/download/:namespace/:name/:version
 ```
 
-**响应**: 文件流 (application/gzip)
+该接口仍然保留为兼容下载入口：
+
+- 对公开 skill，服务端可能直接返回 `302`，`Location` 指向对象存储里的现成包文件，例如 `.zip` 直链。
+- 对未配置公共对象地址的部署，或需要兼容旧客户端的场景，服务端会直接返回数据库里记录的原始包内容，不会在下载时把 `.zip` 转成 `tar.gz`，也不会额外做压缩格式转换。
+
+**响应**: `302` 跳转到对象存储直链，或直接返回原始包文件流；具体 `Content-Type` / 文件后缀以实际存储对象为准。
 
 ### 用户管理
 
@@ -511,7 +535,11 @@ curl -X POST https://soulstore.ciqtek.com/skill-home/api/v1/skills \
 curl "https://soulstore.ciqtek.com/skill-home/api/v1/search?q=my-skill"
 
 # 5. 下载技能
-curl -o my-skill-1.0.0.tar.gz \
+curl -L -o my-skill-1.0.0.zip \
+  "https://oss-example.aliyuncs.com/public-skills/testuser/my-skill/1.0.0.zip"
+
+# 兼容旧客户端时，仍可继续使用服务端下载入口
+curl -L -o my-skill-1.0.0.zip \
   "https://soulstore.ciqtek.com/skill-home/api/v1/download/testuser/my-skill/1.0.0"
 ```
 
