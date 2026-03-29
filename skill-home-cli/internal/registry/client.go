@@ -351,33 +351,93 @@ func (c *Client) publishArchive(path, skillPath string, req *PublishRequest) (*P
 	return &result, nil
 }
 
-// Download 下载技能
-func (c *Client) Download(namespace, name, version, outputPath string) error {
-	path := fmt.Sprintf("/api/v1/download/%s/%s/%s?format=zip", namespace, name, version)
+func isAbsoluteDownloadURL(value string) bool {
+	parsed, err := url.Parse(value)
+	return err == nil && parsed.IsAbs()
+}
 
-	resp, err := c.doRequest("GET", path, nil, nil)
-	if err != nil {
-		return err
+func shouldUseDownloadURL(requestedVersion string, skill *Skill) bool {
+	if skill == nil || skill.DownloadURL == "" || skill.LatestVersion == "" {
+		return false
 	}
+
+	if !isAbsoluteDownloadURL(skill.DownloadURL) {
+		return false
+	}
+
+	if requestedVersion == "" {
+		return true
+	}
+
+	return requestedVersion == skill.LatestVersion
+}
+
+func (c *Client) saveDownloadResponse(resp *http.Response, outputPath string) error {
 	defer resp.Body.Close()
 
 	if err := c.handleError(resp); err != nil {
 		return err
 	}
 
-	// 创建输出文件
 	out, err := os.Create(outputPath)
 	if err != nil {
 		return fmt.Errorf("创建输出文件失败: %w", err)
 	}
 	defer out.Close()
 
-	// 复制内容
 	if _, err := io.Copy(out, resp.Body); err != nil {
 		return fmt.Errorf("下载失败: %w", err)
 	}
 
 	return nil
+}
+
+func (c *Client) downloadFromURL(downloadURL, outputPath string) error {
+	if isAbsoluteDownloadURL(downloadURL) {
+		req, err := http.NewRequest(http.MethodGet, downloadURL, nil)
+		if err != nil {
+			return err
+		}
+
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			return err
+		}
+
+		return c.saveDownloadResponse(resp, outputPath)
+	}
+
+	resp, err := c.doRequest(http.MethodGet, downloadURL, nil, nil)
+	if err != nil {
+		return err
+	}
+
+	return c.saveDownloadResponse(resp, outputPath)
+}
+
+// Download 下载技能
+func (c *Client) Download(namespace, name, version, outputPath string) error {
+	skill, err := c.GetSkill(namespace, name)
+	if err != nil {
+		return err
+	}
+
+	if shouldUseDownloadURL(version, skill) {
+		if err := c.downloadFromURL(skill.DownloadURL, outputPath); err != nil {
+			return err
+		}
+
+		return nil
+	}
+
+	path := fmt.Sprintf("/api/v1/download/%s/%s/%s?format=zip", namespace, name, version)
+
+	resp, err := c.doRequest(http.MethodGet, path, nil, nil)
+	if err != nil {
+		return err
+	}
+
+	return c.saveDownloadResponse(resp, outputPath)
 }
 
 // DeleteSkill 删除技能

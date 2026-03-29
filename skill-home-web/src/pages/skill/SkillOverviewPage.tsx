@@ -71,6 +71,7 @@ export function SkillOverviewPage({ model, navigate, search }: SkillOverviewPage
         const communityTags = skill.community_tags || [];
         const viewerTags = skill.viewer_tags || [];
         const primaryInstall = `skill-home install ${skillRef(skill)}${latestVersion === 'draft' ? '' : `@${latestVersion}`}`;
+        // Resolve the contract URL once so this page explicitly follows download_url when present.
         const downloadUrl = getDownloadUrl(skill);
 
         return (

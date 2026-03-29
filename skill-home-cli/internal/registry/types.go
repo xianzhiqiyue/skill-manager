@@ -6,27 +6,28 @@ import (
 
 // Skill 技能信息
 type Skill struct {
-	ID            string    `json:"id"`
-	Namespace     string    `json:"namespace"`
-	Name          string    `json:"name"`
-	OwnerID       string    `json:"owner_id,omitempty"`
-	Description   string    `json:"description"`
-	DescriptionZh string    `json:"description_zh,omitempty"`
-	Author        string    `json:"author"`
-	Tags          []string  `json:"tags,omitempty"`
-	License       string    `json:"license,omitempty"`
-	Homepage      string    `json:"homepage,omitempty"`
-	DownloadCount int64     `json:"download_count"`
-	Rating        float64   `json:"rating"`
-	RatingCount   int64     `json:"rating_count"`
-	IsPublic      bool      `json:"is_public"`
-	IsDeprecated  bool      `json:"is_deprecated"`
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
-	LatestVersion string    `json:"latest_version,omitempty"`
-	Owner         *User `json:"owner,omitempty"`
+	ID            string         `json:"id"`
+	Namespace     string         `json:"namespace"`
+	Name          string         `json:"name"`
+	OwnerID       string         `json:"owner_id,omitempty"`
+	Description   string         `json:"description"`
+	DescriptionZh string         `json:"description_zh,omitempty"`
+	Author        string         `json:"author"`
+	Tags          []string       `json:"tags,omitempty"`
+	License       string         `json:"license,omitempty"`
+	Homepage      string         `json:"homepage,omitempty"`
+	DownloadCount int64          `json:"download_count"`
+	Rating        float64        `json:"rating"`
+	RatingCount   int64          `json:"rating_count"`
+	IsPublic      bool           `json:"is_public"`
+	IsDeprecated  bool           `json:"is_deprecated"`
+	CreatedAt     time.Time      `json:"created_at"`
+	UpdatedAt     time.Time      `json:"updated_at"`
+	LatestVersion string         `json:"latest_version,omitempty"`
+	DownloadURL   string         `json:"download_url,omitempty"`
+	Owner         *User          `json:"owner,omitempty"`
 	Versions      []SkillVersion `json:"versions,omitempty"`
-	UserRating    *SkillRating `json:"user_rating,omitempty"`
+	UserRating    *SkillRating   `json:"user_rating,omitempty"`
 }
 
 // SkillVersion 技能版本

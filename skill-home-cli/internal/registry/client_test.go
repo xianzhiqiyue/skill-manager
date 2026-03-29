@@ -262,18 +262,30 @@ func TestListAuditLogsUsesExpectedQueryParameters(t *testing.T) {
 func TestDownloadRequestsZipFormat(t *testing.T) {
 	t.Parallel()
 
+	var paths []string
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/v1/download/team/reviewer/1.0.0" {
+		paths = append(paths, r.URL.Path)
+
+		switch r.URL.Path {
+		case "/api/v1/skills/team/reviewer":
+			_ = json.NewEncoder(w).Encode(Skill{
+				Namespace:     "team",
+				Name:          "reviewer",
+				LatestVersion: "1.0.0",
+			})
+		case "/api/v1/download/team/reviewer/1.0.0":
+			if got := r.URL.Query().Get("format"); got != "zip" {
+				t.Errorf("unexpected format: %s", got)
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			_, _ = io.WriteString(w, "zip-bytes")
+		default:
 			t.Errorf("unexpected path: %s", r.URL.Path)
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		if got := r.URL.Query().Get("format"); got != "zip" {
-			t.Errorf("unexpected format: %s", got)
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-		_, _ = io.WriteString(w, "zip-bytes")
 	}))
 	defer server.Close()
 
@@ -281,6 +293,168 @@ func TestDownloadRequestsZipFormat(t *testing.T) {
 	outputPath := t.TempDir() + "/skill.zip"
 	if err := client.Download("team", "reviewer", "1.0.0", outputPath); err != nil {
 		t.Fatalf("Download returned error: %v", err)
+	}
+
+	if len(paths) != 2 || paths[0] != "/api/v1/skills/team/reviewer" || paths[1] != "/api/v1/download/team/reviewer/1.0.0" {
+		t.Fatalf("unexpected request order: %#v", paths)
+	}
+}
+
+func TestDownloadUsesAbsoluteDownloadURLWhenPresent(t *testing.T) {
+	t.Parallel()
+
+	var paths []string
+	downloadServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		paths = append(paths, r.URL.Path)
+
+		if r.URL.Path != "/oss/team/reviewer/1.0.0.zip" {
+			t.Fatalf("unexpected download path: %s", r.URL.Path)
+		}
+		_, _ = io.WriteString(w, "oss-zip-bytes")
+	}))
+	defer downloadServer.Close()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		paths = append(paths, r.URL.Path)
+
+		if r.URL.Path != "/api/v1/skills/team/reviewer" {
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+
+		_ = json.NewEncoder(w).Encode(Skill{
+			Namespace:     "team",
+			Name:          "reviewer",
+			LatestVersion: "1.0.0",
+			DownloadURL:   downloadServer.URL + "/oss/team/reviewer/1.0.0.zip",
+		})
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "")
+	outputPath := t.TempDir() + "/skill.zip"
+	if err := client.Download("team", "reviewer", "1.0.0", outputPath); err != nil {
+		t.Fatalf("Download returned error: %v", err)
+	}
+
+	if len(paths) != 2 || paths[0] != "/api/v1/skills/team/reviewer" || paths[1] != "/oss/team/reviewer/1.0.0.zip" {
+		t.Fatalf("unexpected request order: %#v", paths)
+	}
+}
+
+func TestDownloadDoesNotReuseAbsoluteDownloadURLForNonLatestVersion(t *testing.T) {
+	t.Parallel()
+
+	var paths []string
+	downloadServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatalf("unexpected direct download request: %s", r.URL.Path)
+	}))
+	defer downloadServer.Close()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		paths = append(paths, r.URL.Path)
+
+		switch r.URL.Path {
+		case "/api/v1/skills/team/reviewer":
+			_ = json.NewEncoder(w).Encode(Skill{
+				Namespace:     "team",
+				Name:          "reviewer",
+				LatestVersion: "1.0.0",
+				DownloadURL:   downloadServer.URL + "/oss/team/reviewer/1.0.0.zip",
+			})
+		case "/api/v1/download/team/reviewer/0.9.0":
+			if got := r.URL.Query().Get("format"); got != "zip" {
+				t.Fatalf("unexpected format: %s", got)
+			}
+			_, _ = io.WriteString(w, "zip-bytes")
+		default:
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "")
+	outputPath := t.TempDir() + "/skill.zip"
+	if err := client.Download("team", "reviewer", "0.9.0", outputPath); err != nil {
+		t.Fatalf("Download returned error: %v", err)
+	}
+
+	if len(paths) != 2 || paths[0] != "/api/v1/skills/team/reviewer" || paths[1] != "/api/v1/download/team/reviewer/0.9.0" {
+		t.Fatalf("unexpected request order: %#v", paths)
+	}
+}
+
+func TestDownloadFallsBackWhenRelativeDownloadURLPresent(t *testing.T) {
+	t.Parallel()
+
+	var paths []string
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		paths = append(paths, r.URL.Path)
+
+		switch r.URL.Path {
+		case "/api/v1/skills/team/reviewer":
+			_ = json.NewEncoder(w).Encode(Skill{
+				Namespace:     "team",
+				Name:          "reviewer",
+				LatestVersion: "1.0.0",
+				DownloadURL:   "/api/v1/download/team/reviewer/1.0.0",
+			})
+		case "/api/v1/download/team/reviewer/1.0.0":
+			if got := r.URL.Query().Get("format"); got != "zip" {
+				t.Fatalf("unexpected format: %s", got)
+			}
+			_, _ = io.WriteString(w, "zip-bytes")
+		default:
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "")
+	outputPath := t.TempDir() + "/skill.zip"
+	if err := client.Download("team", "reviewer", "1.0.0", outputPath); err != nil {
+		t.Fatalf("Download returned error: %v", err)
+	}
+
+	if len(paths) != 2 || paths[0] != "/api/v1/skills/team/reviewer" || paths[1] != "/api/v1/download/team/reviewer/1.0.0" {
+		t.Fatalf("unexpected request order: %#v", paths)
+	}
+}
+
+func TestDownloadFallsBackToLegacyEndpointWhenDownloadURLMissing(t *testing.T) {
+	t.Parallel()
+
+	var paths []string
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		paths = append(paths, r.URL.Path)
+
+		switch r.URL.Path {
+		case "/api/v1/skills/team/reviewer":
+			_ = json.NewEncoder(w).Encode(Skill{
+				Namespace:     "team",
+				Name:          "reviewer",
+				LatestVersion: "1.0.0",
+			})
+		case "/api/v1/download/team/reviewer/1.0.0":
+			if got := r.URL.Query().Get("format"); got != "zip" {
+				t.Fatalf("unexpected format: %s", got)
+			}
+			_, _ = io.WriteString(w, "zip-bytes")
+		default:
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "")
+	outputPath := t.TempDir() + "/skill.zip"
+	if err := client.Download("team", "reviewer", "1.0.0", outputPath); err != nil {
+		t.Fatalf("Download returned error: %v", err)
+	}
+
+	if len(paths) != 2 || paths[0] != "/api/v1/skills/team/reviewer" || paths[1] != "/api/v1/download/team/reviewer/1.0.0" {
+		t.Fatalf("unexpected request order: %#v", paths)
 	}
 }
 

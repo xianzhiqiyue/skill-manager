@@ -1,5 +1,5 @@
-import { act, renderHook, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, cleanup, render, renderHook, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   addCommunityTag,
@@ -9,50 +9,78 @@ import {
   publishSkill,
   removeCommunityTag,
 } from '../api';
+import { PublishNewPage } from '../pages/PublishNewPage';
+import { SkillOverviewPage } from '../pages/skill/SkillOverviewPage';
 import { useRegistryApp } from './useRegistryApp';
 
-vi.mock('../api', () => ({
-  API_BASE: 'http://example.com',
-  createAPIKey: vi.fn(),
-  deleteSkill: vi.fn(),
-  deleteSkillVersion: vi.fn(),
-  fetchCurrentUser: vi.fn().mockResolvedValue({
-    id: 'user-1',
-    username: 'testuser',
-    email: 'test@example.com',
-    created_at: '2026-03-20T10:00:00Z',
-  }),
-  fetchHealth: vi.fn().mockResolvedValue({
-    service: 'skill-home',
-    status: 'ok',
-    version: '1.0.0',
-  }),
-  fetchMyAPIKeys: vi.fn().mockResolvedValue([]),
-  fetchMySkills: vi.fn().mockResolvedValue([]),
-  fetchSkillDetail: vi.fn().mockResolvedValue({
-    id: 'skill-1',
-    namespace: 'testuser',
-    name: 'github',
-    description: 'Interact with GitHub using gh.',
-    download_count: 18,
-    rating_count: 0,
-    latest_version: '1.0.0',
-    versions: [],
-  }),
-  fetchSkills: vi.fn().mockResolvedValue({
-    total: 0,
-    results: [],
-  }),
-  loginUser: vi.fn(),
-  publishSkill: vi.fn(),
-  addCommunityTag: vi.fn(),
-  removeCommunityTag: vi.fn(),
-  registerUser: vi.fn(),
-  revokeAPIKey: vi.fn(),
-  updateSkill: vi.fn(),
+const mockRegistryBase = 'https://soulstore.ciqtek.com/skill-home';
+
+vi.mock('../components/object/CopyActionButton', () => ({
+  CopyActionButton: ({
+    className,
+    label = '复制',
+    value,
+  }: {
+    className?: string;
+    label?: string;
+    value: string;
+  }) => (
+    <button className={className} data-value={value} type="button">
+      {label}
+    </button>
+  ),
 }));
 
+vi.mock('../api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../api')>();
+
+  return {
+    ...actual,
+    createAPIKey: vi.fn(),
+    deleteSkill: vi.fn(),
+    deleteSkillVersion: vi.fn(),
+    fetchCurrentUser: vi.fn().mockResolvedValue({
+      id: 'user-1',
+      username: 'testuser',
+      email: 'test@example.com',
+      created_at: '2026-03-20T10:00:00Z',
+    }),
+    fetchHealth: vi.fn().mockResolvedValue({
+      service: 'skill-home',
+      status: 'ok',
+      version: '1.0.0',
+    }),
+    fetchMyAPIKeys: vi.fn().mockResolvedValue([]),
+    fetchMySkills: vi.fn().mockResolvedValue([]),
+    fetchSkillDetail: vi.fn().mockResolvedValue({
+      id: 'skill-1',
+      namespace: 'testuser',
+      name: 'github',
+      description: 'Interact with GitHub using gh.',
+      download_count: 18,
+      rating_count: 0,
+      latest_version: '1.0.0',
+      versions: [],
+    }),
+    fetchSkills: vi.fn().mockResolvedValue({
+      total: 0,
+      results: [],
+    }),
+    loginUser: vi.fn(),
+    publishSkill: vi.fn(),
+    addCommunityTag: vi.fn(),
+    removeCommunityTag: vi.fn(),
+    registerUser: vi.fn(),
+    revokeAPIKey: vi.fn(),
+    updateSkill: vi.fn(),
+  };
+});
+
 describe('useRegistryApp catalog URL sync', () => {
+  afterEach(() => {
+    cleanup();
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     window.localStorage.clear();
@@ -202,6 +230,170 @@ describe('useRegistryApp catalog URL sync', () => {
         tags: ['automation', 'github'],
       }));
     });
+  });
+
+  it('uses an absolute download_url directly on the object page', () => {
+    render(
+      <SkillOverviewPage
+        model={{
+          detailError: null,
+          detailLoading: false,
+          detailSkill: {
+            id: 'skill-1',
+            namespace: 'testuser',
+            name: 'github',
+            description: 'Interact with GitHub using gh.',
+            download_count: 18,
+            rating_count: 0,
+            latest_version: '1.0.0',
+            download_url: 'https://oss.example.com/downloads/testuser/github/1.0.0.zip',
+            updated_at: '2026-03-22T21:32:00Z',
+            is_public: true,
+            is_deprecated: false,
+            versions: [
+              {
+                id: 'v1',
+                version: '1.0.0',
+                size_bytes: 4096,
+                scan_status: 'passed',
+                created_at: '2026-03-22T21:32:00Z',
+              },
+            ],
+            owner: {
+              username: 'testuser',
+            },
+          },
+        }}
+        navigate={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole('link', { name: '下载 ZIP' })).toHaveAttribute(
+      'href',
+      'https://oss.example.com/downloads/testuser/github/1.0.0.zip',
+    );
+    expect(screen.getByRole('button', { name: '复制下载链接' })).toHaveAttribute(
+      'data-value',
+      'https://oss.example.com/downloads/testuser/github/1.0.0.zip',
+    );
+  });
+
+  it('prefixes a relative download_url on the object page with the API base', () => {
+    render(
+      <SkillOverviewPage
+        model={{
+          detailError: null,
+          detailLoading: false,
+          detailSkill: {
+            id: 'skill-1',
+            namespace: 'testuser',
+            name: 'github',
+            description: 'Interact with GitHub using gh.',
+            download_count: 18,
+            rating_count: 0,
+            latest_version: '1.0.0',
+            download_url: '/api/v1/download/testuser/github/1.0.0?format=zip',
+            updated_at: '2026-03-22T21:32:00Z',
+            is_public: true,
+            is_deprecated: false,
+            versions: [
+              {
+                id: 'v1',
+                version: '1.0.0',
+                size_bytes: 4096,
+                scan_status: 'passed',
+                created_at: '2026-03-22T21:32:00Z',
+              },
+            ],
+            owner: {
+              username: 'testuser',
+            },
+          },
+        }}
+        navigate={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole('link', { name: '下载 ZIP' })).toHaveAttribute(
+      'href',
+      `${mockRegistryBase}/api/v1/download/testuser/github/1.0.0?format=zip`,
+    );
+    expect(screen.getByRole('button', { name: '复制下载链接' })).toHaveAttribute(
+      'data-value',
+      `${mockRegistryBase}/api/v1/download/testuser/github/1.0.0?format=zip`,
+    );
+  });
+
+  it('does not prefix an absolute publish download_url with the API base', () => {
+    render(
+      <PublishNewPage
+        model={{
+          token: 'token-1',
+          publishError: null,
+          publishLoading: false,
+          publishSuccess: {
+            namespace: 'testuser',
+            name: 'github',
+            version: '1.0.0',
+            download_url: 'https://oss.example.com/downloads/testuser/github/1.0.0.zip',
+          },
+          publishForm: {
+            namespace: 'testuser',
+            name: 'github',
+            description: '',
+            version: '1.0.0',
+            license: 'MIT',
+            tags: '',
+            isPublic: true,
+          },
+          setPublishForm: vi.fn(),
+          setPublishFile: vi.fn(),
+          submitPublish: vi.fn(),
+        }}
+        navigate={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: '复制下载链接' })).toHaveAttribute(
+      'data-value',
+      'https://oss.example.com/downloads/testuser/github/1.0.0.zip',
+    );
+  });
+
+  it('prefixes a relative publish download_url with the API base', () => {
+    render(
+      <PublishNewPage
+        model={{
+          token: 'token-1',
+          publishError: null,
+          publishLoading: false,
+          publishSuccess: {
+            namespace: 'testuser',
+            name: 'github',
+            version: '1.0.0',
+            download_url: '/api/v1/download/testuser/github/1.0.0?format=zip',
+          },
+          publishForm: {
+            namespace: 'testuser',
+            name: 'github',
+            description: '',
+            version: '1.0.0',
+            license: 'MIT',
+            tags: '',
+            isPublic: true,
+          },
+          setPublishForm: vi.fn(),
+          setPublishFile: vi.fn(),
+          submitPublish: vi.fn(),
+        }}
+        navigate={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: '复制下载链接' })).toHaveAttribute(
+      'data-value',
+      `${mockRegistryBase}/api/v1/download/testuser/github/1.0.0?format=zip`,
+    );
   });
 
   it('submits a community tag against the current skill and updates the detail model', async () => {

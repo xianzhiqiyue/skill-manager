@@ -1,4 +1,4 @@
-import { API_BASE } from '../api';
+import { resolveDownloadUrl } from '../api';
 import { PageHeader } from '../components/layout/PageHeader';
 import { SidebarLayout } from '../components/layout/SidebarLayout';
 import { CopyActionButton } from '../components/object/CopyActionButton';
@@ -242,7 +242,7 @@ export function PublishNewPage({ model, navigate }: PublishNewPageProps) {
                       <CopyActionButton
                         className="button button--quiet"
                         label="复制下载链接"
-                        value={`${API_BASE}${model.publishSuccess.download_url}?format=zip`}
+                        value={resolveDownloadUrl(model.publishSuccess.download_url)!}
                       />
                     </div>
                   </div>

@@ -53,6 +53,7 @@ export type SkillSummary = {
   rating_count: number;
   rating?: number;
   latest_version?: string;
+  download_url?: string;
   is_public?: boolean;
   is_deprecated?: boolean;
   created_at?: string;
@@ -238,7 +239,28 @@ function getPrimaryVersion(skill: SkillLike) {
   return undefined;
 }
 
+function isAbsoluteDownloadUrl(downloadUrl: string) {
+  return /^https?:\/\//i.test(downloadUrl);
+}
+
+export function resolveDownloadUrl(downloadUrl?: string) {
+  if (!downloadUrl) {
+    return undefined;
+  }
+
+  if (isAbsoluteDownloadUrl(downloadUrl)) {
+    return downloadUrl;
+  }
+
+  return `${API_BASE}${downloadUrl}`;
+}
+
 export function getDownloadUrl(skill: SkillLike) {
+  const downloadUrl = resolveDownloadUrl(skill.download_url);
+  if (downloadUrl) {
+    return downloadUrl;
+  }
+
   const version = getPrimaryVersion(skill) || 'latest';
   return buildUrl(
     `/api/v1/download/${skill.namespace}/${skill.name}/${version}`,
