@@ -18,7 +18,9 @@ import (
 )
 
 // ListSkills 列出技能
-func ListSkills(db *storage.Database) gin.HandlerFunc {
+func ListSkills(db *storage.Database, objStorages ...*storage.ObjectStorage) gin.HandlerFunc {
+	objStorage := firstObjectStorage(objStorages...)
+
 	return func(c *gin.Context) {
 		var skills []models.Skill
 		query := db.Model(&models.Skill{}).Where("is_public = ?", true)
@@ -45,6 +47,10 @@ func ListSkills(db *storage.Database) gin.HandlerFunc {
 			return
 		}
 		populateSkillsComputedFields(skills)
+		if err := populateSkillsDownloadURLs(db, objStorage, skills); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"code": "INTERNAL_ERROR", "message": err.Error()})
+			return
+		}
 
 		c.JSON(http.StatusOK, gin.H{
 			"total":    total,
@@ -56,7 +62,9 @@ func ListSkills(db *storage.Database) gin.HandlerFunc {
 }
 
 // GetSkill 获取技能详情
-func GetSkill(db *storage.Database) gin.HandlerFunc {
+func GetSkill(db *storage.Database, objStorages ...*storage.ObjectStorage) gin.HandlerFunc {
+	objStorage := firstObjectStorage(objStorages...)
+
 	return func(c *gin.Context) {
 		namespace := normalizeNamespace(c.Param("namespace"))
 		name := c.Param("name")
@@ -91,7 +99,7 @@ func GetSkill(db *storage.Database) gin.HandlerFunc {
 			}
 		}
 
-		if err := populateSkillDetailResponse(db, &skill, currentUser); err != nil {
+		if err := populateSkillDetailResponse(db, objStorage, &skill, currentUser); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"code": "INTERNAL_ERROR", "message": err.Error()})
 			return
 		}
@@ -101,7 +109,9 @@ func GetSkill(db *storage.Database) gin.HandlerFunc {
 }
 
 // SearchSkills 搜索技能
-func SearchSkills(db *storage.Database) gin.HandlerFunc {
+func SearchSkills(db *storage.Database, objStorages ...*storage.ObjectStorage) gin.HandlerFunc {
+	objStorage := firstObjectStorage(objStorages...)
+
 	return func(c *gin.Context) {
 		q := c.Query("q")
 		if q == "" {
@@ -128,6 +138,10 @@ func SearchSkills(db *storage.Database) gin.HandlerFunc {
 			return
 		}
 		populateSkillsComputedFields(skills)
+		if err := populateSkillsDownloadURLs(db, objStorage, skills); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"code": "INTERNAL_ERROR", "message": err.Error()})
+			return
+		}
 
 		c.JSON(http.StatusOK, gin.H{
 			"total":    total,
@@ -139,7 +153,9 @@ func SearchSkills(db *storage.Database) gin.HandlerFunc {
 }
 
 // ListVersions 列出技能版本
-func ListVersions(db *storage.Database) gin.HandlerFunc {
+func ListVersions(db *storage.Database, objStorages ...*storage.ObjectStorage) gin.HandlerFunc {
+	objStorage := firstObjectStorage(objStorages...)
+
 	return func(c *gin.Context) {
 		namespace := normalizeNamespace(c.Param("namespace"))
 		name := c.Param("name")
@@ -168,6 +184,7 @@ func ListVersions(db *storage.Database) gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{"code": "INTERNAL_ERROR", "message": err.Error()})
 			return
 		}
+		populateVersionDownloadURLs(objStorage, skill.IsPublic, namespace, name, versions)
 
 		c.JSON(http.StatusOK, versions)
 	}
@@ -274,6 +291,8 @@ func CreateSkill(db *storage.Database, objStorage *storage.ObjectStorage, scanne
 			return
 		}
 
+		isPublic := strings.EqualFold(c.DefaultPostForm("is_public", "true"), "true")
+
 		// 创建技能记录
 		skill := models.Skill{
 			Namespace:   namespace,
@@ -282,7 +301,7 @@ func CreateSkill(db *storage.Database, objStorage *storage.ObjectStorage, scanne
 			Description: c.PostForm("description"),
 			Tags:        models.StringArray(parseTagList(c.PostForm("tags"))),
 			License:     c.PostForm("license"),
-			IsPublic:    strings.EqualFold(c.DefaultPostForm("is_public", "true"), "true"),
+			IsPublic:    isPublic,
 		}
 
 		versionModel := models.SkillVersion{
@@ -310,7 +329,7 @@ func CreateSkill(db *storage.Database, objStorage *storage.ObjectStorage, scanne
 				"namespace": namespace,
 				"name":      name,
 				"version":   versionModel.Version,
-				"is_public": skill.IsPublic,
+				"is_public": isPublic,
 			})
 		}); err != nil {
 			_ = objStorage.Delete(c, storagePath)
@@ -326,7 +345,7 @@ func CreateSkill(db *storage.Database, objStorage *storage.ObjectStorage, scanne
 			"namespace":    namespace,
 			"name":         name,
 			"version":      versionModel.Version,
-			"download_url": fmt.Sprintf("/api/v1/download/%s/%s/%s", namespace, name, versionModel.Version),
+			"download_url": resolvePublicDownloadURL(objStorage, isPublic, storagePath, namespace, name, versionModel.Version),
 		})
 	}
 }

@@ -160,6 +160,20 @@ func newTestObjectStorage(t *testing.T) *storage.ObjectStorage {
 	return objStorage
 }
 
+func newPublicTestObjectStorage(t *testing.T) *storage.ObjectStorage {
+	t.Helper()
+
+	objStorage, err := storage.NewObjectStorage(config.StorageConfig{
+		Type:          "local",
+		LocalPath:     t.TempDir(),
+		PublicBaseURL: "https://skills-static.example.com",
+	})
+	if err != nil {
+		t.Fatalf("create public object storage failed: %v", err)
+	}
+	return objStorage
+}
+
 func newSkillArchive(t *testing.T) []byte {
 	t.Helper()
 
@@ -365,6 +379,142 @@ func TestPrivateSkillDetailRejectsAnonymousAccess(t *testing.T) {
 	}
 }
 
+func TestPublicSkillDetailReturnsPublicDownloadURL(t *testing.T) {
+	db := newTestDatabase(t)
+	objStorage := newPublicTestObjectStorage(t)
+	user := &models.User{ID: uuid.New(), Username: "owner", Email: "owner@example.com"}
+	if err := db.Create(user).Error; err != nil {
+		t.Fatalf("create user failed: %v", err)
+	}
+
+	archive := newSkillArchive(t)
+	storagePath := "skills/team/github/test.zip"
+	if err := objStorage.Upload(context.Background(), storagePath, bytes.NewReader(archive), int64(len(archive))); err != nil {
+		t.Fatalf("upload archive failed: %v", err)
+	}
+
+	skill := models.Skill{
+		ID:            uuid.New(),
+		Namespace:     "team",
+		Name:          "github",
+		OwnerID:       user.ID,
+		Description:   "public skill",
+		IsPublic:      true,
+		LatestVersion: "1.0.0",
+	}
+	if err := db.Create(&skill).Error; err != nil {
+		t.Fatalf("create skill failed: %v", err)
+	}
+
+	version := models.SkillVersion{
+		ID:          uuid.New(),
+		SkillID:     skill.ID,
+		Version:     "1.0.0",
+		StoragePath: storagePath,
+		SizeBytes:   int64(len(archive)),
+		ScanStatus:  "pass",
+		PublishedBy: user.ID,
+	}
+	if err := db.Create(&version).Error; err != nil {
+		t.Fatalf("create version failed: %v", err)
+	}
+
+	router := newAuthedRouter(user)
+	router.GET("/api/v1/skills/:namespace/:name", middleware.OptionalAuth(db), GetSkill(db, objStorage))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/skills/team/github", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	var resp models.Skill
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response failed: %v", err)
+	}
+
+	want, ok := objStorage.PublicURL(storagePath)
+	if !ok {
+		t.Fatalf("expected public url to resolve")
+	}
+	if resp.DownloadURL != want {
+		t.Fatalf("download_url = %q, want %q", resp.DownloadURL, want)
+	}
+	if len(resp.Versions) != 1 || resp.Versions[0].DownloadURL != want {
+		t.Fatalf("unexpected version download url: %+v", resp.Versions)
+	}
+}
+
+func TestPrivateSkillDetailKeepsRelativeDownloadURL(t *testing.T) {
+	db := newTestDatabase(t)
+	objStorage := newPublicTestObjectStorage(t)
+	user := &models.User{ID: uuid.New(), Username: "owner", Email: "owner@example.com"}
+	if err := db.Create(user).Error; err != nil {
+		t.Fatalf("create user failed: %v", err)
+	}
+
+	archive := newSkillArchive(t)
+	storagePath := "skills/team/private-skill/test.zip"
+	if err := objStorage.Upload(context.Background(), storagePath, bytes.NewReader(archive), int64(len(archive))); err != nil {
+		t.Fatalf("upload archive failed: %v", err)
+	}
+
+	skill := models.Skill{
+		ID:            uuid.New(),
+		Namespace:     "team",
+		Name:          "private-skill",
+		OwnerID:       user.ID,
+		Description:   "private skill",
+		IsPublic:      true,
+		LatestVersion: "1.0.0",
+	}
+	if err := db.Create(&skill).Error; err != nil {
+		t.Fatalf("create skill failed: %v", err)
+	}
+	if err := db.Model(&skill).Update("is_public", false).Error; err != nil {
+		t.Fatalf("set skill private failed: %v", err)
+	}
+
+	version := models.SkillVersion{
+		ID:          uuid.New(),
+		SkillID:     skill.ID,
+		Version:     "1.0.0",
+		StoragePath: storagePath,
+		SizeBytes:   int64(len(archive)),
+		ScanStatus:  "pass",
+		PublishedBy: user.ID,
+	}
+	if err := db.Create(&version).Error; err != nil {
+		t.Fatalf("create version failed: %v", err)
+	}
+
+	router := newAuthedRouter(user)
+	router.GET("/api/v1/skills/:namespace/:name", middleware.OptionalAuth(db), GetSkill(db, objStorage))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/skills/team/private-skill", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	var resp models.Skill
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response failed: %v", err)
+	}
+
+	want := "/api/v1/download/team/private-skill/1.0.0"
+	if resp.DownloadURL != want {
+		t.Fatalf("download_url = %q, want %q", resp.DownloadURL, want)
+	}
+	if len(resp.Versions) != 1 || resp.Versions[0].DownloadURL != want {
+		t.Fatalf("unexpected version download url: %+v", resp.Versions)
+	}
+}
+
 func TestPublicDownloadAllowsAnonymousAccess(t *testing.T) {
 	db := newTestDatabase(t)
 	objStorage := newTestObjectStorage(t)
@@ -414,6 +564,276 @@ func TestPublicDownloadAllowsAnonymousAccess(t *testing.T) {
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	if len(rec.Body.Bytes()) == 0 {
+		t.Fatalf("expected download payload")
+	}
+}
+
+func TestCreateSkillReturnsPublicDownloadURL(t *testing.T) {
+	db := newTestDatabase(t)
+	objStorage := newPublicTestObjectStorage(t)
+	user := &models.User{ID: uuid.New(), Username: "owner", Email: "owner@example.com"}
+	if err := db.Create(user).Error; err != nil {
+		t.Fatalf("create user failed: %v", err)
+	}
+
+	router := newAuthedRouter(user)
+	router.POST("/api/v1/skills", CreateSkill(db, objStorage, validator.NewScanner()))
+
+	req, _ := newCreateSkillRequest(t, map[string]string{
+		"namespace": "team",
+		"name":      "github",
+		"version":   "1.0.0",
+	}, newSkillArchive(t))
+
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("unexpected status: %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	var resp map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response failed: %v", err)
+	}
+
+	var skill models.Skill
+	if err := db.Where("namespace = ? AND name = ?", "team", "github").First(&skill).Error; err != nil {
+		t.Fatalf("load created skill failed: %v", err)
+	}
+	var version models.SkillVersion
+	if err := db.Where("skill_id = ? AND version = ?", skill.ID, "1.0.0").First(&version).Error; err != nil {
+		t.Fatalf("load created version failed: %v", err)
+	}
+
+	got, _ := resp["download_url"].(string)
+	want, ok := objStorage.PublicURL(version.StoragePath)
+	if !ok {
+		t.Fatalf("expected public url to resolve")
+	}
+	if got != want {
+		t.Fatalf("download_url = %q, want %q", got, want)
+	}
+}
+
+func TestCreatePrivateSkillKeepsRelativeDownloadURL(t *testing.T) {
+	db := newTestDatabase(t)
+	objStorage := newPublicTestObjectStorage(t)
+	user := &models.User{ID: uuid.New(), Username: "owner", Email: "owner@example.com"}
+	if err := db.Create(user).Error; err != nil {
+		t.Fatalf("create user failed: %v", err)
+	}
+
+	router := newAuthedRouter(user)
+	router.POST("/api/v1/skills", CreateSkill(db, objStorage, validator.NewScanner()))
+
+	req, _ := newCreateSkillRequest(t, map[string]string{
+		"namespace": "team",
+		"name":      "private-github",
+		"version":   "1.0.0",
+		"is_public": "false",
+	}, newSkillArchive(t))
+
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("unexpected status: %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	var resp map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response failed: %v", err)
+	}
+
+	got, _ := resp["download_url"].(string)
+	want := "/api/v1/download/team/private-github/1.0.0"
+	if got != want {
+		t.Fatalf("download_url = %q, want %q", got, want)
+	}
+}
+
+func TestPublishVersionReturnsPublicDownloadURL(t *testing.T) {
+	db := newTestDatabase(t)
+	objStorage := newPublicTestObjectStorage(t)
+	user := &models.User{ID: uuid.New(), Username: "owner", Email: "owner@example.com"}
+	if err := db.Create(user).Error; err != nil {
+		t.Fatalf("create user failed: %v", err)
+	}
+
+	skill := models.Skill{
+		ID:            uuid.New(),
+		Namespace:     "team",
+		Name:          "github",
+		OwnerID:       user.ID,
+		IsPublic:      true,
+		LatestVersion: "1.0.0",
+	}
+	if err := db.Create(&skill).Error; err != nil {
+		t.Fatalf("create skill failed: %v", err)
+	}
+
+	router := newAuthedRouter(user)
+	router.POST("/api/v1/skills/:namespace/:name/versions", PublishVersion(db, objStorage, validator.NewScanner()))
+
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	if err := writer.WriteField("version", "1.1.0"); err != nil {
+		t.Fatalf("WriteField version returned error: %v", err)
+	}
+	part, err := writer.CreateFormFile("skill", "github.zip")
+	if err != nil {
+		t.Fatalf("CreateFormFile returned error: %v", err)
+	}
+	if _, err := part.Write(newSkillArchive(t)); err != nil {
+		t.Fatalf("part.Write returned error: %v", err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("writer.Close returned error: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/skills/team/github/versions", body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("unexpected status: %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	var resp map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response failed: %v", err)
+	}
+
+	var version models.SkillVersion
+	if err := db.Where("skill_id = ? AND version = ?", skill.ID, "1.1.0").First(&version).Error; err != nil {
+		t.Fatalf("load created version failed: %v", err)
+	}
+
+	got, _ := resp["download_url"].(string)
+	want, ok := objStorage.PublicURL(version.StoragePath)
+	if !ok {
+		t.Fatalf("expected public url to resolve")
+	}
+	if got != want {
+		t.Fatalf("download_url = %q, want %q", got, want)
+	}
+}
+
+func TestDownloadSkillRedirectsPublicZipToOSS(t *testing.T) {
+	db := newTestDatabase(t)
+	objStorage := newPublicTestObjectStorage(t)
+	user := &models.User{ID: uuid.New(), Username: "owner", Email: "owner@example.com"}
+	if err := db.Create(user).Error; err != nil {
+		t.Fatalf("create user failed: %v", err)
+	}
+
+	archive := newSkillArchive(t)
+	storagePath := "skills/team/github/test.zip"
+	if err := objStorage.Upload(context.Background(), storagePath, bytes.NewReader(archive), int64(len(archive))); err != nil {
+		t.Fatalf("upload archive failed: %v", err)
+	}
+
+	skill := models.Skill{
+		ID:            uuid.New(),
+		Namespace:     "team",
+		Name:          "github",
+		OwnerID:       user.ID,
+		Description:   "public skill",
+		IsPublic:      true,
+		LatestVersion: "1.0.0",
+	}
+	if err := db.Create(&skill).Error; err != nil {
+		t.Fatalf("create skill failed: %v", err)
+	}
+
+	version := models.SkillVersion{
+		ID:          uuid.New(),
+		SkillID:     skill.ID,
+		Version:     "1.0.0",
+		StoragePath: storagePath,
+		SizeBytes:   int64(len(archive)),
+		ScanStatus:  "pass",
+		PublishedBy: user.ID,
+	}
+	if err := db.Create(&version).Error; err != nil {
+		t.Fatalf("create version failed: %v", err)
+	}
+
+	router := gin.New()
+	router.GET("/api/v1/download/:namespace/:name/:version", middleware.OptionalAuth(db), DownloadSkill(db, objStorage))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/download/team/github/1.0.0?format=zip", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusFound {
+		t.Fatalf("expected 302, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	want, ok := objStorage.PublicURL(storagePath)
+	if !ok {
+		t.Fatalf("expected public url to resolve")
+	}
+	if got := rec.Header().Get("Location"); got != want {
+		t.Fatalf("Location = %q, want %q", got, want)
+	}
+}
+
+func TestDownloadSkillFallsBackWithoutPublicBaseURL(t *testing.T) {
+	db := newTestDatabase(t)
+	objStorage := newTestObjectStorage(t)
+	user := &models.User{ID: uuid.New(), Username: "owner", Email: "owner@example.com"}
+	if err := db.Create(user).Error; err != nil {
+		t.Fatalf("create user failed: %v", err)
+	}
+
+	archive := newSkillArchive(t)
+	storagePath := "skills/team/github/test.zip"
+	if err := objStorage.Upload(context.Background(), storagePath, bytes.NewReader(archive), int64(len(archive))); err != nil {
+		t.Fatalf("upload archive failed: %v", err)
+	}
+
+	skill := models.Skill{
+		ID:            uuid.New(),
+		Namespace:     "team",
+		Name:          "github",
+		OwnerID:       user.ID,
+		Description:   "public skill",
+		IsPublic:      true,
+		LatestVersion: "1.0.0",
+	}
+	if err := db.Create(&skill).Error; err != nil {
+		t.Fatalf("create skill failed: %v", err)
+	}
+
+	version := models.SkillVersion{
+		ID:          uuid.New(),
+		SkillID:     skill.ID,
+		Version:     "1.0.0",
+		StoragePath: storagePath,
+		SizeBytes:   int64(len(archive)),
+		ScanStatus:  "pass",
+		PublishedBy: user.ID,
+	}
+	if err := db.Create(&version).Error; err != nil {
+		t.Fatalf("create version failed: %v", err)
+	}
+
+	router := gin.New()
+	router.GET("/api/v1/download/:namespace/:name/:version", middleware.OptionalAuth(db), DownloadSkill(db, objStorage))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/download/team/github/1.0.0?format=zip", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	if got := rec.Header().Get("Location"); got != "" {
+		t.Fatalf("expected no redirect Location, got %q", got)
 	}
 	if len(rec.Body.Bytes()) == 0 {
 		t.Fatalf("expected download payload")
@@ -1139,6 +1559,94 @@ func TestListSkillsSupportsLicenseFilterAndSort(t *testing.T) {
 	}
 	if resp.Results[0].Name != "fresh-reviewer" || resp.Results[1].Name != "stable-reviewer" {
 		t.Fatalf("unexpected ordering: %+v", resp.Results)
+	}
+}
+
+func TestListSkillsReturnsPublicDownloadURLs(t *testing.T) {
+	db := newTestDatabase(t)
+	objStorage := newPublicTestObjectStorage(t)
+	ownerID := uuid.New()
+
+	skills := []models.Skill{
+		{
+			ID:            uuid.New(),
+			Namespace:     "team",
+			Name:          "alpha",
+			OwnerID:       ownerID,
+			Description:   "alpha skill",
+			IsPublic:      true,
+			LatestVersion: "1.0.0",
+		},
+		{
+			ID:            uuid.New(),
+			Namespace:     "team",
+			Name:          "beta",
+			OwnerID:       ownerID,
+			Description:   "beta skill",
+			IsPublic:      true,
+			LatestVersion: "2.0.0",
+		},
+	}
+	if err := db.Create(&skills).Error; err != nil {
+		t.Fatalf("seed skills failed: %v", err)
+	}
+
+	archives := map[string][]byte{
+		"alpha": newSkillArchive(t),
+		"beta":  newSkillArchive(t),
+	}
+	for _, skill := range skills {
+		storagePath := fmt.Sprintf("skills/%s/%s/test.zip", skill.Namespace, skill.Name)
+		if err := objStorage.Upload(context.Background(), storagePath, bytes.NewReader(archives[skill.Name]), int64(len(archives[skill.Name]))); err != nil {
+			t.Fatalf("upload archive for %s failed: %v", skill.Name, err)
+		}
+		version := models.SkillVersion{
+			ID:          uuid.New(),
+			SkillID:     skill.ID,
+			Version:     skill.LatestVersion,
+			StoragePath: storagePath,
+			SizeBytes:   int64(len(archives[skill.Name])),
+			ScanStatus:  "pass",
+			PublishedBy: ownerID,
+		}
+		if err := db.Create(&version).Error; err != nil {
+			t.Fatalf("seed version for %s failed: %v", skill.Name, err)
+		}
+	}
+
+	router := gin.New()
+	router.GET("/api/v1/skills", ListSkills(db, objStorage))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/skills", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("unexpected status: %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	var resp struct {
+		Results []models.Skill `json:"results"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response failed: %v", err)
+	}
+	if len(resp.Results) != 2 {
+		t.Fatalf("unexpected result count: %+v", resp.Results)
+	}
+
+	got := map[string]string{}
+	for _, skill := range resp.Results {
+		got[skill.Name] = skill.DownloadURL
+	}
+	for _, skill := range skills {
+		want, ok := objStorage.PublicURL(fmt.Sprintf("skills/%s/%s/test.zip", skill.Namespace, skill.Name))
+		if !ok {
+			t.Fatalf("expected public url to resolve for %s", skill.Name)
+		}
+		if got[skill.Name] != want {
+			t.Fatalf("download_url for %s = %q, want %q", skill.Name, got[skill.Name], want)
+		}
 	}
 }
 

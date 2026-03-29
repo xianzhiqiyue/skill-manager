@@ -25,6 +25,7 @@ type Skill struct {
 	Homepage      string                     `gorm:"size:500" json:"homepage,omitempty"`
 	Repository    string                     `gorm:"size:500" json:"repository,omitempty"`
 	DownloadCount int64                      `gorm:"default:0" json:"download_count"`
+	DownloadURL   string                     `gorm:"-" json:"download_url,omitempty"`
 	RatingSum     int64                      `gorm:"default:0" json:"-"`
 	RatingCount   int64                      `gorm:"default:0" json:"rating_count"`
 	Rating        float64                    `gorm:"-" json:"rating"`
@@ -77,6 +78,7 @@ type SkillVersion struct {
 	Manifest     JSON           `gorm:"type:jsonb" json:"manifest"`
 	Dependencies StringArray    `gorm:"type:text[]" json:"dependencies,omitempty"`
 	StoragePath  string         `gorm:"size:500;not null" json:"-"`
+	DownloadURL  string         `gorm:"-" json:"download_url,omitempty"`
 	SizeBytes    int64          `json:"size_bytes"`
 	Checksum     string         `gorm:"size:64" json:"checksum"`
 	ScanStatus   string         `gorm:"size:20;default:'pending'" json:"scan_status"`

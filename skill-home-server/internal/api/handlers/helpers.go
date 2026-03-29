@@ -382,6 +382,134 @@ func parseTagList(raw string) []string {
 	return normalizeTags(parts)
 }
 
+func resolvePublicDownloadURL(objStorage *storage.ObjectStorage, isPublic bool, storagePath, namespace, name, version string) string {
+	if isPublic && storagePath != "" {
+		if objStorage != nil {
+			if storageURL, ok := objStorage.PublicURL(storagePath); ok {
+				return storageURL
+			}
+		}
+
+		if namespace != "" && name != "" && version != "" {
+			return fmt.Sprintf("/api/v1/download/%s/%s/%s", namespace, name, version)
+		}
+
+		return ""
+	}
+
+	if namespace != "" && name != "" && version != "" {
+		return fmt.Sprintf("/api/v1/download/%s/%s/%s", namespace, name, version)
+	}
+
+	return ""
+}
+
+func firstObjectStorage(objStorages ...*storage.ObjectStorage) *storage.ObjectStorage {
+	if len(objStorages) == 0 {
+		return nil
+	}
+	return objStorages[0]
+}
+
+type latestSkillVersionStorageRow struct {
+	SkillID     uuid.UUID `gorm:"column:skill_id"`
+	StoragePath string    `gorm:"column:storage_path"`
+}
+
+func loadLatestVersionStoragePaths(db *storage.Database, skillIDs []uuid.UUID) (map[uuid.UUID]string, error) {
+	if db == nil || len(skillIDs) == 0 {
+		return map[uuid.UUID]string{}, nil
+	}
+
+	rows := make([]latestSkillVersionStorageRow, 0, len(skillIDs))
+	if err := db.Table("skill_versions").
+		Select("skill_versions.skill_id, skill_versions.storage_path").
+		Joins("JOIN skills ON skills.id = skill_versions.skill_id AND skills.latest_version = skill_versions.version").
+		Where("skill_versions.skill_id IN ?", skillIDs).
+		Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+
+	paths := make(map[uuid.UUID]string, len(rows))
+	for _, row := range rows {
+		paths[row.SkillID] = row.StoragePath
+	}
+	return paths, nil
+}
+
+func populateSkillsDownloadURLs(db *storage.Database, objStorage *storage.ObjectStorage, skills []models.Skill) error {
+	if len(skills) == 0 {
+		return nil
+	}
+
+	ids := make([]uuid.UUID, 0, len(skills))
+	for i := range skills {
+		ids = append(ids, skills[i].ID)
+	}
+
+	latestPaths, err := loadLatestVersionStoragePaths(db, ids)
+	if err != nil {
+		return err
+	}
+
+	for i := range skills {
+		skills[i].DownloadURL = resolvePublicDownloadURL(
+			objStorage,
+			skills[i].IsPublic,
+			latestPaths[skills[i].ID],
+			skills[i].Namespace,
+			skills[i].Name,
+			skills[i].LatestVersion,
+		)
+	}
+
+	return nil
+}
+
+func populateSkillDetailDownloadURLs(objStorage *storage.ObjectStorage, skill *models.Skill) {
+	if skill == nil {
+		return
+	}
+
+	for i := range skill.Versions {
+		skill.Versions[i].DownloadURL = resolvePublicDownloadURL(
+			objStorage,
+			skill.IsPublic,
+			skill.Versions[i].StoragePath,
+			skill.Namespace,
+			skill.Name,
+			skill.Versions[i].Version,
+		)
+	}
+
+	storagePath := ""
+	if len(skill.Versions) > 0 {
+		storagePath = skill.Versions[0].StoragePath
+	}
+
+	skill.DownloadURL = resolvePublicDownloadURL(
+		objStorage,
+		skill.IsPublic,
+		storagePath,
+		skill.Namespace,
+		skill.Name,
+		skill.LatestVersion,
+	)
+}
+
+func populateVersionDownloadURLs(objStorage *storage.ObjectStorage, isPublic bool, namespace, name string, versions []models.SkillVersion) {
+	for i := range versions {
+		versions[i].DownloadURL = resolvePublicDownloadURL(
+			objStorage,
+			isPublic,
+			versions[i].StoragePath,
+			namespace,
+			name,
+			versions[i].Version,
+		)
+	}
+}
+
 func loadCommunityTags(db *storage.Database, skill *models.Skill, userID *uuid.UUID) error {
 	if db == nil || skill == nil || skill.ID == uuid.Nil {
 		return nil
@@ -416,12 +544,13 @@ func loadCommunityTags(db *storage.Database, skill *models.Skill, userID *uuid.U
 	return nil
 }
 
-func populateSkillDetailResponse(db *storage.Database, skill *models.Skill, viewer *models.User) error {
+func populateSkillDetailResponse(db *storage.Database, objStorage *storage.ObjectStorage, skill *models.Skill, viewer *models.User) error {
 	if skill == nil {
 		return nil
 	}
 
 	populateSkillComputedFields(skill)
+	populateSkillDetailDownloadURLs(objStorage, skill)
 
 	var viewerID *uuid.UUID
 	if viewer != nil {

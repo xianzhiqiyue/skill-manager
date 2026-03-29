@@ -13,7 +13,9 @@ type CommunityTagRequest struct {
 	Tag string `json:"tag"`
 }
 
-func AddCommunityTag(db *storage.Database) gin.HandlerFunc {
+func AddCommunityTag(db *storage.Database, objStorages ...*storage.ObjectStorage) gin.HandlerFunc {
+	objStorage := firstObjectStorage(objStorages...)
+
 	return func(c *gin.Context) {
 		namespace := normalizeNamespace(c.Param("namespace"))
 		name := c.Param("name")
@@ -66,11 +68,13 @@ func AddCommunityTag(db *storage.Database) gin.HandlerFunc {
 			return
 		}
 
-		respondSkillDetail(c, db, namespace, name, user)
+		respondSkillDetail(c, db, objStorage, namespace, name, user)
 	}
 }
 
-func RemoveCommunityTag(db *storage.Database) gin.HandlerFunc {
+func RemoveCommunityTag(db *storage.Database, objStorages ...*storage.ObjectStorage) gin.HandlerFunc {
+	objStorage := firstObjectStorage(objStorages...)
+
 	return func(c *gin.Context) {
 		namespace := normalizeNamespace(c.Param("namespace"))
 		name := c.Param("name")
@@ -102,7 +106,7 @@ func RemoveCommunityTag(db *storage.Database) gin.HandlerFunc {
 			return
 		}
 
-		respondSkillDetail(c, db, namespace, name, user)
+		respondSkillDetail(c, db, objStorage, namespace, name, user)
 	}
 }
 
@@ -119,14 +123,14 @@ func loadSkillForCommunityTag(db *storage.Database, namespace, name string, user
 	return &skill, nil
 }
 
-func respondSkillDetail(c *gin.Context, db *storage.Database, namespace, name string, viewer *models.User) {
+func respondSkillDetail(c *gin.Context, db *storage.Database, objStorage *storage.ObjectStorage, namespace, name string, viewer *models.User) {
 	var skill models.Skill
 	if err := scopeNamespaceName(db.Preload("Versions").Preload("Owner"), namespace, name).First(&skill).Error; err != nil {
 		handleSkillLoadError(c, err)
 		return
 	}
 
-	if err := populateSkillDetailResponse(db, &skill, viewer); err != nil {
+	if err := populateSkillDetailResponse(db, objStorage, &skill, viewer); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": "INTERNAL_ERROR", "message": err.Error()})
 		return
 	}

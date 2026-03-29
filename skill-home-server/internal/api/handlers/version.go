@@ -148,7 +148,7 @@ func PublishVersion(db *storage.Database, objStorage *storage.ObjectStorage, sca
 			"namespace":    namespace,
 			"name":         name,
 			"version":      version.Version,
-			"download_url": fmt.Sprintf("/api/v1/download/%s/%s/%s", namespace, name, version.Version),
+			"download_url": resolvePublicDownloadURL(objStorage, skill.IsPublic, storagePath, namespace, name, version.Version),
 			"published_at": version.PublishedAt,
 		})
 	}
@@ -260,6 +260,23 @@ func DownloadSkill(db *storage.Database, objStorage *storage.ObjectStorage) gin.
 			}
 		}
 
+		sourceFormat, err := detectArchiveFormat(skillVersion.StoragePath, nil)
+		if err == nil {
+			targetFormat, err := resolveDownloadFormat(c.Query("format"), sourceFormat)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"code": "INVALID_INPUT", "message": err.Error()})
+				return
+			}
+
+			if skill.IsPublic {
+				if publicURL := resolvePublicDownloadURL(objStorage, skill.IsPublic, skillVersion.StoragePath, namespace, name, version); (strings.HasPrefix(publicURL, "http://") || strings.HasPrefix(publicURL, "https://")) && targetFormat == sourceFormat {
+					db.Model(&skill).UpdateColumn("download_count", gorm.Expr("download_count + 1"))
+					c.Redirect(http.StatusFound, publicURL)
+					return
+				}
+			}
+		}
+
 		// 读取文件
 		reader, err := objStorage.Download(c, skillVersion.StoragePath)
 		if err != nil {
@@ -274,7 +291,7 @@ func DownloadSkill(db *storage.Database, objStorage *storage.ObjectStorage) gin.
 			return
 		}
 
-		sourceFormat, err := detectArchiveFormat(skillVersion.StoragePath, content)
+		sourceFormat, err = detectArchiveFormat(skillVersion.StoragePath, content)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"code": "INTERNAL_ERROR", "message": "Failed to detect archive format"})
 			return

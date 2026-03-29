@@ -114,10 +114,10 @@ func setupRouter(db *storage.Database, objStorage *storage.ObjectStorage, scanne
 		api.POST("/auth/register", handlers.Register(db))
 		api.POST("/auth/login", handlers.Login(db))
 
-		api.GET("/skills", handlers.ListSkills(db))
-		api.GET("/skills/:namespace/:name", middleware.OptionalAuth(db), handlers.GetSkill(db))
-		api.GET("/skills/:namespace/:name/versions", middleware.OptionalAuth(db), handlers.ListVersions(db))
-		api.GET("/search", handlers.SearchSkills(db))
+		api.GET("/skills", handlers.ListSkills(db, objStorage))
+		api.GET("/skills/:namespace/:name", middleware.OptionalAuth(db), handlers.GetSkill(db, objStorage))
+		api.GET("/skills/:namespace/:name/versions", middleware.OptionalAuth(db), handlers.ListVersions(db, objStorage))
+		api.GET("/search", handlers.SearchSkills(db, objStorage))
 		api.GET("/download/:namespace/:name/:version", middleware.OptionalAuth(db), middleware.RateLimit(), handlers.DownloadSkill(db, objStorage))
 
 		auth := api.Group("/")
