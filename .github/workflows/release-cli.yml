@@ -66,20 +66,32 @@ jobs:
         run: bash ./scripts/package-release.sh "${{ steps.vars.outputs.version }}" dist
 
       - name: Create draft GitHub release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.vars.outputs.version }}
-          name: skill-home ${{ steps.vars.outputs.version }}
-          generate_release_notes: true
-          draft: true
-          files: |
-            skill-home-cli/dist/skill-home-darwin-amd64.tar.gz
-            skill-home-cli/dist/skill-home-darwin-arm64.tar.gz
-            skill-home-cli/dist/skill-home-linux-amd64.tar.gz
-            skill-home-cli/dist/skill-home-linux-arm64.tar.gz
-            skill-home-cli/dist/skill-home-windows-amd64.zip
-            skill-home-cli/dist/checksums.txt
-            skill-home-cli/dist/latest.json
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.vars.outputs.version }}
+        run: |
+          existing_release_state="$(gh release view "${RELEASE_TAG}" --json isDraft -q '.isDraft' 2>/dev/null || true)"
+          if [ -n "${existing_release_state}" ]; then
+            if [ "${existing_release_state}" = "true" ]; then
+              gh release delete "${RELEASE_TAG}" --yes
+            else
+              echo "Release ${RELEASE_TAG} 已经存在且不是 draft，终止以避免覆盖。" >&2
+              exit 1
+            fi
+          fi
+
+          gh release create "${RELEASE_TAG}" \
+            skill-home-cli/dist/skill-home-darwin-amd64.tar.gz \
+            skill-home-cli/dist/skill-home-darwin-arm64.tar.gz \
+            skill-home-cli/dist/skill-home-linux-amd64.tar.gz \
+            skill-home-cli/dist/skill-home-linux-arm64.tar.gz \
+            skill-home-cli/dist/skill-home-windows-amd64.zip \
+            skill-home-cli/dist/checksums.txt \
+            skill-home-cli/dist/latest.json \
+            --draft \
+            --generate-notes \
+            --title "skill-home ${RELEASE_TAG}" \
+            --verify-tag
 
       - name: Ensure deploy credentials exist
         shell: bash
@@ -110,27 +122,8 @@ jobs:
         run: bash ./scripts/promote-hosted-release.sh "${{ steps.vars.outputs.version }}" dist ./install.sh
 
       - name: Publish GitHub release
-        uses: actions/github-script@v7
         env:
+          GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ steps.vars.outputs.version }}
-        with:
-          script: |
-            const tagName = process.env.RELEASE_TAG;
-            const { owner, repo } = context.repo;
-            const releases = await github.paginate(github.rest.repos.listReleases, {
-              owner,
-              repo,
-              per_page: 100,
-            });
-            const release = releases.find((item) => item.tag_name === tagName);
-            if (!release) {
-              core.setFailed(`未找到 tag ${tagName} 对应的 draft release`);
-              return;
-            }
-            await github.rest.repos.updateRelease({
-              owner,
-              repo,
-              release_id: release.id,
-              draft: false,
-              prerelease: false,
-            });
+        run: |
+          gh release edit "${RELEASE_TAG}" --draft=false --latest
