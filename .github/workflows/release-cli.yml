@@ -57,6 +57,10 @@ jobs:
         working-directory: skill-home-cli
         run: go test ./...
 
+      - name: Run hosted release promotion regression test
+        working-directory: skill-home-cli
+        run: bash ./scripts/test-promote-hosted-release.sh
+
       - name: Build release assets
         working-directory: skill-home-cli
         run: bash ./scripts/package-release.sh "${{ steps.vars.outputs.version }}" dist

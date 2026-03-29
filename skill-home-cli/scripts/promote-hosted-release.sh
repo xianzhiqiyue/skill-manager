@@ -96,6 +96,7 @@ if actual != expected:
 PY
 
 ssh_opts=(-p "$DEPLOY_PORT")
+scp_opts=(-P "$DEPLOY_PORT")
 remote_target="${DEPLOY_USER}@${DEPLOY_HOST}"
 remote_tmp="${DEPLOY_DIR}/.cli-release-${VERSION}-$(date +%s)"
 
@@ -103,7 +104,7 @@ echo "正在准备远程暂存目录..."
 ssh "${ssh_opts[@]}" "$remote_target" "rm -rf '$remote_tmp' '$DEPLOY_DIR/releases.new' && mkdir -p '$remote_tmp'"
 
 echo "正在上传 CLI 发布产物..."
-scp "${ssh_opts[@]}" \
+scp "${scp_opts[@]}" \
   "${DIST_ABS}/checksums.txt" \
   "${DIST_ABS}/latest.json" \
   "${DIST_ABS}/skill-home-darwin-amd64.tar.gz" \
