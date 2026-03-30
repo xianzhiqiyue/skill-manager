@@ -12,7 +12,7 @@ import (
 )
 
 const catalogStateSingletonID uint = 1
-const catalogStateInitMaxAttempts = 5
+const catalogStateInitMaxAttempts = 10
 
 // ensureCatalogState 确保目录状态单例存在。
 func ensureCatalogState(tx *gorm.DB) (*models.CatalogState, error) {
@@ -24,7 +24,7 @@ func ensureCatalogState(tx *gorm.DB) (*models.CatalogState, error) {
 		}
 		if isCatalogStateTransientLockError(err) {
 			lastInitErr = err
-			time.Sleep(time.Millisecond * time.Duration(attempt+1))
+			time.Sleep(5 * time.Millisecond * time.Duration(attempt+1))
 			continue
 		}
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -34,7 +34,7 @@ func ensureCatalogState(tx *gorm.DB) (*models.CatalogState, error) {
 		if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(defaultCatalogState()).Error; err != nil {
 			if isCatalogStateTransientLockError(err) {
 				lastInitErr = err
-				time.Sleep(time.Millisecond * time.Duration(attempt+1))
+				time.Sleep(5 * time.Millisecond * time.Duration(attempt+1))
 				continue
 			}
 			lastInitErr = err
@@ -46,14 +46,14 @@ func ensureCatalogState(tx *gorm.DB) (*models.CatalogState, error) {
 		}
 		if isCatalogStateTransientLockError(err) {
 			lastInitErr = err
-			time.Sleep(time.Millisecond * time.Duration(attempt+1))
+			time.Sleep(5 * time.Millisecond * time.Duration(attempt+1))
 			continue
 		}
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, err
 		}
 
-		time.Sleep(time.Millisecond * time.Duration(attempt+1))
+		time.Sleep(5 * time.Millisecond * time.Duration(attempt+1))
 	}
 
 	if lastInitErr != nil {
