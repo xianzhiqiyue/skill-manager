@@ -974,6 +974,45 @@ func TestCatalogVersionBumpsOnSkillMutations(t *testing.T) {
 	})
 }
 
+func TestCreateSkillReturnsAlreadyExistsConflictDoesNotBump(t *testing.T) {
+	db := newTestDatabase(t)
+	user := &models.User{ID: uuid.New(), Username: "owner", Email: "owner@example.com"}
+	if err := db.Create(user).Error; err != nil {
+		t.Fatalf("create user failed: %v", err)
+	}
+
+	existing := models.Skill{
+		ID:          uuid.New(),
+		Namespace:   "team",
+		Name:        "github",
+		OwnerID:     user.ID,
+		Description: "existing skill",
+		IsPublic:    true,
+	}
+	if err := db.Create(&existing).Error; err != nil {
+		t.Fatalf("create existing skill failed: %v", err)
+	}
+
+	router := newAuthedRouter(user)
+	router.POST("/api/v1/skills", CreateSkill(db, newTestObjectStorage(t), validator.NewScanner()))
+
+	req, _ := newCreateSkillRequest(t, map[string]string{
+		"namespace": "team",
+		"name":      "github",
+		"version":   "1.0.0",
+	}, newSkillArchive(t))
+
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("unexpected status: %d body=%s", rec.Code, rec.Body.String())
+	}
+	if got := currentCatalogVersion(t, db); got != 1 {
+		t.Fatalf("catalog_version = %d, want 1", got)
+	}
+}
+
 func TestPublishVersionReturnsPublicDownloadURL(t *testing.T) {
 	db := newTestDatabase(t)
 	objStorage := newPublicTestObjectStorage(t)
