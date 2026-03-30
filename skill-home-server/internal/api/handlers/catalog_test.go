@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -129,6 +130,62 @@ func TestEnsureCatalogStateHandlesConcurrentFirstAccess(t *testing.T) {
 	}
 	if count != 1 {
 		t.Fatalf("catalog state count = %d, want 1", count)
+	}
+}
+
+func TestEnsureCatalogStateRetriesOnTransientLock(t *testing.T) {
+	db := newCatalogTestDatabase(t)
+	sqlDB, err := db.DB.DB()
+	if err != nil {
+		t.Fatalf("open sql db failed: %v", err)
+	}
+	sqlDB.SetMaxOpenConns(2)
+
+	locked := make(chan struct{})
+	release := make(chan struct{})
+	lockErr := make(chan error, 1)
+
+	go func() {
+		tx := db.DB.Begin()
+		if tx.Error != nil {
+			lockErr <- tx.Error
+			return
+		}
+		if err := tx.Exec(`INSERT INTO catalog_states (id, catalog_version, created_at, updated_at) VALUES (1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`).Error; err != nil {
+			lockErr <- err
+			_ = tx.Rollback().Error
+			return
+		}
+		close(locked)
+		<-release
+		lockErr <- tx.Rollback().Error
+	}()
+
+	<-locked
+
+	done := make(chan struct{})
+	var state *models.CatalogState
+	var ensureErr error
+	go func() {
+		state, ensureErr = ensureCatalogState(db.DB)
+		close(done)
+	}()
+
+	time.Sleep(10 * time.Millisecond)
+	close(release)
+	<-done
+
+	if err := <-lockErr; err != nil && !errors.Is(err, gorm.ErrInvalidTransaction) {
+		t.Fatalf("locker returned error: %v", err)
+	}
+	if ensureErr != nil {
+		t.Fatalf("ensureCatalogState returned error under transient lock: %v", ensureErr)
+	}
+	if state == nil {
+		t.Fatal("ensureCatalogState returned nil state")
+	}
+	if state.CatalogVersion != 1 {
+		t.Fatalf("CatalogVersion = %d, want 1", state.CatalogVersion)
 	}
 }
 

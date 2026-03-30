@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/skill-home/server/internal/models"
@@ -21,17 +22,32 @@ func ensureCatalogState(tx *gorm.DB) (*models.CatalogState, error) {
 		if err == nil {
 			return state, nil
 		}
+		if isCatalogStateTransientLockError(err) {
+			lastInitErr = err
+			time.Sleep(time.Millisecond * time.Duration(attempt+1))
+			continue
+		}
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, err
 		}
 
 		if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(defaultCatalogState()).Error; err != nil {
+			if isCatalogStateTransientLockError(err) {
+				lastInitErr = err
+				time.Sleep(time.Millisecond * time.Duration(attempt+1))
+				continue
+			}
 			lastInitErr = err
 		}
 
 		state, err = loadCatalogState(tx)
 		if err == nil {
 			return state, nil
+		}
+		if isCatalogStateTransientLockError(err) {
+			lastInitErr = err
+			time.Sleep(time.Millisecond * time.Duration(attempt+1))
+			continue
 		}
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, err
@@ -64,6 +80,17 @@ func defaultCatalogState() *models.CatalogState {
 		ID:             catalogStateSingletonID,
 		CatalogVersion: 1,
 	}
+}
+
+func isCatalogStateTransientLockError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	msg := err.Error()
+	return strings.Contains(msg, "database is locked") ||
+		strings.Contains(msg, "database table is locked") ||
+		strings.Contains(msg, "database schema is locked")
 }
 
 func bumpCatalogVersionTx(tx *gorm.DB) error {
