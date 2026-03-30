@@ -2,6 +2,7 @@
 set -euo pipefail
 
 primary_install_url="${SKILL_HOME_INSTALL_URL:-https://soulstore.ciqtek.com/skill-home/install.sh}"
+fallback_install_url="${SKILL_HOME_GITHUB_INSTALL_URL:-https://raw.githubusercontent.com/xianzhiqiyue/skill-manager/main/skill-home-cli/install.sh}"
 user_bin_dir="${HOME}/.local/bin"
 install_dir="${SKILL_HOME_INSTALL_DIR:-$user_bin_dir}"
 user_install_target="$install_dir/skill-home"
@@ -16,7 +17,7 @@ usage() {
 Usage: bootstrap-cli.sh [--force-reinstall] [--version <tag>] [--system]
 
 Ensure the published skill-home CLI is available. This script downloads the
-public installer from the deployed Skill Home service.
+public installer from the deployed site, and falls back to GitHub if needed.
 
 Flags:
   --force-reinstall Reinstall even if `skill-home` already exists in PATH
@@ -94,8 +95,8 @@ installer="$tmp_dir/install.sh"
 if download_script "$primary_install_url" "$installer"; then
   echo "Using installer from $primary_install_url"
 else
-  echo "Skill Home installer unavailable: $primary_install_url" >&2
-  exit 1
+  echo "Primary installer unavailable, falling back to $fallback_install_url"
+  download_script "$fallback_install_url" "$installer"
 fi
 
 chmod +x "$installer"

@@ -1,4 +1,4 @@
-# Skill Home CLI Workflows
+# Skill Home CLI 工作流
 
 ## 常用路径
 
@@ -18,7 +18,7 @@
 scripts/bootstrap-cli.sh
 ```
 
-这个脚本会从 Skill Home 服务下载 `install.sh`，再由脚本继续从同一服务的 `/releases` 拉取对应平台 CLI。
+这个脚本会优先下载部署页的 `install.sh`，部署页失败时回退到 GitHub 上的安装脚本。  
 默认安装到 `~/.local/bin/skill-home`；如果系统级安装，使用 `--system`。
 
 如果你明确需要系统级安装:
@@ -116,7 +116,6 @@ skill-home --debug sync /path/to/skill --ide codex --global --mode mirror
 
 - 配置文件是否是 `~/.config/skill-home/config.yaml`
 - Codex 全局路径是否与 `$CODEX_HOME/skills` 或 `~/.codex/skills` 一致
-- `/releases/latest.json` 和对应版本产物是否已经同步到当前 Skill Home 服务
 - 本地 skill 是否通过了 `validate`
 - 是否把“本地目录”误当成“远程 skill 引用”去执行 `install`
 
@@ -126,6 +125,7 @@ skill-home --debug sync /path/to/skill --ide codex --global --mode mirror
 
 ```bash
 skill-home login
+skill-home list --remote
 skill-home search keyword
 skill-home pull @namespace/name
 skill-home install @namespace/name --ide codex --global --mode mirror
@@ -134,16 +134,17 @@ skill-home delete @namespace/name --yes
 skill-home delete-version @namespace/name@1.2.3 --yes
 ```
 
-登录补充:
-
-- 直接运行 `skill-home login` 时，CLI 会提示输入邮箱和密码，并自动创建一把本机可复用的 CLI API Key
-- 如果已经在 Web 端 `/settings/api-keys` 创建好了 Key，也可以执行 `skill-home login --api-key "sk_xxx"`
-- 在 CI 或受控环境里，也可以直接注入 `SKILL_HOME_API_KEY`
-
 规则:
 
 - `push`、`delete`、`delete-version` 必须先 `skill-home login`
-- `pull`、`install`、`update`、`search`、`info` 对公开 skill 不要求登录
+- `pull`、`install`、`update`、`search`、`info`、`list --remote` 对公开 skill 不要求登录
 - 匿名读取私有 skill 时，如果看到“该 skill 可能是私有的”，先登录再重试
+
+远程目录缓存说明:
+
+- `skill-home list --remote` 与 `skill-home search` 会先检查远程目录版本；版本未变化时优先复用本地目录缓存
+- 注册中心临时失败但本地已有对应缓存时，CLI 会自动回退，并提示“结果可能过期”
+- `--format json` 下，结果主体仍保持纯 JSON；过期提示只会输出到 `stderr`
+- 这层缓存只覆盖公开目录结构，不保证下载量、评分等动态统计字段实时
 
 如果 registry 健康检查失败，回退到本地 `validate/sync/export/pack` 工作流。

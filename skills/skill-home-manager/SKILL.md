@@ -1,6 +1,6 @@
 ---
 name: skill-home-manager
-version: 0.2.3
+version: 0.2.4
 description: 当用户想用本地 skill-home CLI 创建、编辑、验证、打包、导出、同步、安装或排查 skill 时使用，尤其适合把 skill 交付到 Codex。
 namespace: "@skill-home"
 author: Skill Home Team
@@ -18,7 +18,7 @@ ide_config:
     tools: [read, edit, bash, glob, grep]
 ---
 
-# Skill Home Manager
+# Skill Home 管理指南
 
 用这个 skill 操作本机已安装的 `skill-home` CLI；缺 CLI 时优先从公开发布入口安装或刷新，把“管理 skill”的能力封装成 Codex 可重复执行的工作流。
 
@@ -27,7 +27,7 @@ ide_config:
 - 用户要在当前仓库里新建或修改一个 skill 子项目
 - 用户要运行 `skill-home create/init/validate/scan/pack/preview/export/sync/install/doctor/delete/delete-version`
 - 用户要把本地 skill 安装到 Codex
-- 用户怀疑本机 `skill-home` 二进制过旧，需要重新构建并覆盖安装
+- 用户怀疑本机 `skill-home` 二进制过旧，需要重新安装或刷新已发布 CLI
 - 用户要删除自己已发布的远程 skill 或某个远程版本
 
 ## 默认上下文
@@ -64,14 +64,17 @@ ide_config:
 - 预览平台导出结果: `skill-home preview`
 - 生成平台格式或直接落盘: `skill-home export`
 - 把本地目录同步进 IDE: `skill-home sync`
+- 浏览远程公开目录: `skill-home list --remote`
+- 搜索远程公开目录: `skill-home search`
 - 从 registry 安装远程 skill 引用: `skill-home install`
 - 删除远程 skill: `skill-home delete`
 - 删除远程 skill 版本: `skill-home delete-version`
 - 排查环境与配置: `skill-home doctor`
 
 `install` 适合远程 skill 引用，不适合本地 skill 目录。对本地 skill 目录，优先用 `sync` 或 `export --install`。
-`push`、`delete`、`delete-version` 需要先登录；公开 skill 的 `pull/install/update/search/info` 不需要登录。
-`skill-home login` 默认支持邮箱/密码登录，并会自动为 CLI 创建并保存 API Key；如果用户手上已经有 Key，也可以直接用 `skill-home login --api-key ...`。
+`push`、`delete`、`delete-version` 需要先登录；公开 skill 的 `pull/install/update/search/info/list --remote` 不需要登录。
+`list --remote` 与 `search` 会先检查远程目录版本；版本未变化时优先复用本地目录缓存。如果注册中心临时失败且本地已有对应缓存，会自动回退并提示“结果可能过期”。
+这个目录缓存只覆盖公开目录结构，不保证 `download_count`、`rating`、`rating_count` 这类动态统计字段实时。对 `search` 来说，缓存结果只保证来自同一份公开目录快照，不保证与当前服务端搜索排序或召回逻辑完全一致。
 
 ## 用户请求到动作的映射
 
@@ -80,17 +83,20 @@ ide_config:
 - “帮我把这个 skill 装到 Codex”: 先用 `scripts/install-to-codex.sh`
 - “帮我把本地 skill-home 更新到最新发布版本”: 先用 `scripts/rebuild-cli.sh`
 - “帮我排查为什么没生效”: 先看 `skill-home doctor`，必要时再开 `--debug` 重跑相关命令
+- “帮我看看远程有哪些公开 skill”: 用 `skill-home list --remote`
+- “帮我搜索远程公开 skill”: 用 `skill-home search <keyword>`
 - “帮我删除我刚发布的 skill”: 用 `skill-home delete @namespace/name`
 - “帮我删除我刚发布的某个版本”: 用 `skill-home delete-version @namespace/name@version`
 
 ## Codex 特别约束
 
 - 这台机器是 WSL + Windows 混合环境，向 Codex 安装 skill 时优先 `--mode mirror`，避免生成指向 Linux 路径的符号链接。
-- `scripts/bootstrap-cli.sh` 默认从已部署 Skill Home 服务拉取公开安装脚本和 `/releases` 产物。它安装的是已发布的 CLI，不依赖本地源码目录。
+- `scripts/bootstrap-cli.sh` 默认从已部署安装页拉取公开安装脚本；如果部署页不可用，再回退到 GitHub 上的安装脚本。它安装的是已发布的 CLI，不依赖本地源码目录。
 - `scripts/rebuild-cli.sh` 在这个公共 skill 里表示“重新安装最新发布版 CLI”，不是从源码重建。
 - 不要默认要求本机存在任何 `skill-home` 源码仓库；只有当用户明确在维护该仓库时，才允许走源码工作流。
-- 涉及 registry 写操作时，先检查是否已登录；未登录时优先提示用户直接执行 `skill-home login` 走邮箱/密码登录流，或在已有 Key 时使用 `skill-home login --api-key ...`。
+- 涉及 registry 写操作时，先检查是否已登录；未登录时提示用户先执行 `skill-home login`。
 - registry 读操作默认可匿名；如果远程接口异常，或私有 skill 因未登录/无权限被拒绝，直接说明原因并给出下一步。
+- `list --remote` 与 `search` 的目录缓存是读优化层，不要把它表述成“下载量、评分一定最新”的强保证。
 
 ## 参考资料
 
