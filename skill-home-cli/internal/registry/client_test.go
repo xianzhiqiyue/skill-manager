@@ -80,10 +80,7 @@ func TestGetCatalogVersionRequestsExpectedEndpoint(t *testing.T) {
 			return
 		}
 
-		_ = json.NewEncoder(w).Encode(CatalogVersionResponse{
-			CatalogVersion: 12,
-			UpdatedAt:      time.Date(2026, 3, 30, 9, 15, 0, 0, time.UTC),
-		})
+		_, _ = io.WriteString(w, `{"catalog_version":12,"updated_at":"2026-03-30T09:15:00Z"}`)
 	}))
 	defer server.Close()
 
@@ -105,10 +102,7 @@ func TestGetCatalogVersionReturnsServerError(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		_ = json.NewEncoder(w).Encode(APIError{
-			Code:    "INTERNAL_ERROR",
-			Message: "boom",
-		})
+		_, _ = io.WriteString(w, `{"code":"INTERNAL_ERROR","message":"boom"}`)
 	}))
 	defer server.Close()
 
