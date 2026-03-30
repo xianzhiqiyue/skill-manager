@@ -58,6 +58,7 @@ func TestSetupRouterPrefixesHealthAndAPIRoutes(t *testing.T) {
 
 	for _, want := range []string{
 		"GET /skill-home/health",
+		"GET /skill-home/api/v1/catalog/version",
 		"POST /skill-home/api/v1/auth/login",
 		"GET /skill-home/api/v1/skills",
 	} {

@@ -2,8 +2,11 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -17,7 +20,8 @@ import (
 func newCatalogTestDatabase(t *testing.T) *storage.Database {
 	t.Helper()
 
-	db, err := gorm.Open(sqlite.Open("file:"+t.Name()+"?mode=memory&cache=shared"), &gorm.Config{})
+	dsn := fmt.Sprintf("file:%s?cache=shared&_busy_timeout=5000&_journal_mode=WAL", filepath.Join(t.TempDir(), "catalog.db"))
+	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("open sqlite failed: %v", err)
 	}
@@ -49,6 +53,74 @@ func TestEnsureCatalogStateCreatesDefaultRow(t *testing.T) {
 	}
 	if state.UpdatedAt.IsZero() {
 		t.Fatal("UpdatedAt is zero")
+	}
+
+	var count int64
+	if err := db.Model(&models.CatalogState{}).Count(&count).Error; err != nil {
+		t.Fatalf("count catalog states failed: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("catalog state count = %d, want 1", count)
+	}
+}
+
+func TestEnsureCatalogStateHandlesConcurrentFirstAccess(t *testing.T) {
+	db := newCatalogTestDatabase(t)
+	sqlDB, err := db.DB.DB()
+	if err != nil {
+		t.Fatalf("open sql db failed: %v", err)
+	}
+	sqlDB.SetMaxOpenConns(8)
+
+	const workers = 6
+	start := make(chan struct{})
+	var ready sync.WaitGroup
+	ready.Add(workers)
+	var createMu sync.Mutex
+
+	if err := db.Callback().Create().Before("gorm:create").Register("catalog_state_concurrency_barrier", func(tx *gorm.DB) {
+		if tx.Statement.Table != "catalog_states" {
+			return
+		}
+
+		ready.Done()
+		ready.Wait()
+		createMu.Lock()
+	}); err != nil {
+		t.Fatalf("register create callback failed: %v", err)
+	}
+
+	if err := db.Callback().Create().After("gorm:create").Register("catalog_state_concurrency_release", func(tx *gorm.DB) {
+		if tx.Statement.Table != "catalog_states" {
+			return
+		}
+
+		createMu.Unlock()
+	}); err != nil {
+		t.Fatalf("register create release callback failed: %v", err)
+	}
+
+	errCh := make(chan error, workers)
+	var callWg sync.WaitGroup
+	for i := 0; i < workers; i++ {
+		callWg.Add(1)
+		go func() {
+			defer callWg.Done()
+			<-start
+			_, err := ensureCatalogState(db.DB)
+			errCh <- err
+		}()
+	}
+
+	close(start)
+	ready.Wait()
+	callWg.Wait()
+	close(errCh)
+
+	for err := range errCh {
+		if err != nil {
+			t.Fatalf("ensureCatalogState returned error under concurrency: %v", err)
+		}
 	}
 
 	var count int64
