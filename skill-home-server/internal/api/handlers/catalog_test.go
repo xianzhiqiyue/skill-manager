@@ -169,3 +169,36 @@ func TestGetCatalogVersion(t *testing.T) {
 		t.Fatalf("updated_at is not RFC3339 time: %v", err)
 	}
 }
+
+func TestGetCatalogVersionDoesNotWriteWhenStateExists(t *testing.T) {
+	t.Parallel()
+
+	db := newCatalogTestDatabase(t)
+	if err := db.Create(defaultCatalogState()).Error; err != nil {
+		t.Fatalf("seed catalog state failed: %v", err)
+	}
+
+	wrote := false
+	if err := db.Callback().Create().Before("gorm:create").Register("catalog_state_no_write_on_read", func(tx *gorm.DB) {
+		if tx.Statement.Table == "catalog_states" {
+			wrote = true
+		}
+	}); err != nil {
+		t.Fatalf("register create callback failed: %v", err)
+	}
+
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	router.GET("/api/v1/catalog/version", GetCatalogVersion(db))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/catalog/version", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d body=%s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	if wrote {
+		t.Fatal("expected catalog version lookup to stay read-only when state exists")
+	}
+}
