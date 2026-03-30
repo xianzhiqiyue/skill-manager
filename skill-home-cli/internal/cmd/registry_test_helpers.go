@@ -10,7 +10,68 @@ import (
 	"github.com/skill-home/cli/internal/registry"
 )
 
+type fakeRegistryClient struct {
+	getCatalogVersionResp *registry.CatalogVersionResponse
+	getCatalogVersionErr  error
+
+	getSkillResp *registry.Skill
+	getSkillErr  error
+
+	listVersionsResp []registry.SkillVersion
+	listVersionsErr  error
+
+	downloadErr error
+
+	deleteSkillCalls []deleteSkillCall
+	deleteSkillErr   error
+
+	deleteVersionCalls []deleteVersionCall
+	deleteVersionErr   error
+
+	searchResp *registry.SearchResult
+	searchErr  error
+
+	listSkillsResp *registry.SearchResult
+	listSkillsErr  error
+
+	getCurrentUserResp *registry.User
+	getCurrentUserErr  error
+
+	getUserSkillsResp []registry.Skill
+	getUserSkillsErr  error
+
+	listAuditLogsResp *registry.AuditLogList
+	listAuditLogsErr  error
+
+	rateSkillResp *registry.RateSkillResponse
+	rateSkillErr  error
+
+	healthCheckErr error
+}
+
+type deleteSkillCall struct {
+	namespace string
+	name      string
+}
+
+type deleteVersionCall struct {
+	namespace string
+	name      string
+	version   string
+}
+
+func swapRegistryClientFactory(factory func() registryClient) func() {
+	previous := registryClientFactory
+	registryClientFactory = factory
+	return func() {
+		registryClientFactory = previous
+	}
+}
+
 func (f *fakeRegistryClient) GetCatalogVersion() (*registry.CatalogVersionResponse, error) {
+	if f.getCatalogVersionErr != nil || f.getCatalogVersionResp != nil {
+		return f.getCatalogVersionResp, f.getCatalogVersionErr
+	}
 	return &registry.CatalogVersionResponse{}, nil
 }
 
@@ -63,4 +124,60 @@ func captureStdStreams(t *testing.T, fn func()) (stdout string, stderr string) {
 
 	fn()
 	return stdout, stderr
+}
+
+func (f *fakeRegistryClient) Search(query, namespace string, tags []string, page, perPage int) (*registry.SearchResult, error) {
+	if f.searchResp != nil || f.searchErr != nil {
+		return f.searchResp, f.searchErr
+	}
+	return nil, nil
+}
+
+func (f *fakeRegistryClient) ListSkills(opts registry.ListSkillsOptions) (*registry.SearchResult, error) {
+	if f.listSkillsResp != nil || f.listSkillsErr != nil {
+		return f.listSkillsResp, f.listSkillsErr
+	}
+	return nil, nil
+}
+
+func (f *fakeRegistryClient) GetSkill(namespace, name string) (*registry.Skill, error) {
+	return f.getSkillResp, f.getSkillErr
+}
+
+func (f *fakeRegistryClient) ListVersions(namespace, name string) ([]registry.SkillVersion, error) {
+	return f.listVersionsResp, f.listVersionsErr
+}
+
+func (f *fakeRegistryClient) Download(namespace, name, version, outputPath string) error {
+	return f.downloadErr
+}
+
+func (f *fakeRegistryClient) DeleteSkill(namespace, name string) error {
+	f.deleteSkillCalls = append(f.deleteSkillCalls, deleteSkillCall{namespace: namespace, name: name})
+	return f.deleteSkillErr
+}
+
+func (f *fakeRegistryClient) DeleteVersion(namespace, name, version string) error {
+	f.deleteVersionCalls = append(f.deleteVersionCalls, deleteVersionCall{namespace: namespace, name: name, version: version})
+	return f.deleteVersionErr
+}
+
+func (f *fakeRegistryClient) GetCurrentUser() (*registry.User, error) {
+	return f.getCurrentUserResp, f.getCurrentUserErr
+}
+
+func (f *fakeRegistryClient) GetUserSkills() ([]registry.Skill, error) {
+	return f.getUserSkillsResp, f.getUserSkillsErr
+}
+
+func (f *fakeRegistryClient) ListAuditLogs(page, perPage int, action string) (*registry.AuditLogList, error) {
+	return f.listAuditLogsResp, f.listAuditLogsErr
+}
+
+func (f *fakeRegistryClient) RateSkill(namespace, name string, req *registry.RateSkillRequest) (*registry.RateSkillResponse, error) {
+	return f.rateSkillResp, f.rateSkillErr
+}
+
+func (f *fakeRegistryClient) HealthCheck() error {
+	return f.healthCheckErr
 }
