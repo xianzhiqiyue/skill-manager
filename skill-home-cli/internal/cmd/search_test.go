@@ -153,6 +153,12 @@ func TestSearchUsesCatalogCache(t *testing.T) {
 		if !strings.Contains(stdout, "搜索:") {
 			t.Fatalf("stdout = %q, want table search prelude", stdout)
 		}
+		if !strings.Contains(stdout, "标签:") {
+			t.Fatalf("stdout = %q, want table tags prelude", stdout)
+		}
+		if !strings.Contains(stdout, "skill-home pull <name>") {
+			t.Fatalf("stdout = %q, want install hint", stdout)
+		}
 		if !strings.Contains(stderr, "结果可能过期") {
 			t.Fatalf("stderr = %q, want fallback warning", stderr)
 		}
@@ -190,8 +196,49 @@ func TestSearchUsesCatalogCache(t *testing.T) {
 		if !strings.Contains(stdout, "cached-skill") {
 			t.Fatalf("stdout = %q, want cached result", stdout)
 		}
+		if !strings.Contains(stdout, "标签:") {
+			t.Fatalf("stdout = %q, want table tags prelude", stdout)
+		}
+		if !strings.Contains(stdout, "skill-home pull <name>") {
+			t.Fatalf("stdout = %q, want install hint", stdout)
+		}
 		if !strings.Contains(stderr, "结果可能过期") {
 			t.Fatalf("stderr = %q, want fallback warning", stderr)
+		}
+	})
+
+	t.Run("returns wrapped error with empty stdout and stderr when no cache exists and remote refresh fails", func(t *testing.T) {
+		query := "lint"
+		opts := &searchOptions{
+			namespace: "@team",
+			tags:      []string{"go"},
+			page:      1,
+			perPage:   20,
+			format:    "table",
+		}
+		client := &countingSearchRegistryClient{
+			fakeRegistryClient: &fakeRegistryClient{
+				getCatalogVersionResp: &registry.CatalogVersionResponse{CatalogVersion: 8},
+				searchErr:             errors.New("remote unavailable"),
+			},
+		}
+		setupSearchRemoteTestEnv(t, "https://registry.example.com", client)
+
+		var err error
+		stdout, stderr := captureStdStreams(t, func() {
+			err = runSearch(query, opts)
+		})
+		if err == nil {
+			t.Fatal("runSearch returned nil error, want failure")
+		}
+		if !strings.Contains(err.Error(), "搜索失败") {
+			t.Fatalf("error = %v, want wrapped search failure", err)
+		}
+		if stdout != "" {
+			t.Fatalf("stdout = %q, want empty", stdout)
+		}
+		if stderr != "" {
+			t.Fatalf("stderr = %q, want empty", stderr)
 		}
 	})
 
