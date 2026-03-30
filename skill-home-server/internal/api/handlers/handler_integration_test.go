@@ -70,6 +70,15 @@ func newTestDatabase(t *testing.T) *storage.Database {
 		updated_at DATETIME,
 		deleted_at DATETIME
 	)`)
+	mustExec(t, db, `CREATE TABLE catalog_states (
+		id INTEGER PRIMARY KEY,
+		catalog_version INTEGER NOT NULL DEFAULT 1,
+		created_at DATETIME,
+		updated_at DATETIME
+	)`)
+	if err := db.Create(&models.CatalogState{}).Error; err != nil {
+		t.Fatalf("seed catalog state failed: %v", err)
+	}
 	mustExec(t, db, `CREATE TABLE skill_ratings (
 		id TEXT PRIMARY KEY,
 		skill_id TEXT NOT NULL,
@@ -134,6 +143,16 @@ func mustExec(t *testing.T, db *gorm.DB, sql string) {
 	if err := db.Exec(sql).Error; err != nil {
 		t.Fatalf("exec sql failed: %v\nsql=%s", err, sql)
 	}
+}
+
+func currentCatalogVersion(t *testing.T, db *storage.Database) int64 {
+	t.Helper()
+
+	var state models.CatalogState
+	if err := db.First(&state, "id = ?", catalogStateSingletonID).Error; err != nil {
+		t.Fatalf("load catalog state failed: %v", err)
+	}
+	return state.CatalogVersion
 }
 
 func newAuthedRouter(user *models.User) *gin.Engine {
@@ -760,6 +779,199 @@ func TestCreatePrivateSkillKeepsRelativeDownloadURL(t *testing.T) {
 	if got != want {
 		t.Fatalf("download_url = %q, want %q", got, want)
 	}
+}
+
+func TestCatalogVersionBumpsOnSkillMutations(t *testing.T) {
+	t.Run("create skill", func(t *testing.T) {
+		db := newTestDatabase(t)
+		user := &models.User{ID: uuid.New(), Username: "owner", Email: "owner@example.com"}
+		if err := db.Create(user).Error; err != nil {
+			t.Fatalf("create user failed: %v", err)
+		}
+
+		router := newAuthedRouter(user)
+		router.POST("/api/v1/skills", CreateSkill(db, newTestObjectStorage(t), validator.NewScanner()))
+
+		req, _ := newCreateSkillRequest(t, map[string]string{
+			"namespace": "team",
+			"name":      "github",
+			"version":   "1.0.0",
+		}, newSkillArchive(t))
+
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("unexpected status: %d body=%s", rec.Code, rec.Body.String())
+		}
+		if got := currentCatalogVersion(t, db); got != 2 {
+			t.Fatalf("catalog_version = %d, want 2", got)
+		}
+	})
+
+	t.Run("update skill", func(t *testing.T) {
+		db := newTestDatabase(t)
+		user := &models.User{ID: uuid.New(), Username: "owner", Email: "owner@example.com"}
+		if err := db.Create(user).Error; err != nil {
+			t.Fatalf("create user failed: %v", err)
+		}
+		skill := models.Skill{
+			ID:          uuid.New(),
+			Namespace:   "team",
+			Name:        "github",
+			OwnerID:     user.ID,
+			Description: "before",
+			IsPublic:    true,
+		}
+		if err := db.Create(&skill).Error; err != nil {
+			t.Fatalf("create skill failed: %v", err)
+		}
+
+		router := newAuthedRouter(user)
+		router.PUT("/api/v1/skills/:namespace/:name", UpdateSkill(db))
+
+		body := bytes.NewBufferString(`{"description":"after","tags":["review"],"license":"Apache-2.0","is_public":true}`)
+		req := httptest.NewRequest(http.MethodPut, "/api/v1/skills/team/github", body)
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("unexpected status: %d body=%s", rec.Code, rec.Body.String())
+		}
+		if got := currentCatalogVersion(t, db); got != 2 {
+			t.Fatalf("catalog_version = %d, want 2", got)
+		}
+	})
+
+	t.Run("delete skill", func(t *testing.T) {
+		db := newTestDatabase(t)
+		user := &models.User{ID: uuid.New(), Username: "owner", Email: "owner@example.com"}
+		if err := db.Create(user).Error; err != nil {
+			t.Fatalf("create user failed: %v", err)
+		}
+		skill := models.Skill{
+			ID:          uuid.New(),
+			Namespace:   "team",
+			Name:        "github",
+			OwnerID:     user.ID,
+			Description: "code review skill",
+			IsPublic:    true,
+		}
+		if err := db.Create(&skill).Error; err != nil {
+			t.Fatalf("create skill failed: %v", err)
+		}
+
+		router := newAuthedRouter(user)
+		router.DELETE("/api/v1/skills/:namespace/:name", DeleteSkill(db, newTestObjectStorage(t)))
+
+		req := httptest.NewRequest(http.MethodDelete, "/api/v1/skills/team/github", nil)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("unexpected status: %d body=%s", rec.Code, rec.Body.String())
+		}
+		if got := currentCatalogVersion(t, db); got != 2 {
+			t.Fatalf("catalog_version = %d, want 2", got)
+		}
+	})
+
+	t.Run("publish version", func(t *testing.T) {
+		db := newTestDatabase(t)
+		objStorage := newTestObjectStorage(t)
+		user := &models.User{ID: uuid.New(), Username: "owner", Email: "owner@example.com"}
+		if err := db.Create(user).Error; err != nil {
+			t.Fatalf("create user failed: %v", err)
+		}
+		skill := models.Skill{
+			ID:            uuid.New(),
+			Namespace:     "team",
+			Name:          "github",
+			OwnerID:       user.ID,
+			IsPublic:      true,
+			LatestVersion: "1.0.0",
+		}
+		if err := db.Create(&skill).Error; err != nil {
+			t.Fatalf("create skill failed: %v", err)
+		}
+
+		router := newAuthedRouter(user)
+		router.POST("/api/v1/skills/:namespace/:name/versions", PublishVersion(db, objStorage, validator.NewScanner()))
+
+		body := &bytes.Buffer{}
+		writer := multipart.NewWriter(body)
+		if err := writer.WriteField("version", "1.1.0"); err != nil {
+			t.Fatalf("WriteField version returned error: %v", err)
+		}
+		part, err := writer.CreateFormFile("skill", "github.zip")
+		if err != nil {
+			t.Fatalf("CreateFormFile returned error: %v", err)
+		}
+		if _, err := part.Write(newSkillArchive(t)); err != nil {
+			t.Fatalf("part.Write returned error: %v", err)
+		}
+		if err := writer.Close(); err != nil {
+			t.Fatalf("writer.Close returned error: %v", err)
+		}
+
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/skills/team/github/versions", body)
+		req.Header.Set("Content-Type", writer.FormDataContentType())
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("unexpected status: %d body=%s", rec.Code, rec.Body.String())
+		}
+		if got := currentCatalogVersion(t, db); got != 2 {
+			t.Fatalf("catalog_version = %d, want 2", got)
+		}
+	})
+
+	t.Run("delete version", func(t *testing.T) {
+		db := newTestDatabase(t)
+		user := &models.User{ID: uuid.New(), Username: "owner", Email: "owner@example.com"}
+		if err := db.Create(user).Error; err != nil {
+			t.Fatalf("create user failed: %v", err)
+		}
+		skill := models.Skill{
+			ID:            uuid.New(),
+			Namespace:     "team",
+			Name:          "github",
+			OwnerID:       user.ID,
+			IsPublic:      true,
+			LatestVersion: "1.0.0",
+		}
+		if err := db.Create(&skill).Error; err != nil {
+			t.Fatalf("create skill failed: %v", err)
+		}
+		version := models.SkillVersion{
+			ID:          uuid.New(),
+			SkillID:     skill.ID,
+			Version:     "1.0.0",
+			StoragePath: "skills/team/github/test.zip",
+			SizeBytes:   128,
+			ScanStatus:  "pass",
+			PublishedBy: user.ID,
+		}
+		if err := db.Create(&version).Error; err != nil {
+			t.Fatalf("create version failed: %v", err)
+		}
+
+		router := newAuthedRouter(user)
+		router.DELETE("/api/v1/skills/:namespace/:name/versions/:version", DeleteVersion(db, newTestObjectStorage(t)))
+
+		req := httptest.NewRequest(http.MethodDelete, "/api/v1/skills/team/github/versions/1.0.0", nil)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("unexpected status: %d body=%s", rec.Code, rec.Body.String())
+		}
+		if got := currentCatalogVersion(t, db); got != 2 {
+			t.Fatalf("catalog_version = %d, want 2", got)
+		}
+	})
 }
 
 func TestPublishVersionReturnsPublicDownloadURL(t *testing.T) {
@@ -2017,6 +2229,9 @@ func TestPublishVersionReturnsVersionExistsConflict(t *testing.T) {
 	if versionCount != 1 {
 		t.Fatalf("expected exactly 1 version after conflict, got %d", versionCount)
 	}
+	if got := currentCatalogVersion(t, db); got != 1 {
+		t.Fatalf("catalog_version = %d, want 1", got)
+	}
 
 	var fileCount int
 	err = filepath.WalkDir(storageRoot, func(path string, d os.DirEntry, walkErr error) error {
@@ -2071,6 +2286,9 @@ func TestCreateSkillRecordReturnsAlreadyExistsOnConflict(t *testing.T) {
 	}
 	if skillCount != 1 {
 		t.Fatalf("expected exactly 1 skill after conflict, got %d", skillCount)
+	}
+	if got := currentCatalogVersion(t, db); got != 1 {
+		t.Fatalf("catalog_version = %d, want 1", got)
 	}
 }
 

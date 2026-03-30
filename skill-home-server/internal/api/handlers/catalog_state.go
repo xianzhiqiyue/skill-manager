@@ -6,6 +6,7 @@ import (
 	"github.com/skill-home/server/internal/models"
 	"github.com/skill-home/server/internal/storage"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 const catalogStateSingletonID uint = 1
@@ -28,4 +29,22 @@ func EnsureCatalogState(db *storage.Database) (*models.CatalogState, error) {
 	}
 
 	return state, nil
+}
+
+func bumpCatalogVersionTx(tx *gorm.DB) error {
+	state := &models.CatalogState{ID: catalogStateSingletonID}
+	if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(state).Error; err != nil {
+		return err
+	}
+
+	result := tx.Model(&models.CatalogState{}).
+		Where("id = ?", catalogStateSingletonID).
+		Update("catalog_version", gorm.Expr("catalog_version + 1"))
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
 }
