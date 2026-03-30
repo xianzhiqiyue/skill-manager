@@ -974,6 +974,81 @@ func TestCatalogVersionBumpsOnSkillMutations(t *testing.T) {
 	})
 }
 
+func TestUpdateSkillVisibilityTransitionsBumpCatalogVersion(t *testing.T) {
+	t.Run("public to private", func(t *testing.T) {
+		db := newTestDatabase(t)
+		user := &models.User{ID: uuid.New(), Username: "owner", Email: "owner@example.com"}
+		if err := db.Create(user).Error; err != nil {
+			t.Fatalf("create user failed: %v", err)
+		}
+		skill := models.Skill{
+			ID:          uuid.New(),
+			Namespace:   "team",
+			Name:        "github",
+			OwnerID:     user.ID,
+			Description: "before",
+			IsPublic:    true,
+		}
+		if err := db.Create(&skill).Error; err != nil {
+			t.Fatalf("create skill failed: %v", err)
+		}
+
+		router := newAuthedRouter(user)
+		router.PUT("/api/v1/skills/:namespace/:name", UpdateSkill(db))
+
+		body := bytes.NewBufferString(`{"description":"after","tags":["review"],"license":"Apache-2.0","is_public":false}`)
+		req := httptest.NewRequest(http.MethodPut, "/api/v1/skills/team/github", body)
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("unexpected status: %d body=%s", rec.Code, rec.Body.String())
+		}
+		if got := currentCatalogVersion(t, db); got != 2 {
+			t.Fatalf("catalog_version = %d, want 2", got)
+		}
+	})
+
+	t.Run("private to public", func(t *testing.T) {
+		db := newTestDatabase(t)
+		user := &models.User{ID: uuid.New(), Username: "owner", Email: "owner@example.com"}
+		if err := db.Create(user).Error; err != nil {
+			t.Fatalf("create user failed: %v", err)
+		}
+		skill := models.Skill{
+			ID:          uuid.New(),
+			Namespace:   "team",
+			Name:        "github",
+			OwnerID:     user.ID,
+			Description: "before",
+			IsPublic:    true,
+		}
+		if err := db.Create(&skill).Error; err != nil {
+			t.Fatalf("create skill failed: %v", err)
+		}
+		if err := db.Model(&skill).Update("is_public", false).Error; err != nil {
+			t.Fatalf("set skill private failed: %v", err)
+		}
+
+		router := newAuthedRouter(user)
+		router.PUT("/api/v1/skills/:namespace/:name", UpdateSkill(db))
+
+		body := bytes.NewBufferString(`{"description":"after","tags":["review"],"license":"Apache-2.0","is_public":true}`)
+		req := httptest.NewRequest(http.MethodPut, "/api/v1/skills/team/github", body)
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("unexpected status: %d body=%s", rec.Code, rec.Body.String())
+		}
+		if got := currentCatalogVersion(t, db); got != 2 {
+			t.Fatalf("catalog_version = %d, want 2", got)
+		}
+	})
+}
+
 func TestCreateSkillReturnsAlreadyExistsConflictDoesNotBump(t *testing.T) {
 	db := newTestDatabase(t)
 	user := &models.User{ID: uuid.New(), Username: "owner", Email: "owner@example.com"}
@@ -1256,6 +1331,90 @@ func TestCreateSkillRollsBackWhenAuditLogWriteFails(t *testing.T) {
 	var skill models.Skill
 	if err := db.Where("namespace = ? AND name = ?", "team", "github").First(&skill).Error; !errors.Is(err, gorm.ErrRecordNotFound) {
 		t.Fatalf("expected no skill to be committed, got err=%v", err)
+	}
+}
+
+func TestPublishVersionRollsBackWhenAuditLogWriteFails(t *testing.T) {
+	db := newTestDatabase(t)
+	objStorage := newTestObjectStorage(t)
+	user := &models.User{ID: uuid.New(), Username: "owner", Email: "owner@example.com"}
+	if err := db.Create(user).Error; err != nil {
+		t.Fatalf("create user failed: %v", err)
+	}
+	skill := models.Skill{
+		ID:            uuid.New(),
+		Namespace:     "team",
+		Name:          "github",
+		OwnerID:       user.ID,
+		IsPublic:      true,
+		LatestVersion: "1.0.0",
+	}
+	if err := db.Create(&skill).Error; err != nil {
+		t.Fatalf("create skill failed: %v", err)
+	}
+	if err := db.Create(&models.SkillVersion{
+		ID:          uuid.New(),
+		SkillID:     skill.ID,
+		Version:     "1.0.0",
+		StoragePath: "skills/team/github/base.zip",
+		SizeBytes:   16,
+		ScanStatus:  "pass",
+		PublishedBy: user.ID,
+		PublishedAt: time.Now(),
+	}).Error; err != nil {
+		t.Fatalf("create base version failed: %v", err)
+	}
+
+	if err := db.Callback().Create().Before("gorm:create").Register("catalog_state_fail_publish_audit_log", func(tx *gorm.DB) {
+		if tx.Statement.Table == "audit_logs" {
+			tx.AddError(errors.New("forced audit log failure"))
+		}
+	}); err != nil {
+		t.Fatalf("register audit log failure callback failed: %v", err)
+	}
+
+	router := newAuthedRouter(user)
+	router.POST("/api/v1/skills/:namespace/:name/versions", PublishVersion(db, objStorage, validator.NewScanner()))
+
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	if err := writer.WriteField("version", "1.1.0"); err != nil {
+		t.Fatalf("WriteField version returned error: %v", err)
+	}
+	part, err := writer.CreateFormFile("skill", "github.zip")
+	if err != nil {
+		t.Fatalf("CreateFormFile returned error: %v", err)
+	}
+	if _, err := part.Write(newSkillArchive(t)); err != nil {
+		t.Fatalf("part.Write returned error: %v", err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("writer.Close returned error: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/skills/team/github/versions", body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("unexpected status: %d body=%s", rec.Code, rec.Body.String())
+	}
+	if got := currentCatalogVersion(t, db); got != 1 {
+		t.Fatalf("catalog_version = %d, want 1", got)
+	}
+
+	var reloaded models.Skill
+	if err := db.First(&reloaded, "id = ?", skill.ID).Error; err != nil {
+		t.Fatalf("reload skill failed: %v", err)
+	}
+	if reloaded.LatestVersion != "1.0.0" {
+		t.Fatalf("latest_version = %q, want 1.0.0", reloaded.LatestVersion)
+	}
+
+	var version models.SkillVersion
+	if err := db.Where("skill_id = ? AND version = ?", skill.ID, "1.1.0").First(&version).Error; !errors.Is(err, gorm.ErrRecordNotFound) {
+		t.Fatalf("expected no published version to be committed, got err=%v", err)
 	}
 }
 
