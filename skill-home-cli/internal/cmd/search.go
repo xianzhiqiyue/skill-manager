@@ -2,11 +2,12 @@ package cmd
 
 import (
 	"fmt"
+	"io"
+	"os"
 	"strings"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 
 	"github.com/skill-home/cli/internal/registry"
 )
@@ -46,9 +47,56 @@ func newSearchCmd() *cobra.Command {
 }
 
 func runSearch(query string, opts *searchOptions) error {
-	// API Key 可选
-	apiKey := viper.GetString("registry.api_key")
-	server := registryEndpoint()
+	client := newRegistryClient()
+	cache, err := newDefaultRemoteCatalogCache()
+	if err != nil {
+		result, err := fetchRemoteSearch(client, buildSearchRemoteQuery(query, opts))
+		if err != nil {
+			return fmt.Errorf("搜索失败: %w", err)
+		}
+		return printRemoteSearchResults(query, opts, result)
+	}
+
+	return searchRemoteWithCache(query, opts, client, cache, os.Stderr)
+}
+
+func searchRemoteWithCache(query string, opts *searchOptions, client registryClient, cache *remoteCatalogCache, stderr io.Writer) error {
+	remoteQuery := buildSearchRemoteQuery(query, opts)
+	result, stale, err := cache.fetchWithFallback(
+		remoteQuery,
+		client.GetCatalogVersion,
+		func() (*registry.SearchResult, error) {
+			return fetchRemoteSearch(client, remoteQuery)
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("搜索失败: %w", err)
+	}
+	if stale {
+		fmt.Fprintln(stderr, "警告: 结果可能过期，当前显示的是本地缓存。")
+	}
+	return printRemoteSearchResults(query, opts, result)
+}
+
+func buildSearchRemoteQuery(query string, opts *searchOptions) remoteCatalogQuery {
+	return remoteCatalogQuery{
+		Kind:      "search",
+		Namespace: opts.namespace,
+		Query:     query,
+		Tags:      opts.tags,
+		Page:      opts.page,
+		PerPage:   opts.perPage,
+	}
+}
+
+func fetchRemoteSearch(client registryClient, query remoteCatalogQuery) (*registry.SearchResult, error) {
+	return client.Search(query.Query, query.Namespace, query.Tags, query.Page, query.PerPage)
+}
+
+func printRemoteSearchResults(query string, opts *searchOptions, result *registry.SearchResult) error {
+	if opts.format == "json" {
+		return printJSON(result)
+	}
 
 	fmt.Printf("搜索: %s\n", color.CyanString(query))
 	if len(opts.tags) > 0 {
@@ -56,28 +104,12 @@ func runSearch(query string, opts *searchOptions) error {
 	}
 	fmt.Println()
 
-	// 创建客户端
-	client := registry.NewClient(server, apiKey)
-
-	// 搜索
-	result, err := client.Search(query, opts.namespace, opts.tags, opts.page, opts.perPage)
-	if err != nil {
-		return fmt.Errorf("搜索失败: %w", err)
-	}
-
 	if len(result.Results) == 0 {
 		fmt.Println("没有找到匹配的技能")
 		return nil
 	}
 
-	// 输出结果
-	if opts.format == "json" {
-		return printJSON(result)
-	}
-
-	// 表格输出
 	printSkillResults(result)
-
 	fmt.Printf("\n运行 '%s' 安装技能\n", color.YellowString("skill-home pull <name>"))
 
 	return nil
