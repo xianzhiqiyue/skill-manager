@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -67,12 +68,16 @@ func TestListRemoteUsesCatalogCache(t *testing.T) {
 		if client.listSkillsCalls != 1 {
 			t.Fatalf("ListSkills calls = %d, want 1", client.listSkillsCalls)
 		}
+		wantListOpts := buildListSkillsOptions(buildListRemoteQuery(opts))
+		if !reflect.DeepEqual(client.lastListSkillsOpts, wantListOpts) {
+			t.Fatalf("ListSkills opts = %#v, want %#v", client.lastListSkillsOpts, wantListOpts)
+		}
 		assertSearchResultJSON(t, stdout, freshResult)
 		if stderr != "" {
 			t.Fatalf("stderr = %q, want empty", stderr)
 		}
 
-		cached, fresh, cacheErr := cache.readFresh(listRemoteQuery(opts), 8)
+		cached, fresh, cacheErr := cache.readFresh(buildListRemoteQuery(opts), 8)
 		if cacheErr != nil {
 			t.Fatalf("readFresh returned error: %v", cacheErr)
 		}
@@ -206,6 +211,7 @@ type countingRegistryClient struct {
 
 	getCatalogVersionCalls int
 	listSkillsCalls        int
+	lastListSkillsOpts     registry.ListSkillsOptions
 }
 
 func (c *countingRegistryClient) GetCatalogVersion() (*registry.CatalogVersionResponse, error) {
@@ -215,6 +221,7 @@ func (c *countingRegistryClient) GetCatalogVersion() (*registry.CatalogVersionRe
 
 func (c *countingRegistryClient) ListSkills(opts registry.ListSkillsOptions) (*registry.SearchResult, error) {
 	c.listSkillsCalls++
+	c.lastListSkillsOpts = opts
 	return c.fakeRegistryClient.ListSkills(opts)
 }
 
@@ -241,19 +248,10 @@ func setupListRemoteTestEnv(t *testing.T, endpoint string, client registryClient
 func seedListSnapshot(t *testing.T, cache *remoteCatalogCache, opts *listOptions, version int64, result *registry.SearchResult) {
 	t.Helper()
 
-	if err := cache.writeSnapshot(listRemoteQuery(opts), &registry.CatalogVersionResponse{
+	if err := cache.writeSnapshot(buildListRemoteQuery(opts), &registry.CatalogVersionResponse{
 		CatalogVersion: version,
 	}, result); err != nil {
 		t.Fatalf("writeSnapshot returned error: %v", err)
-	}
-}
-
-func listRemoteQuery(opts *listOptions) remoteCatalogQuery {
-	return remoteCatalogQuery{
-		Kind:      "list",
-		Namespace: opts.namespace,
-		Page:      1,
-		PerPage:   100,
 	}
 }
 

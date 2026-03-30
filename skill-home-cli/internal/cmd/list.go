@@ -134,7 +134,7 @@ func listRemoteSkills(opts *listOptions) error {
 	client := newRegistryClient()
 	cache, err := newDefaultRemoteCatalogCache()
 	if err != nil {
-		result, err := fetchRemoteListSkills(client, opts)
+		result, err := fetchRemoteListSkills(client, buildListRemoteQuery(opts))
 		if err != nil {
 			return fmt.Errorf("获取远程技能列表失败: %w", err)
 		}
@@ -145,16 +145,12 @@ func listRemoteSkills(opts *listOptions) error {
 }
 
 func listRemoteSkillsWithCache(opts *listOptions, client registryClient, cache *remoteCatalogCache, stderr io.Writer) error {
+	query := buildListRemoteQuery(opts)
 	result, stale, err := cache.fetchWithFallback(
-		remoteCatalogQuery{
-			Kind:      "list",
-			Namespace: opts.namespace,
-			Page:      1,
-			PerPage:   100,
-		},
+		query,
 		client.GetCatalogVersion,
 		func() (*registry.SearchResult, error) {
-			return fetchRemoteListSkills(client, opts)
+			return fetchRemoteListSkills(client, query)
 		},
 	)
 	if err != nil {
@@ -166,12 +162,27 @@ func listRemoteSkillsWithCache(opts *listOptions, client registryClient, cache *
 	return printRemoteListSkills(opts, result)
 }
 
-func fetchRemoteListSkills(client registryClient, opts *listOptions) (*registry.SearchResult, error) {
-	return client.ListSkills(registry.ListSkillsOptions{
+func buildListRemoteQuery(opts *listOptions) remoteCatalogQuery {
+	return remoteCatalogQuery{
+		Kind:      "list",
 		Namespace: opts.namespace,
 		Page:      1,
 		PerPage:   100,
-	})
+	}
+}
+
+func buildListSkillsOptions(query remoteCatalogQuery) registry.ListSkillsOptions {
+	return registry.ListSkillsOptions{
+		Namespace: query.Namespace,
+		Query:     query.Query,
+		Tags:      query.Tags,
+		Page:      query.Page,
+		PerPage:   query.PerPage,
+	}
+}
+
+func fetchRemoteListSkills(client registryClient, query remoteCatalogQuery) (*registry.SearchResult, error) {
+	return client.ListSkills(buildListSkillsOptions(query))
 }
 
 func printRemoteListSkills(opts *listOptions, result *registry.SearchResult) error {
