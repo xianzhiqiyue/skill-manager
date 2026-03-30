@@ -225,8 +225,9 @@ systemctl start skill-home  # 启动 API 服务
 | [需求梳理.md](需求梳理.md) | 需求分析 |
 | [docs/skill-home-web-redesign-spec.md](docs/skill-home-web-redesign-spec.md) | Web 重构规格文档 |
 | [docs/github-release-topology.md](docs/github-release-topology.md) | GitHub / Registry 发布拓扑 |
-| skill-home-server/README.md | 服务端说明 |
-| skill-home-cli/README.md | CLI 说明 |
+| [skill-home-server/README.md](skill-home-server/README.md) | 服务端说明 |
+| [skill-home-cli/README.md](skill-home-cli/README.md) | CLI 说明 |
+| [skills/skill-home-manager/README.md](skills/skill-home-manager/README.md) | Codex skill 能力与脚本说明 |
 
 ## 贡献
 

@@ -1,47 +1,42 @@
 # skill-home CLI
 
-AI Skill 跨平台管理工具，支持 Claude Code、GitHub Copilot、Cursor、Codex 等多个 IDE，实现技能的"一次编写，到处同步"。
+`skill-home` 是 Skill Home 的本地命令行工具，负责把 skill 的创作、校验、发布、拉取、安装和多 IDE 同步串成一条统一工作流。
 
-## 功能特性
+## 能力概览
 
-- 🚀 **技能创建**: 快速生成符合规范的 SKILL.md 模板
-- 🎨 **交互式创建**: 丰富的模板选择，支持交互式向导创建技能
-- 📥 **技能导入**: 从 GitHub、Claude Code、Codex 等导入并转换技能
-- ✅ **格式验证**: 验证 SKILL.md 格式是否符合标准
-- 🔒 **安全扫描**: 本地检测恶意命令和提示词注入攻击
-- 📦 **技能打包**: 将技能打包为可分发的 .zip 文件
-- 🔄 **多 IDE 同步**: 一键同步技能到 Claude Code、GitHub Copilot、Cursor、Codex、OpenClaw
-- 🔗 **双模同步**: 支持符号链接(Symlink)和物理镜像两种同步模式
-- ☁️ **注册中心**: 推送、删除、拉取、搜索、详情查看与评分
-- 📋 **技能列表**: 查看本地和云端已安装的技能
-- 🩺 **环境诊断**: 检查 registry、认证、路径和 IDE 配置
-- 📦 **生命周期管理**: install / uninstall / update
+| 能力域 | 代表命令 | 说明 |
+|--------|----------|------|
+| 本地创作 | `init` `create` `import` | 新建 skill、交互式生成模板、从 GitHub/Claude/Codex/Cursor 导入 |
+| 质量检查 | `validate` `scan` `preview` | 校验 `SKILL.md`、做安全扫描、预览导出效果 |
+| 打包与导出 | `pack` `export` | 生成 zip 发布包或导出为 IDE 平台格式 |
+| IDE 同步 | `sync` `install` `uninstall` | 同步到 Claude、Copilot、Cursor、Codex、OpenClaw |
+| 注册中心交互 | `push` `pull` `search` `list --remote` `info` | 发布、拉取、搜索和查看远程 skill |
+| 生命周期管理 | `update` `delete` `delete-version` `rate` | 更新本地缓存、删除远程版本、评分 |
+| 环境治理 | `login` `logout` `whoami` `doctor` `self-update` | 认证、诊断、本机 CLI 自更新 |
 
 ## 安装
 
-### 使用安装脚本（推荐）
+### 使用已部署安装页
 
 ```bash
 curl -fsSL https://soulstore.ciqtek.com/skill-home/install.sh -o /tmp/skill-home-install.sh
 bash /tmp/skill-home-install.sh
 ```
 
-安装脚本和 `self-update` 都只从当前 Skill Home 服务的 `/releases` 下载版本元数据、校验文件和平台包。
-
 指定版本：
 
 ```bash
-bash /tmp/skill-home-install.sh v0.2.0
+bash /tmp/skill-home-install.sh v0.2.16
 ```
 
 升级已安装 CLI：
 
 ```bash
 skill-home self-update
-skill-home self-update v0.2.3
+skill-home self-update v0.2.16
 ```
 
-`self-update` 会优先读取当前 registry endpoint 对应服务下的 `/releases/latest.json`，也可以用 `SKILL_HOME_RELEASES_BASE_URL` 显式覆盖下载源。
+安装脚本和 `self-update` 都从当前 Skill Home 服务托管的 `/releases` 读取版本元数据、校验文件和平台包。
 
 ### 从源码安装
 
@@ -51,102 +46,49 @@ cd skill-manager/skill-home-cli
 make install
 ```
 
-## 快速开始
+## 典型工作流
 
-### 1. 创建新技能
-
-#### 方式一：快速创建
+### 1. 新建并校验一个本地 skill
 
 ```bash
 skill-home init my-skill
 cd my-skill
+
+skill-home validate .
+skill-home scan .
+skill-home preview . -p codex
 ```
 
-#### 方式二：交互式创建（推荐）
+### 2. 打包并发布到 Skill Home
 
 ```bash
-# 启动交互式向导
-skill-home create
-
-# 快速使用默认模板
-skill-home create my-skill --quick
-
-# 使用特定模板
-skill-home create my-skill --template code-reviewer
+skill-home login
+skill-home pack .
+skill-home push .
 ```
 
-支持的模板：
-- `basic` - 基础模板
-- `code-reviewer` - 代码审查专家
-- `api-designer` - API 设计专家
-- `refactor-expert` - 代码重构专家
-- `test-expert` - 测试专家
-- `doc-writer` - 文档编写专家
-- `security-auditor` - 安全审计专家
-- `performance-optimizer` - 性能优化专家
-
-### 2. 编辑 SKILL.md
-
-```markdown
----
-name: my-skill
-version: 1.0.0
-description: 我的第一个 AI 技能
----
-
-你是一个专业的代码审查助手...
-```
-
-### 3. 安全扫描
+### 3. 浏览远程公开目录并安装到 IDE
 
 ```bash
-skill-home scan
+skill-home list --remote --format json
+skill-home search codex
+skill-home install @skill-home/skill-home-manager --ide codex --global --mode mirror
 ```
 
-### 4. 验证格式
+### 4. 刷新本地缓存 skill 到最新版本
 
 ```bash
-skill-home validate
+skill-home update --ide codex --global --mode mirror
 ```
 
-### 5. 从外部导入技能
+## 远程目录缓存
 
-```bash
-# 从 GitHub 导入
-skill-home import github.com/user/repo
-skill-home import https://github.com/user/repo
+`list --remote` 与 `search` 已接入目录版本缓存，用来减少重复拉取整份公开目录：
 
-# 从 Claude Code 导入
-skill-home import claude://~/.claude/skills/my-skill
-
-# 从 Codex 导入
-skill-home import codex://~/.codex/skills/my-skill
-
-# 从 Cursor 导入（自动转换 .mdc 格式）
-skill-home import cursor://~/.cursor/rules/my-rule.mdc
-
-# 指定输出目录
-skill-home import github.com/user/repo -o ./my-imported-skill
-```
-
-### 6. 同步到 IDE
-
-```bash
-# 同步到所有启用的 IDE
-skill-home sync
-
-# 安装远程技能并同步到 IDE
-skill-home install @user/my-skill
-
-# 仅同步到特定 IDE
-skill-home sync --ide cursor
-
-# 同步到 OpenClaw
-skill-home sync --ide openclaw
-
-# 同步到全局配置
-skill-home sync --global
-```
+- CLI 会先请求 `GET /api/v1/catalog/version`
+- 如果 `catalog_version` 未变化，优先复用本地缓存目录
+- 如果服务暂时失败但本地已有缓存，会回退到旧缓存，并在 `stderr` 提示“结果可能过期”
+- 这层缓存只覆盖公开目录结构，不保证 `download_count`、`rating`、`rating_count` 这类动态统计字段实时
 
 ## 命令参考
 
@@ -155,60 +97,59 @@ skill-home sync --global
 | `skill-home init <name>` | 创建新技能模板（基础版） |
 | `skill-home create [name]` | 交互式创建技能（增强版） |
 | `skill-home import <source>` | 从外部源导入技能 |
-| `skill-home validate [path]` | 验证 SKILL.md 格式 |
+| `skill-home validate [path]` | 验证 `SKILL.md` 格式 |
 | `skill-home scan [path]` | 扫描技能安全 |
+| `skill-home preview [path] -p <platform>` | 预览导出效果 |
+| `skill-home export [path] -p <platform>` | 导出到指定平台格式 |
 | `skill-home pack [path]` | 打包技能 |
 | `skill-home sync [path]` | 同步技能到 IDE |
-| `skill-home list` | 列出已安装的技能 |
-| `skill-home doctor` | 诊断本地环境与 registry 配置 |
-| `skill-home self-update [version]` | 更新当前 CLI 到最新或指定版本 |
-| `skill-home activity` | 查看最近的账号活动 |
-
-### 注册中心命令
-
-| 命令 | 说明 |
-|------|------|
-| `skill-home login` | 登录到注册中心 |
-| `skill-home logout` | 登出 |
-| `skill-home whoami` | 显示当前登录用户 |
-| `skill-home push [path]` | 推送技能到注册中心 |
-| `skill-home delete <skill-ref>` | 删除已发布的远程技能 |
-| `skill-home delete-version <skill-ref>` | 删除已发布的远程技能版本 |
+| `skill-home list` | 列出本地已安装技能 |
+| `skill-home list --remote` | 列出远程公开 skill |
+| `skill-home search <keyword>` | 搜索远程公开 skill |
+| `skill-home info <skill-ref>` | 查看技能详情与版本 |
 | `skill-home pull <skill-ref>` | 从注册中心拉取技能 |
-| `skill-home install <skill-ref>` | 拉取并安装到本地 IDE |
+| `skill-home install <skill-ref>` | 拉取并同步到 IDE |
 | `skill-home uninstall <skill-ref>` | 从本地 IDE 卸载技能 |
 | `skill-home update` | 更新本地缓存技能到最新版 |
-| `skill-home info <skill-ref>` | 查看技能详情 |
-| `skill-home search <keyword>` | 搜索云端技能 |
-| `skill-home list --remote` | 列出云端技能 |
+| `skill-home push [path]` | 推送技能到注册中心 |
+| `skill-home delete <skill-ref>` | 删除远程技能 |
+| `skill-home delete-version <skill-ref>` | 删除远程技能版本 |
 | `skill-home rate <skill-ref> --score 5` | 为技能评分 |
-| `skill-home activity --action skill.rate` | 查看最近活动 |
+| `skill-home activity` | 查看最近活动 |
+| `skill-home doctor` | 诊断本地环境与 registry 配置 |
+| `skill-home self-update [version]` | 更新当前 CLI 到最新或指定版本 |
+| `skill-home version` | 显示 CLI 版本 |
 
-**技能引用格式**: `@namespace/name@version`
-- `my-skill` - 使用默认命名空间，最新版本
-- `@user/my-skill` - 指定命名空间
-- `my-skill@1.0.0` - 指定版本
-- `@user/my-skill@1.0.0` - 完整格式
+技能引用格式：
 
-### 注册中心认证边界
+- `my-skill`：默认命名空间，最新版本
+- `@user/my-skill`：指定命名空间
+- `my-skill@1.0.0`：指定版本
+- `@user/my-skill@1.0.0`：完整格式
+
+## 注册中心认证边界
 
 - `push`、`delete`、`delete-version`、`rate`、`activity`、`whoami` 需要先执行 `skill-home login`
 - `pull`、`install`、`update`、`search`、`info`、`list --remote` 对公开 skill 不需要登录
-- 访问私有 skill 时，CLI 会提示先执行 `skill-home login` 并确认你有权限
+- 访问私有 skill 时，CLI 会提示先执行 `skill-home login`
 
-### 登录工作流
+## 登录工作流
 
-`skill-home login` 现在支持两种方式：
+### 邮箱/密码登录
 
-1. 直接运行 `skill-home login`，按提示输入邮箱和密码。
-CLI 会先登录 skill-home 服务，再自动创建一把 CLI 专用 API Key 并保存到本地配置。
-2. 如果你已经在 Web 端 `/settings/api-keys` 创建好了 Key，也可以执行：
+```bash
+skill-home login
+```
+
+CLI 会登录 Skill Home 服务，并自动创建一把 CLI 可复用的 API Key 保存到本地配置。
+
+### 直接使用 API Key
 
 ```bash
 skill-home login --api-key "sk_xxx"
 ```
 
-也可以直接通过环境变量注入：
+或者：
 
 ```bash
 export SKILL_HOME_API_KEY="sk_xxx"
@@ -219,12 +160,10 @@ export SKILL_HOME_API_KEY="sk_xxx"
 配置文件位于 `~/.config/skill-home/config.yaml`：
 
 ```yaml
-# 注册中心配置
 registry:
   endpoint: "https://soulstore.ciqtek.com/skill-home"
-  api_key: "your-api-key"  # 或设置环境变量 SKILL_HOME_API_KEY
+  api_key: "your-api-key"
 
-# IDE 配置
 ide:
   claude:
     enabled: true
@@ -246,11 +185,12 @@ ide:
     project_path: "skills"
     global_path: "~/.openclaw/skills"
 
-# 同步配置
 sync:
-  mode: "auto"              # auto | symlink | mirror
+  mode: "auto"
   conflict_strategy: "project_wins"
 ```
+
+如果你希望 Codex 全局目录落到 `~/.codex/skills`，可以显式改写 `ide.codex.global_path`。
 
 ## 开发
 
@@ -277,13 +217,13 @@ make build-all
 |--------|------|
 | `SKILL_HOME_API_KEY` | API Key，优先于配置文件 |
 | `SKILL_HOME_CONFIG` | 配置文件路径 |
+| `SKILL_HOME_RELEASES_BASE_URL` | 覆盖 CLI 自更新下载源 |
 
 ## 调试模式
 
-使用 `--debug` 启用详细日志输出：
-
 ```bash
 skill-home --debug sync
+skill-home --debug search codex
 ```
 
 ## 项目结构
@@ -296,8 +236,6 @@ skill-home-cli/
 │   ├── config/             # 配置管理
 │   ├── errors/             # 错误处理
 │   ├── import/             # 技能导入器
-│   │   ├── types/          # 导入器接口
-│   │   └── github/         # GitHub 导入器
 │   ├── logger/             # 日志系统
 │   ├── registry/           # 注册中心客户端
 │   ├── skill/              # 技能解析
