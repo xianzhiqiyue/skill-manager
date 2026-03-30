@@ -126,8 +126,10 @@ func PublishVersion(db *storage.Database, objStorage *storage.ObjectStorage, sca
 			if err := tx.Model(&skill).Update("latest_version", version.Version).Error; err != nil {
 				return err
 			}
-			if err := bumpCatalogVersionTx(tx); err != nil {
-				return err
+			if skill.IsPublic {
+				if err := bumpCatalogVersionTx(tx); err != nil {
+					return err
+				}
 			}
 			return writeAuditLogTx(tx, c, &user.ID, "version.publish", resourceTypeVersion, &version.ID, models.JSON{
 				"namespace": namespace,
@@ -203,8 +205,10 @@ func DeleteVersion(db *storage.Database, objStorage *storage.ObjectStorage) gin.
 					if err := tx.Model(&skill).Update("latest_version", "").Error; err != nil {
 						return err
 					}
-					if err := bumpCatalogVersionTx(tx); err != nil {
-						return err
+					if skill.IsPublic {
+						if err := bumpCatalogVersionTx(tx); err != nil {
+							return err
+						}
 					}
 					return writeAuditLogTx(tx, c, &user.ID, "version.delete", resourceTypeVersion, &skillVersion.ID, models.JSON{
 						"namespace": namespace,
@@ -217,8 +221,10 @@ func DeleteVersion(db *storage.Database, objStorage *storage.ObjectStorage) gin.
 			if err := tx.Model(&skill).Update("latest_version", latest.Version).Error; err != nil {
 				return err
 			}
-			if err := bumpCatalogVersionTx(tx); err != nil {
-				return err
+			if skill.IsPublic {
+				if err := bumpCatalogVersionTx(tx); err != nil {
+					return err
+				}
 			}
 			return writeAuditLogTx(tx, c, &user.ID, "version.delete", resourceTypeVersion, &skillVersion.ID, models.JSON{
 				"namespace": namespace,

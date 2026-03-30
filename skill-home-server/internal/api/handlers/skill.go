@@ -325,8 +325,10 @@ func CreateSkill(db *storage.Database, objStorage *storage.ObjectStorage, scanne
 			if err := tx.Model(&skill).Update("latest_version", versionModel.Version).Error; err != nil {
 				return err
 			}
-			if err := bumpCatalogVersionTx(tx); err != nil {
-				return err
+			if isPublic {
+				if err := bumpCatalogVersionTx(tx); err != nil {
+					return err
+				}
 			}
 			return writeAuditLogTx(tx, c, &user.ID, "skill.create", resourceTypeSkill, &skill.ID, models.JSON{
 				"namespace": namespace,
@@ -388,6 +390,7 @@ func UpdateSkill(db *storage.Database) gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"code": "INVALID_INPUT", "message": err.Error()})
 			return
 		}
+		wasPublic := skill.IsPublic
 
 		// 更新字段
 		skill.Description = req.Description
@@ -402,8 +405,10 @@ func UpdateSkill(db *storage.Database) gin.HandlerFunc {
 			if err := tx.Save(&skill).Error; err != nil {
 				return err
 			}
-			if err := bumpCatalogVersionTx(tx); err != nil {
-				return err
+			if wasPublic || skill.IsPublic {
+				if err := bumpCatalogVersionTx(tx); err != nil {
+					return err
+				}
 			}
 			return writeAuditLogTx(tx, c, &user.ID, "skill.update", resourceTypeSkill, &skill.ID, models.JSON{
 				"namespace":     namespace,
@@ -449,8 +454,10 @@ func DeleteSkill(db *storage.Database, objStorage *storage.ObjectStorage) gin.Ha
 			if err := tx.Delete(&skill).Error; err != nil {
 				return err
 			}
-			if err := bumpCatalogVersionTx(tx); err != nil {
-				return err
+			if skill.IsPublic {
+				if err := bumpCatalogVersionTx(tx); err != nil {
+					return err
+				}
 			}
 			return writeAuditLogTx(tx, c, &user.ID, "skill.delete", resourceTypeSkill, &skill.ID, models.JSON{
 				"namespace": namespace,
