@@ -47,6 +47,8 @@ type remoteCatalogCache struct {
 	endpoint string
 }
 
+var writeJSONAtomicFunc = writeJSONAtomic
+
 func newDefaultRemoteCatalogCache() (*remoteCatalogCache, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -104,10 +106,10 @@ func (c *remoteCatalogCache) readFresh(query remoteCatalogQuery, catalogVersion 
 		return nil, false, nil
 	}
 
-	if !queryCache.isUsableFor(c.endpoint, query) {
+	if !queryCache.isFreshCandidateFor(c.endpoint, query) {
 		return nil, false, nil
 	}
-	if state.RegistryEndpoint != c.endpoint {
+	if !state.isFreshCandidateFor(c.endpoint) {
 		return nil, false, nil
 	}
 	if state.CatalogVersion != catalogVersion {
@@ -117,9 +119,6 @@ func (c *remoteCatalogCache) readFresh(query remoteCatalogQuery, catalogVersion 
 		return nil, false, nil
 	}
 	if state.CatalogVersion != queryCache.CatalogVersion {
-		return nil, false, nil
-	}
-	if queryCache.Result == nil {
 		return nil, false, nil
 	}
 
@@ -138,9 +137,7 @@ func (c *remoteCatalogCache) fetchWithFallback(
 		}
 		result, err := fetchRemote()
 		if err == nil {
-			if writeErr := c.writeSnapshot(query, versionResp, result); writeErr != nil {
-				return result, false, writeErr
-			}
+			_ = c.writeSnapshot(query, versionResp, result)
 			return result, false, nil
 		}
 		if fallback, fallbackErr := c.readFallback(query); fallbackErr == nil {
@@ -182,10 +179,10 @@ func (c *remoteCatalogCache) writeSnapshot(query remoteCatalogQuery, version *re
 		UpdatedAt:        version.UpdatedAt,
 	}
 
-	if err := writeJSONAtomic(c.queryPath(query), queryCache); err != nil {
+	if err := writeJSONAtomicFunc(c.queryPath(query), queryCache); err != nil {
 		return err
 	}
-	if err := writeJSONAtomic(c.statePath(), state); err != nil {
+	if err := writeJSONAtomicFunc(c.statePath(), state); err != nil {
 		return err
 	}
 	return nil
@@ -220,16 +217,13 @@ func (c *remoteCatalogCache) readFallback(query remoteCatalogQuery) (*registry.S
 	if err != nil {
 		return nil, err
 	}
-	if !cached.isUsableFor(c.endpoint, query) {
+	if !cached.isFallbackCandidateFor(c.endpoint, query) {
 		return nil, errors.New("cached query is not usable")
-	}
-	if cached.Result == nil {
-		return nil, errors.New("cached query result is incomplete")
 	}
 	return cached.Result, nil
 }
 
-func (q remoteCatalogQueryCache) isUsableFor(endpoint string, query remoteCatalogQuery) bool {
+func (q remoteCatalogQueryCache) isFallbackCandidateFor(endpoint string, query remoteCatalogQuery) bool {
 	if normalizeRegistryEndpoint(q.RegistryEndpoint) != endpoint {
 		return false
 	}
@@ -240,7 +234,41 @@ func (q remoteCatalogQueryCache) isUsableFor(endpoint string, query remoteCatalo
 	if q.Page != norm.Page || q.PerPage != norm.PerPage {
 		return false
 	}
-	return equalTags(q.Tags, norm.Tags)
+	if !equalTags(q.Tags, norm.Tags) {
+		return false
+	}
+	return q.hasCompleteStructure()
+}
+
+func (q remoteCatalogQueryCache) isFreshCandidateFor(endpoint string, query remoteCatalogQuery) bool {
+	return q.isFallbackCandidateFor(endpoint, query)
+}
+
+func (q remoteCatalogQueryCache) hasCompleteStructure() bool {
+	if normalizeRegistryEndpoint(q.RegistryEndpoint) == "" {
+		return false
+	}
+	if q.Kind == "" || q.Page <= 0 || q.PerPage <= 0 {
+		return false
+	}
+	if q.CachedAt.IsZero() {
+		return false
+	}
+	return searchResultHasCompleteStructure(q.Result)
+}
+
+func (s remoteCatalogState) isFreshCandidateFor(endpoint string) bool {
+	return normalizeRegistryEndpoint(s.RegistryEndpoint) == endpoint && !s.CheckedAt.IsZero()
+}
+
+func searchResultHasCompleteStructure(r *registry.SearchResult) bool {
+	if r == nil {
+		return false
+	}
+	if r.Page <= 0 || r.PerPage <= 0 {
+		return false
+	}
+	return true
 }
 
 func normalizeQuery(query remoteCatalogQuery) remoteCatalogQuery {

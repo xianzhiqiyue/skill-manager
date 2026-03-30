@@ -201,6 +201,166 @@ func TestRemoteCatalogCacheAllowsExpiredFallbackWhenRemoteFails(t *testing.T) {
 	}
 }
 
+func TestRemoteCatalogCacheWriteSnapshotWritesQueryAndStateFiles(t *testing.T) {
+	cache := newRemoteCatalogCache(t.TempDir(), "https://registry.example.com")
+	query := remoteCatalogQuery{
+		Kind:      "search",
+		Namespace: "@team",
+		Query:     "lint",
+		Tags:      []string{"go"},
+		Page:      1,
+		PerPage:   20,
+	}
+	version := &registry.CatalogVersionResponse{
+		CatalogVersion: 7,
+		UpdatedAt:      time.Unix(3, 0).UTC(),
+	}
+	result := &registry.SearchResult{
+		Total:   1,
+		Page:    1,
+		PerPage: 20,
+		Results: []registry.Skill{{Namespace: "team", Name: "cached"}},
+	}
+
+	if err := cache.writeSnapshot(query, version, result); err != nil {
+		t.Fatalf("writeSnapshot returned error: %v", err)
+	}
+
+	if _, err := os.Stat(cache.queryPath(query)); err != nil {
+		t.Fatalf("query cache file missing: %v", err)
+	}
+	if _, err := os.Stat(cache.statePath()); err != nil {
+		t.Fatalf("state file missing: %v", err)
+	}
+
+	writtenQuery, err := cache.readQueryCache(query)
+	if err != nil {
+		t.Fatalf("readQueryCache returned error: %v", err)
+	}
+	if writtenQuery.CatalogVersion != 7 {
+		t.Fatalf("unexpected query catalog version: %d", writtenQuery.CatalogVersion)
+	}
+	if !reflect.DeepEqual(writtenQuery.Result, result) {
+		t.Fatalf("unexpected query result: got %#v want %#v", writtenQuery.Result, result)
+	}
+
+	writtenState, err := cache.readState()
+	if err != nil {
+		t.Fatalf("readState returned error: %v", err)
+	}
+	if writtenState.CatalogVersion != 7 {
+		t.Fatalf("unexpected state catalog version: %d", writtenState.CatalogVersion)
+	}
+	if writtenState.RegistryEndpoint != "https://registry.example.com" {
+		t.Fatalf("unexpected state registry endpoint: %q", writtenState.RegistryEndpoint)
+	}
+}
+
+func TestRemoteCatalogCacheFetchWithFallbackIgnoresSnapshotWriteFailure(t *testing.T) {
+	cache := newRemoteCatalogCache(t.TempDir(), "https://registry.example.com")
+	query := remoteCatalogQuery{
+		Kind:      "search",
+		Namespace: "@team",
+		Query:     "lint",
+		Tags:      []string{"go"},
+		Page:      1,
+		PerPage:   20,
+	}
+	result := &registry.SearchResult{
+		Total:   1,
+		Page:    1,
+		PerPage: 20,
+		Results: []registry.Skill{{Namespace: "team", Name: "remote"}},
+	}
+	version := &registry.CatalogVersionResponse{CatalogVersion: 11}
+
+	oldWriter := writeJSONAtomicFunc
+	writeJSONAtomicFunc = func(path string, value any) error {
+		return errors.New("disk full")
+	}
+	t.Cleanup(func() {
+		writeJSONAtomicFunc = oldWriter
+	})
+
+	got, stale, err := cache.fetchWithFallback(query,
+		func() (*registry.CatalogVersionResponse, error) {
+			return version, nil
+		},
+		func() (*registry.SearchResult, error) {
+			return result, nil
+		},
+	)
+	if err != nil {
+		t.Fatalf("fetchWithFallback returned error: %v", err)
+	}
+	if stale {
+		t.Fatal("expected fresh remote result, got stale fallback")
+	}
+	if got != result {
+		t.Fatalf("unexpected result pointer: got %#v want %#v", got, result)
+	}
+}
+
+func TestRemoteCatalogCacheRejectsZeroValueResultStructure(t *testing.T) {
+	cache := newRemoteCatalogCache(t.TempDir(), "https://registry.example.com")
+	query := remoteCatalogQuery{
+		Kind:      "search",
+		Namespace: "@team",
+		Query:     "lint",
+		Tags:      []string{"go"},
+		Page:      1,
+		PerPage:   20,
+	}
+
+	if err := writeJSONFile(cache.queryPath(query), remoteCatalogQueryCache{
+		RegistryEndpoint: "https://registry.example.com",
+		Kind:             "search",
+		Namespace:        "@team",
+		Query:            "lint",
+		Tags:             []string{"go"},
+		Page:             1,
+		PerPage:          20,
+		CatalogVersion:   1,
+		CachedAt:         time.Unix(1, 0).UTC(),
+		Result:           &registry.SearchResult{},
+	}); err != nil {
+		t.Fatalf("writeJSONFile returned error: %v", err)
+	}
+	if err := writeJSONFile(cache.statePath(), remoteCatalogState{
+		RegistryEndpoint: "https://registry.example.com",
+		CatalogVersion:   1,
+		CheckedAt:        time.Unix(2, 0).UTC(),
+	}); err != nil {
+		t.Fatalf("writeJSONFile returned error: %v", err)
+	}
+
+	got, fresh, err := cache.readFresh(query, 1)
+	if err != nil {
+		t.Fatalf("readFresh returned error: %v", err)
+	}
+	if fresh {
+		t.Fatal("expected zero-value result structure to be rejected as fresh")
+	}
+	if got != nil {
+		t.Fatalf("expected no fresh result, got %#v", got)
+	}
+
+	fallback, _, fallbackErr := cache.fetchWithFallback(query,
+		func() (*registry.CatalogVersionResponse, error) {
+			return nil, errors.New("version unavailable")
+		},
+		func() (*registry.SearchResult, error) {
+			return nil, errors.New("remote unavailable")
+		},
+	)
+	if fallbackErr == nil {
+		t.Fatal("expected fallback to be rejected for zero-value result structure")
+	}
+	if fallback != nil {
+		t.Fatalf("expected no fallback result, got %#v", fallback)
+	}
+}
+
 func TestRemoteCatalogCacheRejectsIncompleteFallbackCache(t *testing.T) {
 	t.Run("missing source", func(t *testing.T) {
 		cache := newRemoteCatalogCache(t.TempDir(), "https://registry.example.com")
