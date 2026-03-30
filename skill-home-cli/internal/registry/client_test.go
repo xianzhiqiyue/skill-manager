@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 	"time"
 )
@@ -94,6 +95,32 @@ func TestGetCatalogVersionRequestsExpectedEndpoint(t *testing.T) {
 	}
 	if !resp.UpdatedAt.Equal(time.Date(2026, 3, 30, 9, 15, 0, 0, time.UTC)) {
 		t.Fatalf("unexpected updated_at: %+v", resp)
+	}
+}
+
+func TestCatalogVersionResponseUsesInt64(t *testing.T) {
+	t.Parallel()
+
+	field, ok := reflect.TypeOf(CatalogVersionResponse{}).FieldByName("CatalogVersion")
+	if !ok {
+		t.Fatal("CatalogVersion field not found")
+	}
+	if field.Type.Kind() != reflect.Int64 {
+		t.Fatalf("CatalogVersion kind = %s, want int64", field.Type.Kind())
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.WriteString(w, `{"catalog_version":4294967296,"updated_at":"2026-03-30T09:15:00Z"}`)
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "")
+	resp, err := client.GetCatalogVersion()
+	if err != nil {
+		t.Fatalf("GetCatalogVersion returned error: %v", err)
+	}
+	if resp.CatalogVersion != 4294967296 {
+		t.Fatalf("unexpected catalog version: %+v", resp)
 	}
 }
 

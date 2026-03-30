@@ -119,7 +119,7 @@ type SearchResult struct {
 
 // CatalogVersionResponse 目录版本响应
 type CatalogVersionResponse struct {
-	CatalogVersion int       `json:"catalog_version"`
+	CatalogVersion int64     `json:"catalog_version"`
 	UpdatedAt      time.Time `json:"updated_at"`
 }
 

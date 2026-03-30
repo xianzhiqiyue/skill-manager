@@ -391,10 +391,16 @@ func UpdateSkill(db *storage.Database) gin.HandlerFunc {
 			return
 		}
 		wasPublic := skill.IsPublic
+		normalizedTags := normalizeTags(req.Tags)
+		hasEffectiveChange := skill.Description != req.Description ||
+			!stringSlicesEqual([]string(skill.Tags), normalizedTags) ||
+			skill.License != req.License ||
+			skill.IsPublic != req.IsPublic ||
+			(req.IsDeprecated != nil && skill.IsDeprecated != *req.IsDeprecated)
 
 		// 更新字段
 		skill.Description = req.Description
-		skill.Tags = models.StringArray(normalizeTags(req.Tags))
+		skill.Tags = models.StringArray(normalizedTags)
 		skill.License = req.License
 		skill.IsPublic = req.IsPublic
 		if req.IsDeprecated != nil {
@@ -405,7 +411,7 @@ func UpdateSkill(db *storage.Database) gin.HandlerFunc {
 			if err := tx.Save(&skill).Error; err != nil {
 				return err
 			}
-			if wasPublic || skill.IsPublic {
+			if hasEffectiveChange && (wasPublic || skill.IsPublic) {
 				if err := bumpCatalogVersionTx(tx); err != nil {
 					return err
 				}
@@ -423,6 +429,18 @@ func UpdateSkill(db *storage.Database) gin.HandlerFunc {
 
 		c.JSON(http.StatusOK, skill)
 	}
+}
+
+func stringSlicesEqual(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
 
 // DeleteSkill 删除技能

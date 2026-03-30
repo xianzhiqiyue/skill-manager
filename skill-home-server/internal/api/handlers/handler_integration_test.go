@@ -2318,6 +2318,45 @@ func TestUpdateSkillSupportsExplicitDeprecationToggle(t *testing.T) {
 	}
 }
 
+func TestUpdateSkillDoesNotBumpCatalogVersionForNoOpPublicUpdate(t *testing.T) {
+	db := newTestDatabase(t)
+	user := &models.User{ID: uuid.New(), Username: "owner", Email: "owner@example.com"}
+	if err := db.Create(user).Error; err != nil {
+		t.Fatalf("create user failed: %v", err)
+	}
+
+	skill := models.Skill{
+		ID:           uuid.New(),
+		Namespace:    "team",
+		Name:         "reviewer",
+		OwnerID:      user.ID,
+		Description:  "before",
+		Tags:         models.StringArray{"review", "quality"},
+		License:      "MIT",
+		IsPublic:     true,
+		IsDeprecated: false,
+	}
+	if err := db.Create(&skill).Error; err != nil {
+		t.Fatalf("create skill failed: %v", err)
+	}
+
+	router := newAuthedRouter(user)
+	router.PUT("/api/v1/skills/:namespace/:name", UpdateSkill(db))
+
+	body := bytes.NewBufferString(`{"description":"before","tags":["review","quality"],"license":"MIT","is_public":true,"is_deprecated":false}`)
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/skills/team/reviewer", body)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("unexpected status: %d body=%s", rec.Code, rec.Body.String())
+	}
+	if got := currentCatalogVersion(t, db); got != 1 {
+		t.Fatalf("catalog_version = %d, want 1", got)
+	}
+}
+
 func TestListSkillsSupportsLicenseFilterAndSort(t *testing.T) {
 	db := newTestDatabase(t)
 	ownerID := uuid.New()
