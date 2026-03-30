@@ -2,12 +2,14 @@ package registry
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestLoginPostsJSONAndReturnsAuthResponse(t *testing.T) {
@@ -60,6 +62,68 @@ func TestLoginPostsJSONAndReturnsAuthResponse(t *testing.T) {
 	}
 	if resp.Token != "jwt_token" || resp.User.Username != "tester" {
 		t.Fatalf("unexpected response: %+v", resp)
+	}
+}
+
+func TestGetCatalogVersionRequestsExpectedEndpoint(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Errorf("unexpected method: %s", r.Method)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		if r.URL.Path != "/api/v1/catalog/version" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		_ = json.NewEncoder(w).Encode(CatalogVersionResponse{
+			CatalogVersion: "2026.03.30",
+			UpdatedAt:      time.Date(2026, 3, 30, 9, 15, 0, 0, time.UTC),
+		})
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "")
+	resp, err := client.GetCatalogVersion()
+	if err != nil {
+		t.Fatalf("GetCatalogVersion returned error: %v", err)
+	}
+	if resp.CatalogVersion != "2026.03.30" {
+		t.Fatalf("unexpected catalog version: %+v", resp)
+	}
+	if !resp.UpdatedAt.Equal(time.Date(2026, 3, 30, 9, 15, 0, 0, time.UTC)) {
+		t.Fatalf("unexpected updated_at: %+v", resp)
+	}
+}
+
+func TestGetCatalogVersionReturnsServerError(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_ = json.NewEncoder(w).Encode(APIError{
+			Code:    "INTERNAL_ERROR",
+			Message: "boom",
+		})
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "")
+	_, err := client.GetCatalogVersion()
+	if err == nil {
+		t.Fatal("GetCatalogVersion returned nil error")
+	}
+
+	var apiErr *APIError
+	if !errors.As(err, &apiErr) {
+		t.Fatalf("expected APIError, got %T: %v", err, err)
+	}
+	if apiErr.Code != "INTERNAL_ERROR" || apiErr.Message != "boom" {
+		t.Fatalf("unexpected APIError: %+v", apiErr)
 	}
 }
 

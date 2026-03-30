@@ -117,6 +117,12 @@ type SearchResult struct {
 	Results []Skill `json:"results"`
 }
 
+// CatalogVersionResponse 目录版本响应
+type CatalogVersionResponse struct {
+	CatalogVersion string    `json:"catalog_version"`
+	UpdatedAt      time.Time `json:"updated_at"`
+}
+
 // ListSkillsOptions 技能列表查询选项
 type ListSkillsOptions struct {
 	Namespace string

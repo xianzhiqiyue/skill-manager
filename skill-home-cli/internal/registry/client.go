@@ -101,6 +101,26 @@ func (c *Client) HealthCheck() error {
 	return nil
 }
 
+// GetCatalogVersion 获取目录版本信息
+func (c *Client) GetCatalogVersion() (*CatalogVersionResponse, error) {
+	resp, err := c.doRequest("GET", "/api/v1/catalog/version", nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if err := c.handleError(resp); err != nil {
+		return nil, err
+	}
+
+	var result CatalogVersionResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+
+	return &result, nil
+}
+
 // Login 使用邮箱和密码登录
 func (c *Client) Login(email, password string) (*AuthResponse, error) {
 	body, err := json.Marshal(map[string]string{
