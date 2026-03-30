@@ -104,7 +104,7 @@ GET /health
 GET /api/v1/catalog/version
 ```
 
-该接口用于判断 Skill Home 公开目录是否发生变化，客户端应将返回的 `catalog_version` 作为列表缓存失效的唯一权威字段。
+该接口用于判断 Skill Home 公开目录结构是否发生变化。客户端应将返回的 `catalog_version` 作为目录结构缓存失效的唯一权威字段，用来决定是否重新拉取公开 skill 列表与搜索结果。
 
 **响应**:
 
@@ -115,10 +115,11 @@ GET /api/v1/catalog/version
 }
 ```
 
-- `catalog_version` 会随着公开目录发生有效变更而递增，客户端应仅以它判断列表缓存是否失效。
+- `catalog_version` 会随着公开目录结构发生有效变更而递增，客户端应仅以它判断目录结构缓存是否失效。
 - `updated_at` 仅用于观测和排障，表示最近一次目录版本变更时间，不应用作缓存对比键。
 - 成功的公开目录变更会触发版本递增，至少包括：创建公开 skill、公开 skill 更新、公开 skill 删除、公开 skill 发布版本、公开 skill 删除版本。
 - 私有 skill 的创建、更新、删除、发布版本、删除版本不会触发公开目录版本变化。
+- `download_count`、`rating`、`rating_count` 等动态统计字段不属于该版本号覆盖范围；如果客户端需要这些字段的最新值，应主动重新拉取列表或详情接口。
 
 #### 列出技能
 

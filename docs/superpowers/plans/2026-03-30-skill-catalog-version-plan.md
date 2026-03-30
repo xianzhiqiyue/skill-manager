@@ -2,9 +2,9 @@
 
 > **给代理执行者的要求：** 必须使用 `superpowers:subagent-driven-development`（推荐）或 `superpowers:executing-plans` 按任务逐项执行。所有步骤使用 `- [ ]` 复选框跟踪。
 
-**Goal:** 为 Skill Home 增加单调递增的技能目录版本号接口，并在所有影响公开 skill 列表的成功写操作中统一递增，同时为 CLI 提供读取该版本号的客户端能力。
+**Goal:** 为 Skill Home 增加单调递增的技能目录版本号接口，并在所有影响公开目录结构的成功写操作中统一递增，同时为 CLI 提供读取该版本号的客户端能力。
 
-**Architecture:** 服务端新增一张单例状态表保存 `catalog_version` 与 `updated_at`，通过一个公开只读接口暴露当前目录版本。所有会改变 skill 列表内容的写操作都在现有数据库事务中原子递增该版本号，避免成功写入与版本状态分叉。CLI 侧只补充读取目录版本的 registry client 能力，不在这一阶段引入完整的本地缓存策略。
+**Architecture:** 服务端新增一张单例状态表保存 `catalog_version` 与 `updated_at`，通过一个公开只读接口暴露当前目录版本。所有会改变公开目录结构的写操作都在现有数据库事务中原子递增该版本号，避免成功写入与版本状态分叉。该版本号不覆盖 `download_count`、`rating`、`rating_count` 等动态统计字段。CLI 侧只补充读取目录版本的 registry client 能力，不在这一阶段引入完整的本地缓存策略。
 
 **Tech Stack:** Go 1.21、Gin、GORM、PostgreSQL、现有 Skill Home server handlers、现有 skill-home CLI registry client
 
@@ -187,9 +187,10 @@ git commit -m "feat(cli): add catalog version client"
 - [ ] **Step 1: 更新接口文档**
   - 在 `API.md` 中新增 `GET /api/v1/catalog/version`
   - 说明：
-    - `catalog_version` 是客户端缓存判断的唯一权威字段
+    - `catalog_version` 是目录结构缓存判断的唯一权威字段
     - `updated_at` 仅用于观测与排障
-    - 哪些 skill 写操作会触发版本号变化
+    - 哪些公开目录写操作会触发版本号变化
+    - `download_count`、`rating`、`rating_count` 等动态统计字段不在该版本号覆盖范围
 
 - [ ] **Step 2: 运行服务端与 CLI 验证**
 
