@@ -10,7 +10,7 @@ import (
 // GetCatalogVersion 返回目录版本状态。
 func GetCatalogVersion(db *storage.Database) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		state, err := EnsureCatalogState(db)
+		state, err := getCatalogState(db)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"code": "INTERNAL_ERROR", "message": err.Error()})
 			return

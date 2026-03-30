@@ -34,9 +34,14 @@ func TestEnsureCatalogStateCreatesDefaultRow(t *testing.T) {
 
 	db := newCatalogTestDatabase(t)
 
-	state, err := EnsureCatalogState(db)
+	var state *models.CatalogState
+	err := db.Transaction(func(tx *gorm.DB) error {
+		var err error
+		state, err = ensureCatalogState(tx)
+		return err
+	})
 	if err != nil {
-		t.Fatalf("EnsureCatalogState returned error: %v", err)
+		t.Fatalf("ensureCatalogState returned error: %v", err)
 	}
 
 	if state.CatalogVersion != 1 {

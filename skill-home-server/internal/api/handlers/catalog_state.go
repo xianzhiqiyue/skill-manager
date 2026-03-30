@@ -11,10 +11,10 @@ import (
 
 const catalogStateSingletonID uint = 1
 
-// EnsureCatalogState 确保目录状态单例存在。
-func EnsureCatalogState(db *storage.Database) (*models.CatalogState, error) {
+// ensureCatalogState 确保目录状态单例存在。
+func ensureCatalogState(tx *gorm.DB) (*models.CatalogState, error) {
 	state := &models.CatalogState{}
-	if err := db.First(state, "id = ?", catalogStateSingletonID).Error; err != nil {
+	if err := tx.First(state, "id = ?", catalogStateSingletonID).Error; err != nil {
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, err
 		}
@@ -23,9 +23,23 @@ func EnsureCatalogState(db *storage.Database) (*models.CatalogState, error) {
 			ID:             catalogStateSingletonID,
 			CatalogVersion: 1,
 		}
-		if err := db.Create(state).Error; err != nil {
+		if err := tx.Create(state).Error; err != nil {
 			return nil, err
 		}
+	}
+
+	return state, nil
+}
+
+// getCatalogState 获取目录状态，必要时创建默认单例。
+func getCatalogState(db *storage.Database) (*models.CatalogState, error) {
+	var state *models.CatalogState
+	if err := db.Transaction(func(tx *gorm.DB) error {
+		var err error
+		state, err = ensureCatalogState(tx)
+		return err
+	}); err != nil {
+		return nil, err
 	}
 
 	return state, nil
