@@ -111,6 +111,7 @@ func setupRouter(db *storage.Database, objStorage *storage.ObjectStorage, scanne
 
 	api := r.Group(config.JoinBasePath(basePath, "/api/v1"))
 	{
+		api.GET("/catalog/version", handlers.GetCatalogVersion(db))
 		api.POST("/auth/register", handlers.Register(db))
 		api.POST("/auth/login", handlers.Login(db))
 

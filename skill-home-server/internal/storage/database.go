@@ -36,6 +36,7 @@ func AutoMigrate(db *Database) error {
 		&models.APIKey{},
 		&models.Skill{},
 		&models.SkillCommunityTag{},
+		&models.CatalogState{},
 		&models.SkillVersion{},
 		&models.SkillRating{},
 		&models.AuditLog{},
