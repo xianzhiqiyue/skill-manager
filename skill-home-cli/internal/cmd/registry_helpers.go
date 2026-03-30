@@ -11,6 +11,7 @@ import (
 
 type registryClient interface {
 	HealthCheck() error
+	GetCatalogVersion() (*registry.CatalogVersionResponse, error)
 	Search(query, namespace string, tags []string, page, perPage int) (*registry.SearchResult, error)
 	ListSkills(opts registry.ListSkillsOptions) (*registry.SearchResult, error)
 	GetSkill(namespace, name string) (*registry.Skill, error)
