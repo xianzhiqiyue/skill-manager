@@ -20,8 +20,8 @@
   - 让 `search` 通过缓存层读取远程目录。
 - 修改：`skill-home-cli/internal/cmd/registry_helpers.go`
   - 为命令层暴露目录版本读取能力，并集中创建缓存依赖。
-- 修改：`skill-home-cli/internal/cmd/delete_test.go`
-  - 扩展 `fakeRegistryClient` 以支持目录版本读取。
+- 新建：`skill-home-cli/internal/cmd/registry_test_helpers.go`
+  - 承载共享的 `fakeRegistryClient`、缓存测试辅助函数和命令输出捕获逻辑。
 - 修改：`/mnt/c/Users/zhuyu/.codex/skills/skill-home-manager/SKILL.md`
   - 说明 `list --remote` / `search` 的缓存与回退行为。
 - 修改：`/mnt/c/Users/zhuyu/.codex/skills/skill-home-manager/references/cli-workflows.md`
@@ -46,7 +46,7 @@
 - Create: `skill-home-cli/internal/cmd/remote_catalog_cache.go`
 - Create: `skill-home-cli/internal/cmd/remote_catalog_cache_test.go`
 - Modify: `skill-home-cli/internal/cmd/registry_helpers.go`
-- Modify: `skill-home-cli/internal/cmd/delete_test.go`
+- Create: `skill-home-cli/internal/cmd/registry_test_helpers.go`
 
 - [ ] **Step 1: 写失败测试，锁定缓存状态与查询文件语义**
 
@@ -80,9 +80,11 @@ Expected: FAIL，因为当前还没有缓存模块和相关类型。
 - 给 `registryClient` 接口增加 `GetCatalogVersion()`
 - 保留现有 `newRegistryClient()` 入口
 
-在 `skill-home-cli/internal/cmd/delete_test.go` 中：
+在 `skill-home-cli/internal/cmd/registry_test_helpers.go` 中：
 
+- 提取共享 `fakeRegistryClient`
 - 给 `fakeRegistryClient` 增加 `GetCatalogVersion()` 实现
+- 提供缓存目录、stderr/stdout 捕获等通用测试辅助
 
 - [ ] **Step 4: 运行测试确认通过**
 
@@ -92,7 +94,7 @@ Expected: PASS
 - [ ] **Step 5: 提交**
 
 ```bash
-git add skill-home-cli/internal/cmd/remote_catalog_cache.go skill-home-cli/internal/cmd/remote_catalog_cache_test.go skill-home-cli/internal/cmd/registry_helpers.go skill-home-cli/internal/cmd/delete_test.go
+git add skill-home-cli/internal/cmd/remote_catalog_cache.go skill-home-cli/internal/cmd/remote_catalog_cache_test.go skill-home-cli/internal/cmd/registry_helpers.go skill-home-cli/internal/cmd/registry_test_helpers.go
 git commit -m "feat(cli): add remote catalog cache core"
 ```
 
@@ -108,8 +110,10 @@ git commit -m "feat(cli): add remote catalog cache core"
 
 - 远端目录版本未变化时，`list --remote` 直接返回缓存结果
 - 远端目录版本变化时，会请求真实 `ListSkills` 并刷新缓存
-- 远端失败但本地有缓存时，会回退并输出“结果可能过期”
+- `GetCatalogVersion()` 失败但本地有缓存时，会回退并输出“结果可能过期”
+- `ListSkills` 刷新失败但本地有缓存时，会回退并输出“结果可能过期”
 - 本地无缓存且远端失败时，返回错误
+- `--format json` 下回退提示不污染 JSON 主体，warning 只出现在 stderr
 
 - [ ] **Step 2: 运行测试确认失败**
 
@@ -148,8 +152,10 @@ git commit -m "feat(cli): cache remote list results"
 
 - 目录版本未变化时，`search` 直接返回缓存结果
 - 目录版本变化时，`search` 刷新缓存
-- 远端失败但本地有缓存时，`search` 回退并提示结果可能过期
+- `GetCatalogVersion()` 失败但本地有缓存时，`search` 回退并提示结果可能过期
+- `Search` 刷新失败但本地有缓存时，`search` 回退并提示结果可能过期
 - 搜索条件变化（`query`、`tags`、`namespace`、`page`、`perPage`）会使用不同缓存 key
+- `--format json` 下回退提示不污染 JSON 主体，warning 只出现在 stderr
 
 - [ ] **Step 2: 运行测试确认失败**
 
@@ -224,7 +230,8 @@ Expected: PASS
 
 - 先造一份本地缓存
 - 在 mock 远端版本不变时，`list --remote` / `search` 直接读缓存
-- 在 mock 远端失败时，CLI 输出“结果可能过期”
+- 在 mock `GetCatalogVersion()` 失败时，命令会回退缓存并输出“结果可能过期”
+- 在 mock 刷新列表/搜索失败时，命令会回退缓存并输出“结果可能过期”
 - 删除缓存后，远端失败时命令明确报错
 
 - [ ] **Step 4: 提交收尾改动（如有）**
