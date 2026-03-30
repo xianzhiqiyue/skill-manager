@@ -98,7 +98,7 @@ if [[ $# -ne 1 ]]; then
   exit 1
 fi
 
-"$script_dir/bootstrap-cli.sh"
+bash "$script_dir/bootstrap-cli.sh"
 
 skill_path="$1"
 skill_file="$skill_path/SKILL.md"

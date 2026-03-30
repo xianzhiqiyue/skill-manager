@@ -1,6 +1,6 @@
 ---
 name: skill-home-manager
-version: 0.2.4
+version: 0.2.5
 description: 当用户想用本地 skill-home CLI 创建、编辑、验证、打包、导出、同步、安装或排查 skill 时使用，尤其适合把 skill 交付到 Codex。
 namespace: "@skill-home"
 author: Skill Home Team
