@@ -2,13 +2,13 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 
 	"github.com/skill-home/cli/internal/config"
 	"github.com/skill-home/cli/internal/registry"
@@ -131,23 +131,53 @@ func listLocalSkills(opts *listOptions) error {
 }
 
 func listRemoteSkills(opts *listOptions) error {
-	apiKey := viper.GetString("registry.api_key")
-	server := viper.GetString("registry.endpoint")
-	client := registry.NewClient(server, apiKey)
+	client := newRegistryClient()
+	cache, err := newDefaultRemoteCatalogCache()
+	if err != nil {
+		result, err := fetchRemoteListSkills(client, opts)
+		if err != nil {
+			return fmt.Errorf("获取远程技能列表失败: %w", err)
+		}
+		return printRemoteListSkills(opts, result)
+	}
 
-	result, err := client.ListSkills(registry.ListSkillsOptions{
+	return listRemoteSkillsWithCache(opts, client, cache, os.Stderr)
+}
+
+func listRemoteSkillsWithCache(opts *listOptions, client registryClient, cache *remoteCatalogCache, stderr io.Writer) error {
+	result, stale, err := cache.fetchWithFallback(
+		remoteCatalogQuery{
+			Kind:      "list",
+			Namespace: opts.namespace,
+			Page:      1,
+			PerPage:   100,
+		},
+		client.GetCatalogVersion,
+		func() (*registry.SearchResult, error) {
+			return fetchRemoteListSkills(client, opts)
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("获取远程技能列表失败: %w", err)
+	}
+	if stale {
+		fmt.Fprintln(stderr, "警告: 结果可能过期，当前显示的是本地缓存。")
+	}
+	return printRemoteListSkills(opts, result)
+}
+
+func fetchRemoteListSkills(client registryClient, opts *listOptions) (*registry.SearchResult, error) {
+	return client.ListSkills(registry.ListSkillsOptions{
 		Namespace: opts.namespace,
 		Page:      1,
 		PerPage:   100,
 	})
-	if err != nil {
-		return fmt.Errorf("获取远程技能列表失败: %w", err)
-	}
+}
 
+func printRemoteListSkills(opts *listOptions, result *registry.SearchResult) error {
 	if opts.format == "json" {
 		return printJSON(result)
 	}
-
 	if len(result.Results) == 0 {
 		fmt.Println("没有找到远程技能")
 		return nil
