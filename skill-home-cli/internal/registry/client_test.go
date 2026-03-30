@@ -81,7 +81,7 @@ func TestGetCatalogVersionRequestsExpectedEndpoint(t *testing.T) {
 		}
 
 		_ = json.NewEncoder(w).Encode(CatalogVersionResponse{
-			CatalogVersion: "2026.03.30",
+			CatalogVersion: 12,
 			UpdatedAt:      time.Date(2026, 3, 30, 9, 15, 0, 0, time.UTC),
 		})
 	}))
@@ -92,7 +92,7 @@ func TestGetCatalogVersionRequestsExpectedEndpoint(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetCatalogVersion returned error: %v", err)
 	}
-	if resp.CatalogVersion != "2026.03.30" {
+	if resp.CatalogVersion != 12 {
 		t.Fatalf("unexpected catalog version: %+v", resp)
 	}
 	if !resp.UpdatedAt.Equal(time.Date(2026, 3, 30, 9, 15, 0, 0, time.UTC)) {
