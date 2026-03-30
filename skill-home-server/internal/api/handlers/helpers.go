@@ -480,6 +480,7 @@ func populateSkillDetailDownloadURLs(objStorage *storage.ObjectStorage, skill *m
 		return
 	}
 
+	latestStoragePath := ""
 	for i := range skill.Versions {
 		skill.Versions[i].DownloadURL = resolvePublicDownloadURL(
 			objStorage,
@@ -489,17 +490,19 @@ func populateSkillDetailDownloadURLs(objStorage *storage.ObjectStorage, skill *m
 			skill.Name,
 			skill.Versions[i].Version,
 		)
+		if skill.Versions[i].Version == skill.LatestVersion {
+			latestStoragePath = skill.Versions[i].StoragePath
+		}
 	}
 
-	storagePath := ""
-	if len(skill.Versions) > 0 {
-		storagePath = skill.Versions[0].StoragePath
+	if latestStoragePath == "" && len(skill.Versions) > 0 {
+		latestStoragePath = skill.Versions[0].StoragePath
 	}
 
 	skill.DownloadURL = resolvePublicDownloadURL(
 		objStorage,
 		skill.IsPublic,
-		storagePath,
+		latestStoragePath,
 		skill.Namespace,
 		skill.Name,
 		skill.LatestVersion,
