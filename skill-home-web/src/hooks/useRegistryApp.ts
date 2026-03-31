@@ -14,6 +14,7 @@ import {
   fetchSkills,
   loginUser,
   publishSkill,
+  rateSkill,
   registerUser,
   removeCommunityTag,
   revokeAPIKey,
@@ -111,6 +112,9 @@ export function useRegistryApp(
   const [communityTagRemoving, setCommunityTagRemoving] = useState<string | null>(null);
   const [communityTagError, setCommunityTagError] = useState<string | null>(null);
   const [communityTagSuccess, setCommunityTagSuccess] = useState<string | null>(null);
+  const [skillRatingSaving, setSkillRatingSaving] = useState(false);
+  const [skillRatingError, setSkillRatingError] = useState<string | null>(null);
+  const [skillRatingSuccess, setSkillRatingSuccess] = useState<string | null>(null);
 
   const [token, setToken] = useState(loadStoredToken);
   const [authLoading, setAuthLoading] = useState(false);
@@ -289,6 +293,9 @@ export function useRegistryApp(
       setCommunityTagSuccess(null);
       setCommunityTagSaving(false);
       setCommunityTagRemoving(null);
+      setSkillRatingError(null);
+      setSkillRatingSuccess(null);
+      setSkillRatingSaving(false);
       return;
     }
 
@@ -296,6 +303,8 @@ export function useRegistryApp(
     let cancelled = false;
     setDetailLoading(true);
     setDetailError(null);
+    setSkillRatingError(null);
+    setSkillRatingSuccess(null);
 
     fetchSkillDetail(namespace, name, token || undefined)
       .then((data) => {
@@ -829,6 +838,61 @@ export function useRegistryApp(
     }
   }
 
+  async function submitSkillRating(rating: number, comment = '') {
+    if (!routeSkillKey || !detailSkill) {
+      return;
+    }
+
+    if (!token) {
+      setSkillRatingError('请先登录，再为 skill 评分。');
+      navigate(buildAuthPath('login', getCurrentPath()));
+      return;
+    }
+
+    if (rating < 1 || rating > 5) {
+      setSkillRatingError('请选择 1 到 5 分。');
+      return;
+    }
+
+    setSkillRatingSaving(true);
+    setSkillRatingError(null);
+    setSkillRatingSuccess(null);
+
+    try {
+      const [namespace, name] = routeSkillKey.split('/');
+      const response = await rateSkill(token, namespace, name, {
+        rating,
+        comment: comment.trim(),
+      });
+
+      setDetailSkill((current) => {
+        if (!current) {
+          return {
+            ...response.skill,
+            user_rating: response.user_rating,
+          };
+        }
+
+        return {
+          ...current,
+          ...response.skill,
+          tags: response.skill.tags ?? current.tags,
+          owner: response.skill.owner ?? current.owner,
+          versions: response.skill.versions?.length ? response.skill.versions : current.versions,
+          community_tags: current.community_tags,
+          viewer_tags: current.viewer_tags,
+          download_url: response.skill.download_url ?? current.download_url,
+          user_rating: response.user_rating,
+        };
+      });
+      setSkillRatingSuccess('评分已保存。');
+    } catch (error) {
+      setSkillRatingError(error instanceof Error ? error.message : '评分失败');
+    } finally {
+      setSkillRatingSaving(false);
+    }
+  }
+
   async function removeCommunitySkillTag(tag: string) {
     if (!routeSkillKey || !detailSkill || !token) {
       return;
@@ -916,7 +980,11 @@ export function useRegistryApp(
     communityTagRemoving,
     communityTagError,
     communityTagSuccess,
+    skillRatingSaving,
+    skillRatingError,
+    skillRatingSuccess,
     submitCommunityTag,
+    submitSkillRating,
     removeCommunityTag: removeCommunitySkillTag,
     refreshDetail: () => setDetailNonce((value) => value + 1),
     accountLoading,

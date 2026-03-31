@@ -43,14 +43,11 @@ export function SkillObjectPage({
 
   const skill = model.detailSkill;
   const panelId = `skill-panel-${activeTab}`;
-  const handleTagSelect = (tag: string) => {
-    navigate(`/skills?tag=${encodeURIComponent(tag)}`);
-  };
 
   return (
     <div className="page-stack gh-object-page">
       <section className="surface-panel gh-object-shell">
-        <SkillHeader onBack={model.returnToCatalog} onTagSelect={handleTagSelect} skill={skill} />
+        <SkillHeader onBack={model.returnToCatalog} skill={skill} />
         <SkillObjectTabs
           activeTab={activeTab}
           navigate={navigate}

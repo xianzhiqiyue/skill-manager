@@ -6,7 +6,17 @@ import { SettingsAuthCallout } from '../components/settings/SettingsAuthCallout'
 import { useRegistryApp } from '../hooks/useRegistryApp';
 import { buildSkillPath } from '../lib/routes';
 
-type AppModel = ReturnType<typeof useRegistryApp>;
+type AppModel = Pick<
+  ReturnType<typeof useRegistryApp>,
+  | 'token'
+  | 'publishError'
+  | 'publishLoading'
+  | 'publishSuccess'
+  | 'publishForm'
+  | 'setPublishForm'
+  | 'setPublishFile'
+  | 'submitPublish'
+>;
 
 type PublishNewPageProps = {
   model: AppModel;

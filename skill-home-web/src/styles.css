@@ -3642,6 +3642,65 @@ body {
   font-size: 0.86rem;
 }
 
+.gh-official-tag-block {
+  display: grid;
+  gap: 10px;
+}
+
+.gh-rating-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  align-items: center;
+}
+
+.gh-rating-summary strong {
+  font-size: 1.25rem;
+}
+
+.gh-rating-summary span {
+  color: var(--text-soft);
+  font-size: 0.92rem;
+}
+
+.gh-rating-stars {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.gh-rating-star {
+  min-width: 56px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-soft);
+  color: var(--text);
+  font-weight: 700;
+}
+
+.gh-rating-star.is-active {
+  border-color: rgba(9, 105, 218, 0.4);
+  background: rgba(9, 105, 218, 0.08);
+  color: var(--gh-link);
+}
+
+.gh-rating-comment {
+  margin: 0;
+}
+
+.gh-rating-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.gh-rating-copy {
+  color: var(--text-soft);
+  font-size: 0.9rem;
+}
+
 .gh-object-command-card {
   display: grid;
   gap: 12px;
@@ -3949,6 +4008,15 @@ body {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
+  font-size: 0.9rem;
+}
+
+.skill-result-card__signals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+  color: var(--text-soft);
   font-size: 0.9rem;
 }
 

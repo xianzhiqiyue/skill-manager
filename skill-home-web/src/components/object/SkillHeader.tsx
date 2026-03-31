@@ -1,15 +1,13 @@
 import { getDownloadUrl, type SkillDetail } from '../../api';
 import { formatDateTime, skillRef, summarizeScanStatus } from '../../lib/format';
 import { CopyActionButton } from './CopyActionButton';
-import { SkillTagButton } from './SkillTagButton';
 
 type SkillHeaderProps = {
   onBack?: () => void;
-  onTagSelect?: (tag: string) => void;
   skill: SkillDetail;
 };
 
-export function SkillHeader({ onBack, onTagSelect, skill }: SkillHeaderProps) {
+export function SkillHeader({ onBack, skill }: SkillHeaderProps) {
   const latestVersion = skill.latest_version || skill.versions?.[0]?.version || 'draft';
   const latestScan = summarizeScanStatus(skill.versions?.[0]?.scan_status);
   const visibilityLabel = skill.is_public === false ? '私有' : '公开';
@@ -46,14 +44,6 @@ export function SkillHeader({ onBack, onTagSelect, skill }: SkillHeaderProps) {
           <span>{skill.download_count} 下载</span>
           <span>{formatDateTime(skill.updated_at)} 更新</span>
         </div>
-
-        {(skill.tags || []).length ? (
-          <div className="skill-tag-row skill-tag-row--dense">
-            {(skill.tags || []).map((tag) => (
-              <SkillTagButton key={tag} onSelect={onTagSelect} tag={tag} />
-            ))}
-          </div>
-        ) : null}
       </div>
 
       <div className="gh-object-header__actions">

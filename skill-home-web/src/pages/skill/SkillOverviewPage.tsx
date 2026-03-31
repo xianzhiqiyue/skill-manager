@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { getDownloadUrl } from '../../api';
 import {
@@ -20,6 +20,10 @@ export type SkillOverviewPageModel = SkillObjectPageModel & {
   communityTagSuccess?: string | null;
   submitCommunityTag?: (tag: string) => Promise<void>;
   removeCommunityTag?: (tag: string) => Promise<void>;
+  skillRatingSaving?: boolean;
+  skillRatingError?: string | null;
+  skillRatingSuccess?: string | null;
+  submitSkillRating?: (rating: number, comment?: string) => Promise<void>;
 };
 
 type SkillOverviewPageProps = {
@@ -57,6 +61,18 @@ function OverviewCard({
 
 export function SkillOverviewPage({ model, navigate, search }: SkillOverviewPageProps) {
   const [communityTagInput, setCommunityTagInput] = useState('');
+  const [selectedRating, setSelectedRating] = useState(0);
+  const [ratingComment, setRatingComment] = useState('');
+
+  useEffect(() => {
+    setSelectedRating(model.detailSkill?.user_rating?.rating || 0);
+    setRatingComment(model.detailSkill?.user_rating?.comment || '');
+  }, [
+    model.detailSkill?.id,
+    model.detailSkill?.user_rating?.comment,
+    model.detailSkill?.user_rating?.rating,
+  ]);
+
   const handleTagSelect = (tag: string) => {
     navigate(`/skills?tag=${encodeURIComponent(tag)}`);
   };
@@ -67,42 +83,16 @@ export function SkillOverviewPage({ model, navigate, search }: SkillOverviewPage
         const latestVersion = skill.latest_version || skill.versions?.[0]?.version || 'draft';
         const latestVersionRecord = skill.versions?.[0];
         const latestScan = summarizeScanStatus(latestVersionRecord?.scan_status);
-        const tags = skill.tags || [];
         const communityTags = skill.community_tags || [];
         const viewerTags = skill.viewer_tags || [];
+        const officialTags = skill.tags || [];
         const primaryInstall = `skill-home install ${skillRef(skill)}${latestVersion === 'draft' ? '' : `@${latestVersion}`}`;
         // Resolve the contract URL once so this page explicitly follows download_url when present.
         const downloadUrl = getDownloadUrl(skill);
+        const hasRatings = (skill.rating_count || 0) > 0;
 
         return (
             <div className="gh-object-overview">
-              <OverviewCard eyebrow="Overview" title="What this skill does">
-                <p>{skill.description || '暂无描述。'}</p>
-                <div className="detail-fact-list">
-                  <OverviewStat label="Latest version" value={latestVersion} />
-                  <OverviewStat label="Scan status" value={latestScan.label} />
-                  <OverviewStat label="Downloads" value={String(skill.download_count)} />
-                  <OverviewStat label="License" value={skill.license || '未填写'} />
-                </div>
-                {tags.length ? (
-                  <div className="skill-tag-row skill-tag-row--dense">
-                    {tags.map((tag) => (
-                      <SkillTagButton key={tag} onSelect={handleTagSelect} tag={tag} />
-                    ))}
-                  </div>
-                ) : null}
-              </OverviewCard>
-
-              <OverviewCard eyebrow="Install" title="Primary install target">
-                <p>Use the current release and verify the package before broad rollout.</p>
-                <code>{primaryInstall}</code>
-                <div className="gh-object-overview__meta">
-                  <span>{formatDateTime(skill.updated_at)} 更新</span>
-                  <span>{formatBytes(latestVersionRecord?.size_bytes)} 包大小</span>
-                  <span>{skillRef(skill)}</span>
-                </div>
-              </OverviewCard>
-
               {(communityTags.length || model.currentUser) ? (
                 <OverviewCard eyebrow="Community" title="Community tags">
                   {model.communityTagError ? (
@@ -177,10 +167,95 @@ export function SkillOverviewPage({ model, navigate, search }: SkillOverviewPage
                       ) : null}
                     </>
                   ) : (
-                    <p className="gh-community-tag-copy">登录后可补充你自己的社区 tags。</p>
+                    <p className="gh-community-tag-copy">登录后可补充你自己的社区 tags 和评分。</p>
                   )}
                 </OverviewCard>
               ) : null}
+
+              <OverviewCard eyebrow="Rating" title="Community rating">
+                {model.skillRatingError ? (
+                  <div className="status-banner status-banner--danger">{model.skillRatingError}</div>
+                ) : null}
+                {model.skillRatingSuccess ? (
+                  <div className="status-banner status-banner--success">{model.skillRatingSuccess}</div>
+                ) : null}
+
+                <div className="gh-rating-summary">
+                  <strong>{hasRatings && skill.rating != null ? `${skill.rating.toFixed(1)} 分` : '暂无评分'}</strong>
+                  <span>{skill.rating_count || 0} 人评分</span>
+                  {skill.user_rating ? <span>你的评分：{skill.user_rating.rating}/5</span> : null}
+                </div>
+
+                <div className="gh-rating-stars" role="group" aria-label="Choose rating">
+                  {[1, 2, 3, 4, 5].map((value) => (
+                    <button
+                      aria-label={`${value} 星`}
+                      aria-pressed={selectedRating === value}
+                      className={`gh-rating-star ${selectedRating === value ? 'is-active' : ''}`.trim()}
+                      key={value}
+                      onClick={() => setSelectedRating(value)}
+                      type="button"
+                    >
+                      {value}
+                    </button>
+                  ))}
+                </div>
+
+                <label className="field gh-rating-comment">
+                  <span>Add comment</span>
+                  <input
+                    placeholder="Optional note about fit, trust, or setup"
+                    value={ratingComment}
+                    onChange={(event) => setRatingComment(event.target.value)}
+                  />
+                </label>
+
+                <div className="gh-rating-actions">
+                  <button
+                    className="button button--secondary"
+                    disabled={model.skillRatingSaving || selectedRating === 0}
+                    onClick={() => {
+                      void model.submitSkillRating?.(selectedRating, ratingComment);
+                    }}
+                    type="button"
+                  >
+                    {model.skillRatingSaving ? '保存中…' : model.currentUser ? '保存评分' : '登录后评分'}
+                  </button>
+                  <span className="gh-rating-copy">
+                    {model.currentUser ? '看过详情后也可以先给出主观评价。' : '登录后即可提交评分。'}
+                  </span>
+                </div>
+              </OverviewCard>
+
+              <OverviewCard eyebrow="Overview" title="What this skill does">
+                <p>{skill.description || '暂无描述。'}</p>
+                <div className="detail-fact-list">
+                  <OverviewStat label="Latest version" value={latestVersion} />
+                  <OverviewStat label="Scan status" value={latestScan.label} />
+                  <OverviewStat label="Downloads" value={String(skill.download_count)} />
+                  <OverviewStat label="License" value={skill.license || '未填写'} />
+                </div>
+                {officialTags.length ? (
+                  <div className="gh-official-tag-block">
+                    <span className="gh-community-tag-copy">Official tags</span>
+                    <div className="skill-tag-row skill-tag-row--dense">
+                      {officialTags.map((tag) => (
+                        <SkillTagButton key={tag} onSelect={handleTagSelect} tag={tag} />
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+              </OverviewCard>
+
+              <OverviewCard eyebrow="Install" title="Primary install target">
+                <p>Use the current release and verify the package before broad rollout.</p>
+                <code>{primaryInstall}</code>
+                <div className="gh-object-overview__meta">
+                  <span>{formatDateTime(skill.updated_at)} 更新</span>
+                  <span>{formatBytes(latestVersionRecord?.size_bytes)} 包大小</span>
+                  <span>{skillRef(skill)}</span>
+                </div>
+              </OverviewCard>
 
               <OverviewCard eyebrow="Activity" title="Recent signal">
                 <p>

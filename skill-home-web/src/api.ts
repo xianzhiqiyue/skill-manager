@@ -74,10 +74,21 @@ export type CommunityTagSummary = {
   count: number;
 };
 
+export type SkillRating = {
+  id: string;
+  skill_id: string;
+  user_id: string;
+  rating: number;
+  comment?: string;
+  created_at?: string;
+  updated_at?: string;
+};
+
 export type SkillDetail = SkillSummary & {
   tags?: string[];
   community_tags?: CommunityTagSummary[];
   viewer_tags?: string[];
+  user_rating?: SkillRating;
   owner?: {
     username?: string;
     email?: string;
@@ -141,6 +152,16 @@ export type CreateAPIKeyPayload = {
 
 export type CommunityTagPayload = {
   tag: string;
+};
+
+export type RateSkillPayload = {
+  rating: number;
+  comment?: string;
+};
+
+export type RateSkillResponse = {
+  skill: SkillDetail;
+  user_rating: SkillRating;
 };
 
 type RequestOptions = {
@@ -356,6 +377,17 @@ export function removeCommunityTag(token: string, namespace: string, name: strin
       token,
     },
   );
+}
+
+export function rateSkill(token: string, namespace: string, name: string, payload: RateSkillPayload) {
+  return request<RateSkillResponse>(`/api/v1/skills/${namespace}/${name}/rating`, undefined, {
+    method: 'POST',
+    token,
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
 }
 
 export function publishSkill(token: string, payload: PublishPayload) {

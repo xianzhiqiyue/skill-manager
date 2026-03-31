@@ -14,6 +14,20 @@ type SkillResultListProps = {
   view: 'cards' | 'list';
 };
 
+function formatRatingLabel(skill: SkillSummary) {
+  if (!skill.rating_count) {
+    return {
+      score: '暂无评分',
+      count: '等待首个评分',
+    };
+  }
+
+  return {
+    score: `${(skill.rating || 0).toFixed(1)} 分`,
+    count: `${skill.rating_count} 人评分`,
+  };
+}
+
 function ResultCard({
   onOpen,
   skill,
@@ -21,6 +35,8 @@ function ResultCard({
   onOpen: (namespace: string, name: string) => void;
   skill: SkillSummary;
 }) {
+  const ratingLabel = formatRatingLabel(skill);
+
   return (
     <article className="skill-result-card">
       <div className="skill-result-card__header">
@@ -36,6 +52,10 @@ function ResultCard({
         <span>{skill.download_count} 下载</span>
         <span>{formatDate(skill.updated_at)} 更新</span>
       </div>
+      <div className="skill-result-card__signals">
+        <span className="search-badge">{ratingLabel.score}</span>
+        <span>{ratingLabel.count}</span>
+      </div>
       <button className="button button--secondary" onClick={() => onOpen(skill.namespace, skill.name)} type="button">
         打开
       </button>
@@ -50,6 +70,8 @@ function ResultRow({
   onOpen: (namespace: string, name: string) => void;
   skill: SkillSummary;
 }) {
+  const ratingLabel = formatRatingLabel(skill);
+
   return (
     <article className="skill-result-row">
       <div className="skill-result-row__identity">
@@ -64,6 +86,8 @@ function ResultRow({
         <span>{skill.latest_version || 'draft'}</span>
         <span>{skill.download_count} 下载</span>
         <span>{formatDate(skill.updated_at)} 更新</span>
+        <span>{ratingLabel.score}</span>
+        <span>{ratingLabel.count}</span>
       </div>
       {(skill.tags || []).length ? (
         <div className="skill-result-row__tags">

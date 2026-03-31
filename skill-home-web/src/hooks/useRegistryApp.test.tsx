@@ -14,6 +14,9 @@ import { SkillOverviewPage } from '../pages/skill/SkillOverviewPage';
 import { useRegistryApp } from './useRegistryApp';
 
 const mockRegistryBase = 'https://soulstore.ciqtek.com/skill-home';
+const { mockedRateSkill } = vi.hoisted(() => ({
+  mockedRateSkill: vi.fn(),
+}));
 
 vi.mock('../components/object/CopyActionButton', () => ({
   CopyActionButton: ({
@@ -68,6 +71,7 @@ vi.mock('../api', async (importOriginal) => {
     }),
     loginUser: vi.fn(),
     publishSkill: vi.fn(),
+    rateSkill: mockedRateSkill,
     addCommunityTag: vi.fn(),
     removeCommunityTag: vi.fn(),
     registerUser: vi.fn(),
@@ -434,6 +438,98 @@ describe('useRegistryApp catalog URL sync', () => {
       });
       expect(result.current.detailSkill?.community_tags?.[0].tag).toBe('deployment');
       expect(result.current.detailSkill?.viewer_tags).toEqual(['deployment']);
+    });
+  });
+
+  it('submits a skill rating and updates the detail model with the user rating', async () => {
+    window.localStorage.setItem('skill-home-web-token', 'token-1');
+    mockedRateSkill.mockResolvedValue({
+      skill: {
+        id: 'skill-1',
+        namespace: 'testuser',
+        name: 'github',
+        description: 'Interact with GitHub using gh.',
+        download_count: 18,
+        rating: 4.5,
+        rating_count: 2,
+        latest_version: '1.0.0',
+        versions: [],
+      },
+      user_rating: {
+        id: 'rating-1',
+        skill_id: 'skill-1',
+        user_id: 'user-1',
+        rating: 5,
+        comment: 'Great fit for deployment checks.',
+      },
+    });
+
+    const navigate = vi.fn();
+    const { result } = renderHook(() =>
+      useRegistryApp(
+        { name: 'skill-tab', namespace: 'testuser', skillName: 'github', tab: 'overview' },
+        '',
+        navigate,
+      ),
+    );
+
+    await waitFor(() => {
+      expect(result.current.detailSkill?.name).toBe('github');
+    });
+
+    await act(async () => {
+      await (
+        result.current as typeof result.current & {
+          submitSkillRating: (rating: number, comment?: string) => Promise<void>;
+        }
+      ).submitSkillRating(5, 'Great fit for deployment checks.');
+    });
+
+    await waitFor(() => {
+      expect(mockedRateSkill).toHaveBeenCalledWith('token-1', 'testuser', 'github', {
+        rating: 5,
+        comment: 'Great fit for deployment checks.',
+      });
+      expect(result.current.detailSkill?.rating).toBe(4.5);
+      expect(result.current.detailSkill?.rating_count).toBe(2);
+      expect(result.current.detailSkill?.user_rating?.rating).toBe(5);
+      expect(result.current.detailSkill?.user_rating?.comment).toBe('Great fit for deployment checks.');
+    });
+  });
+
+  it('redirects unauthenticated viewers to login when they try to rate a skill', async () => {
+    window.history.pushState({}, '', '/skills/testuser/github?tag=automation');
+
+    const navigate = vi.fn();
+    const { result } = renderHook(() =>
+      useRegistryApp(
+        { name: 'skill-tab', namespace: 'testuser', skillName: 'github', tab: 'overview' },
+        '',
+        navigate,
+      ),
+    );
+
+    await waitFor(() => {
+      expect(result.current.detailSkill?.name).toBe('github');
+    });
+
+    await act(async () => {
+      await (
+        result.current as typeof result.current & {
+          submitSkillRating: (rating: number, comment?: string) => Promise<void>;
+        }
+      ).submitSkillRating(4, 'Looks promising');
+    });
+
+    await waitFor(() => {
+      expect(navigate).toHaveBeenCalledWith('/login?redirect=%2Fskills%2Ftestuser%2Fgithub%3Ftag%3Dautomation');
+      expect(
+        (
+          result.current as typeof result.current & {
+            skillRatingError: string | null;
+          }
+        ).skillRatingError,
+      ).toBe('请先登录，再为 skill 评分。');
     });
   });
 

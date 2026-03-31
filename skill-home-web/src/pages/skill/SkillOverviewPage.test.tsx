@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { SkillOverviewPage } from './SkillOverviewPage';
+import { SkillOverviewPage, type SkillOverviewPageModel } from './SkillOverviewPage';
 
 afterEach(() => {
   cleanup();
@@ -218,5 +218,130 @@ describe('SkillOverviewPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'deployment' }));
 
     expect(removeCommunityTag).toHaveBeenCalledWith('deployment');
+  });
+
+  it('shows a rating card and lets authenticated viewers submit a score with an optional comment', () => {
+    const submitSkillRating = vi.fn();
+
+    render(
+      <SkillOverviewPage
+        model={
+          {
+            currentUser: {
+              id: 'user-1',
+              username: 'testuser',
+              email: 'test@example.com',
+            },
+            detailError: null,
+            detailLoading: false,
+            detailSkill: {
+              id: 'skill-1',
+              namespace: 'testuser',
+              name: 'github',
+              description: 'Interact with GitHub using gh.',
+              license: 'MIT',
+              download_count: 18,
+              rating: 4.5,
+              rating_count: 2,
+              latest_version: '1.0.0',
+              updated_at: '2026-03-22T21:32:00Z',
+              is_public: true,
+              is_deprecated: false,
+              tags: ['automation', 'github'],
+              community_tags: [{ tag: 'deployment', count: 2 }],
+              viewer_tags: ['deployment'],
+              versions: [
+                {
+                  id: 'v1',
+                  version: '1.0.0',
+                  size_bytes: 4096,
+                  scan_status: 'passed',
+                  created_at: '2026-03-22T21:32:00Z',
+                },
+              ],
+              owner: {
+                username: 'testuser',
+              },
+            },
+            skillRatingError: null,
+            skillRatingSaving: false,
+            skillRatingSuccess: null,
+            submitSkillRating,
+          } as SkillOverviewPageModel
+        }
+        navigate={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole('heading', { name: 'Community rating' })).toBeInTheDocument();
+    expect(screen.getByText('4.5 分')).toBeInTheDocument();
+    expect(screen.getByText('2 人评分')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '5 星' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Add comment' }), {
+      target: { value: 'Helpful for CI checks.' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '保存评分' }));
+
+    expect(submitSkillRating).toHaveBeenCalledWith(5, 'Helpful for CI checks.');
+  });
+
+  it('hydrates an existing user rating back into the rating form', () => {
+    render(
+      <SkillOverviewPage
+        model={
+          {
+            currentUser: {
+              id: 'user-1',
+              username: 'testuser',
+              email: 'test@example.com',
+            },
+            detailError: null,
+            detailLoading: false,
+            detailSkill: {
+              id: 'skill-1',
+              namespace: 'testuser',
+              name: 'github',
+              description: 'Interact with GitHub using gh.',
+              license: 'MIT',
+              download_count: 18,
+              rating: 4.5,
+              rating_count: 2,
+              latest_version: '1.0.0',
+              updated_at: '2026-03-22T21:32:00Z',
+              is_public: true,
+              is_deprecated: false,
+              tags: ['automation', 'github'],
+              user_rating: {
+                id: 'rating-1',
+                skill_id: 'skill-1',
+                user_id: 'user-1',
+                rating: 4,
+                comment: 'Great default workflow.',
+              },
+              versions: [
+                {
+                  id: 'v1',
+                  version: '1.0.0',
+                  size_bytes: 4096,
+                  scan_status: 'passed',
+                  created_at: '2026-03-22T21:32:00Z',
+                },
+              ],
+              owner: {
+                username: 'testuser',
+              },
+            },
+            skillRatingError: null,
+            skillRatingSaving: false,
+            skillRatingSuccess: null,
+          } as SkillOverviewPageModel
+        }
+        navigate={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: '4 星' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByDisplayValue('Great default workflow.')).toBeInTheDocument();
   });
 });
