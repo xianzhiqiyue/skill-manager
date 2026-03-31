@@ -41,6 +41,7 @@
 - `GET /api/v1/skills/:namespace/:name` 和 `/versions` 在公开 skill 场景下可匿名访问
 - 公开 zip skill 的 `download_url` 会优先返回 OSS 绝对地址
 - `/api/v1/download/...` 仍保留，兼容旧 CLI 和显式版本下载
+- `credentials` 当前只在详情接口 `GET /api/v1/skills/:namespace/:name` 返回；列表和搜索接口首期不返回该字段
 
 ## 需要认证的接口
 
@@ -108,7 +109,53 @@ curl -fsS https://soulstore.ciqtek.com/skill-home/api/v1/skills/skill-home/skill
 - `latest_version`
 - 顶层 `download_url`
 - 各版本 `versions[].download_url`
+- 顶层 `credentials`，它来自最新版本 `manifest.metadata.openclaw.credentials`
 - `is_public`、`download_count`、`rating`
+
+示例片段：
+
+```json
+{
+  "namespace": "team",
+  "name": "demo-skill",
+  "latest_version": "1.0.1",
+  "download_url": "https://skills-static.example.com/skills/team/demo-skill/latest.zip",
+  "credentials": [
+    {
+      "id": "openai_api_key",
+      "env": "OPENAI_API_KEY",
+      "label": "OpenAI API Key",
+      "description": "用于访问 OpenAI 接口",
+      "secret": true,
+      "required": true,
+      "input": "password",
+      "help_url": "https://platform.openai.com/api-keys",
+      "group": "llm_provider"
+    }
+  ],
+  "versions": [
+    {
+      "version": "1.0.1",
+      "manifest": {
+        "name": "demo-skill",
+        "version": "1.0.1",
+        "description": "Demo skill",
+        "requires": ["OPENAI_API_KEY"],
+        "metadata": {
+          "openclaw": {
+            "credentials": [
+              {
+                "id": "openai_api_key",
+                "env": "OPENAI_API_KEY"
+              }
+            ]
+          }
+        }
+      }
+    }
+  ]
+}
+```
 
 ### 5. 搜索公开 skill
 
@@ -171,6 +218,85 @@ curl -X POST https://soulstore.ciqtek.com/skill-home/api/v1/skills/team/demo-ski
   -H "Authorization: Bearer ${TOKEN}" \
   -F "version=1.0.1" \
   -F "skill=@./demo-skill-v1.0.1.zip;type=application/zip"
+```
+
+## Skill Manifest 与凭证约定
+
+### 归档与解析范围
+
+- `POST /api/v1/skills` 和 `POST /api/v1/skills/:namespace/:name/versions` 接收 `.zip` 或 `.tar.gz`
+- 服务端会在上传时 best-effort 读取归档中的 `SKILL.md` frontmatter，并把解析结果写入 `skill_versions.manifest`
+- 如果 `SKILL.md` 缺失、没有 frontmatter，或 frontmatter YAML 解析失败，发布不会因此被阻塞；只是 `manifest` / `credentials` 不会被自动补齐
+
+### `metadata.openclaw.credentials`
+
+如果 `SKILL.md` 包含下面这段：
+
+```yaml
+---
+name: demo-skill
+version: 1.0.1
+description: Demo skill
+metadata:
+  openclaw:
+    credentials:
+      - id: openai_api_key
+        env: OPENAI_API_KEY
+        label: OpenAI API Key
+        description: 用于访问 OpenAI 接口
+        secret: true
+        required: true
+        input: password
+        help_url: https://platform.openai.com/api-keys
+        group: llm_provider
+---
+```
+
+则服务端会：
+
+1. 把整段 frontmatter 持久化到对应版本的 `manifest`
+2. 在详情接口顶层额外返回 `credentials`
+3. 保持各版本里的 `manifest.metadata.openclaw.credentials` 原样可读
+
+### `credentials` 字段约定
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `id` | string | 凭证项稳定标识 |
+| `env` | string | 运行时注入的环境变量名 |
+| `label` | string | 面向用户的显示名称 |
+| `description` | string | 简短说明 |
+| `secret` | boolean | 是否按敏感值处理 |
+| `required` | boolean | 是否必填 |
+| `input` | string | 建议的输入类型，例如 `password` / `text` / `url` |
+| `help_url` | string | 获取凭证的帮助链接 |
+| `group` | string | 分组标识，用于表达同一类 provider/凭证组 |
+
+### `requires` 兼容语义
+
+- 新客户端应优先消费详情接口顶层的 `credentials`
+- 旧客户端如果只认识 `manifest.requires`，仍然可以继续工作
+- 当 `SKILL.md` 已显式声明 `requires` 时，服务端按原值保存
+- 当 `SKILL.md` 没有 `requires`，但存在 `metadata.openclaw.credentials` 时，服务端会自动从 `credentials[].env` 派生 `manifest.requires`
+
+兼容派生示例：
+
+```yaml
+metadata:
+  openclaw:
+    credentials:
+      - id: openai_api_key
+        env: OPENAI_API_KEY
+      - id: anthropic_api_key
+        env: ANTHROPIC_API_KEY
+```
+
+会生成：
+
+```json
+{
+  "requires": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"]
+}
 ```
 
 ## 运行与开发

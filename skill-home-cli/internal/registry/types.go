@@ -6,28 +6,42 @@ import (
 
 // Skill 技能信息
 type Skill struct {
-	ID            string         `json:"id"`
-	Namespace     string         `json:"namespace"`
-	Name          string         `json:"name"`
-	OwnerID       string         `json:"owner_id,omitempty"`
-	Description   string         `json:"description"`
-	DescriptionZh string         `json:"description_zh,omitempty"`
-	Author        string         `json:"author"`
-	Tags          []string       `json:"tags,omitempty"`
-	License       string         `json:"license,omitempty"`
-	Homepage      string         `json:"homepage,omitempty"`
-	DownloadCount int64          `json:"download_count"`
-	Rating        float64        `json:"rating"`
-	RatingCount   int64          `json:"rating_count"`
-	IsPublic      bool           `json:"is_public"`
-	IsDeprecated  bool           `json:"is_deprecated"`
-	CreatedAt     time.Time      `json:"created_at"`
-	UpdatedAt     time.Time      `json:"updated_at"`
-	LatestVersion string         `json:"latest_version,omitempty"`
-	DownloadURL   string         `json:"download_url,omitempty"`
-	Owner         *User          `json:"owner,omitempty"`
-	Versions      []SkillVersion `json:"versions,omitempty"`
-	UserRating    *SkillRating   `json:"user_rating,omitempty"`
+	ID            string                      `json:"id"`
+	Namespace     string                      `json:"namespace"`
+	Name          string                      `json:"name"`
+	OwnerID       string                      `json:"owner_id,omitempty"`
+	Description   string                      `json:"description"`
+	DescriptionZh string                      `json:"description_zh,omitempty"`
+	Author        string                      `json:"author"`
+	Tags          []string                    `json:"tags,omitempty"`
+	License       string                      `json:"license,omitempty"`
+	Homepage      string                      `json:"homepage,omitempty"`
+	DownloadCount int64                       `json:"download_count"`
+	Rating        float64                     `json:"rating"`
+	RatingCount   int64                       `json:"rating_count"`
+	IsPublic      bool                        `json:"is_public"`
+	IsDeprecated  bool                        `json:"is_deprecated"`
+	CreatedAt     time.Time                   `json:"created_at"`
+	UpdatedAt     time.Time                   `json:"updated_at"`
+	LatestVersion string                      `json:"latest_version,omitempty"`
+	DownloadURL   string                      `json:"download_url,omitempty"`
+	Owner         *User                       `json:"owner,omitempty"`
+	Versions      []SkillVersion              `json:"versions,omitempty"`
+	UserRating    *SkillRating                `json:"user_rating,omitempty"`
+	Credentials   []SkillCredentialDescriptor `json:"credentials,omitempty"`
+}
+
+// SkillCredentialDescriptor 技能凭证描述
+type SkillCredentialDescriptor struct {
+	ID          string `json:"id"`
+	Env         string `json:"env"`
+	Label       string `json:"label,omitempty"`
+	Description string `json:"description,omitempty"`
+	Secret      bool   `json:"secret,omitempty"`
+	Required    bool   `json:"required,omitempty"`
+	Input       string `json:"input,omitempty"`
+	HelpURL     string `json:"help_url,omitempty"`
+	Group       string `json:"group,omitempty"`
 }
 
 // SkillVersion 技能版本
@@ -72,6 +86,7 @@ type Manifest struct {
 	IDEConfig     map[string]interface{} `json:"ide_config,omitempty"`
 	Permissions   []string               `json:"permissions,omitempty"`
 	Engines       map[string]string      `json:"engines,omitempty"`
+	Metadata      map[string]interface{} `json:"metadata,omitempty"`
 }
 
 // ScanResult 安全扫描结果

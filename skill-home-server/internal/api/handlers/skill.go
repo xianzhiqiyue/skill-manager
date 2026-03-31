@@ -266,6 +266,7 @@ func CreateSkill(db *storage.Database, objStorage *storage.ObjectStorage, scanne
 			c.JSON(http.StatusBadRequest, gin.H{"code": "INVALID_INPUT", "message": err.Error()})
 			return
 		}
+		manifest := parseSkillArchiveManifest(content, archiveFormat)
 
 		// 安全扫描
 		scanResult := scanner.ScanContent(string(content))
@@ -306,6 +307,7 @@ func CreateSkill(db *storage.Database, objStorage *storage.ObjectStorage, scanne
 
 		versionModel := models.SkillVersion{
 			Version:     version,
+			Manifest:    manifest,
 			StoragePath: storagePath,
 			SizeBytes:   int64(len(content)),
 			ScanStatus:  scanResult.Status,

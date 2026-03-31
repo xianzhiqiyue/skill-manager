@@ -563,6 +563,7 @@ func populateSkillDetailResponse(db *storage.Database, objStorage *storage.Objec
 
 	populateSkillComputedFields(skill)
 	populateSkillDetailDownloadURLs(objStorage, skill)
+	populateSkillDetailCredentials(skill)
 
 	var viewerID *uuid.UUID
 	if viewer != nil {
@@ -573,4 +574,27 @@ func populateSkillDetailResponse(db *storage.Database, objStorage *storage.Objec
 	}
 
 	return loadCommunityTags(db, skill, viewerID)
+}
+
+func populateSkillDetailCredentials(skill *models.Skill) {
+	if skill == nil {
+		return
+	}
+
+	skill.Credentials = nil
+
+	for i := range skill.Versions {
+		if skill.LatestVersion != "" && skill.Versions[i].Version != skill.LatestVersion {
+			continue
+		}
+		skill.Credentials = extractSkillCredentialsFromManifest(skill.Versions[i].Manifest)
+		if len(skill.Credentials) > 0 || skill.LatestVersion != "" {
+			return
+		}
+	}
+
+	if len(skill.Versions) == 0 {
+		return
+	}
+	skill.Credentials = extractSkillCredentialsFromManifest(skill.Versions[0].Manifest)
 }

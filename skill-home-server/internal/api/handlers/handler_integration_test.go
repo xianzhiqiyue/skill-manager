@@ -556,6 +556,113 @@ func TestPublicSkillDetailUsesLatestVersionDownloadURL(t *testing.T) {
 	}
 }
 
+func TestPublicSkillDetailReturnsCredentialsFromLatestVersionManifest(t *testing.T) {
+	db := newTestDatabase(t)
+	user := &models.User{ID: uuid.New(), Username: "owner", Email: "owner@example.com"}
+	if err := db.Create(user).Error; err != nil {
+		t.Fatalf("create user failed: %v", err)
+	}
+
+	skill := models.Skill{
+		ID:            uuid.New(),
+		Namespace:     "team",
+		Name:          "github",
+		OwnerID:       user.ID,
+		Description:   "public skill",
+		IsPublic:      true,
+		LatestVersion: "1.0.1",
+	}
+	if err := db.Create(&skill).Error; err != nil {
+		t.Fatalf("create skill failed: %v", err)
+	}
+
+	oldVersion := models.SkillVersion{
+		ID:          uuid.New(),
+		SkillID:     skill.ID,
+		Version:     "1.0.0",
+		StoragePath: "skills/team/github/old.zip",
+		Manifest: models.JSON{
+			"metadata": map[string]any{
+				"openclaw": map[string]any{
+					"credentials": []map[string]any{
+						{
+							"id":    "legacy_key",
+							"env":   "LEGACY_KEY",
+							"label": "Legacy Key",
+						},
+					},
+				},
+			},
+		},
+		SizeBytes:   64,
+		ScanStatus:  "pass",
+		PublishedBy: user.ID,
+	}
+	if err := db.Create(&oldVersion).Error; err != nil {
+		t.Fatalf("create old version failed: %v", err)
+	}
+
+	latestVersion := models.SkillVersion{
+		ID:          uuid.New(),
+		SkillID:     skill.ID,
+		Version:     "1.0.1",
+		StoragePath: "skills/team/github/latest.zip",
+		Manifest: models.JSON{
+			"metadata": map[string]any{
+				"openclaw": map[string]any{
+					"credentials": []map[string]any{
+						{
+							"id":          "openai_api_key",
+							"env":         "OPENAI_API_KEY",
+							"label":       "OpenAI API Key",
+							"description": "Used to access OpenAI",
+							"secret":      true,
+							"required":    true,
+							"input":       "password",
+							"help_url":    "https://platform.openai.com/api-keys",
+							"group":       "llm_provider",
+						},
+					},
+				},
+			},
+		},
+		SizeBytes:   96,
+		ScanStatus:  "pass",
+		PublishedBy: user.ID,
+	}
+	if err := db.Create(&latestVersion).Error; err != nil {
+		t.Fatalf("create latest version failed: %v", err)
+	}
+
+	router := gin.New()
+	router.GET("/api/v1/skills/:namespace/:name", middleware.OptionalAuth(db), GetSkill(db))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/skills/team/github", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	var resp struct {
+		Credentials []map[string]any `json:"credentials"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response failed: %v", err)
+	}
+
+	if len(resp.Credentials) != 1 {
+		t.Fatalf("expected 1 credential, got %#v", resp.Credentials)
+	}
+	if got := resp.Credentials[0]["env"]; got != "OPENAI_API_KEY" {
+		t.Fatalf("credential env = %#v, want OPENAI_API_KEY", got)
+	}
+	if got := resp.Credentials[0]["label"]; got != "OpenAI API Key" {
+		t.Fatalf("credential label = %#v, want OpenAI API Key", got)
+	}
+}
+
 func TestPublicTarGzSkillDetailKeepsRelativeDownloadURL(t *testing.T) {
 	db := newTestDatabase(t)
 	objStorage := newPublicTestObjectStorage(t)
@@ -789,6 +896,81 @@ func TestCreateSkillReturnsPublicDownloadURL(t *testing.T) {
 	}
 	if got != want {
 		t.Fatalf("download_url = %q, want %q", got, want)
+	}
+}
+
+func TestCreateSkillPersistsManifestCredentials(t *testing.T) {
+	db := newTestDatabase(t)
+	objStorage := newTestObjectStorage(t)
+	user := &models.User{ID: uuid.New(), Username: "owner", Email: "owner@example.com"}
+	if err := db.Create(user).Error; err != nil {
+		t.Fatalf("create user failed: %v", err)
+	}
+
+	router := newAuthedRouter(user)
+	router.POST("/api/v1/skills", CreateSkill(db, objStorage, validator.NewScanner()))
+
+	req, _ := newCreateSkillRequest(t, map[string]string{
+		"namespace": "team",
+		"name":      "github",
+		"version":   "1.0.0",
+	}, mustZipArchive(t, map[string]string{
+		"SKILL.md": `---
+name: github
+version: 1.0.0
+description: GitHub skill
+metadata:
+  openclaw:
+    credentials:
+      - id: openai_api_key
+        env: OPENAI_API_KEY
+        label: OpenAI API Key
+        description: Used to access OpenAI
+        secret: true
+        required: true
+        input: password
+        help_url: https://platform.openai.com/api-keys
+        group: llm_provider
+---
+body
+`,
+	}))
+
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("unexpected status: %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	var skill models.Skill
+	if err := scopeNamespaceName(db.DB, "team", "github").First(&skill).Error; err != nil {
+		t.Fatalf("load created skill failed: %v", err)
+	}
+
+	var version models.SkillVersion
+	if err := db.Where("skill_id = ? AND version = ?", skill.ID, "1.0.0").First(&version).Error; err != nil {
+		t.Fatalf("load created version failed: %v", err)
+	}
+
+	metadata, ok := version.Manifest["metadata"].(map[string]any)
+	if !ok {
+		t.Fatalf("manifest metadata missing: %#v", version.Manifest)
+	}
+	openclaw, ok := metadata["openclaw"].(map[string]any)
+	if !ok {
+		t.Fatalf("manifest openclaw missing: %#v", metadata)
+	}
+	credentials, ok := openclaw["credentials"].([]any)
+	if !ok || len(credentials) != 1 {
+		t.Fatalf("manifest credentials = %#v, want 1 item", openclaw["credentials"])
+	}
+	credential, ok := credentials[0].(map[string]any)
+	if !ok {
+		t.Fatalf("credential item = %#v", credentials[0])
+	}
+	if got := credential["env"]; got != "OPENAI_API_KEY" {
+		t.Fatalf("credential env = %#v, want OPENAI_API_KEY", got)
 	}
 }
 
@@ -1567,6 +1749,184 @@ func TestPublishVersionReturnsPublicDownloadURL(t *testing.T) {
 	}
 	if got != want {
 		t.Fatalf("download_url = %q, want %q", got, want)
+	}
+}
+
+func TestPublishVersionPersistsManifestCredentials(t *testing.T) {
+	db := newTestDatabase(t)
+	objStorage := newTestObjectStorage(t)
+	user := &models.User{ID: uuid.New(), Username: "owner", Email: "owner@example.com"}
+	if err := db.Create(user).Error; err != nil {
+		t.Fatalf("create user failed: %v", err)
+	}
+
+	skill := models.Skill{
+		ID:            uuid.New(),
+		Namespace:     "team",
+		Name:          "github",
+		OwnerID:       user.ID,
+		IsPublic:      true,
+		LatestVersion: "1.0.0",
+	}
+	if err := db.Create(&skill).Error; err != nil {
+		t.Fatalf("create skill failed: %v", err)
+	}
+
+	router := newAuthedRouter(user)
+	router.POST("/api/v1/skills/:namespace/:name/versions", PublishVersion(db, objStorage, validator.NewScanner()))
+
+	archive := mustZipArchive(t, map[string]string{
+		"SKILL.md": `---
+name: github
+version: 1.1.0
+description: GitHub skill
+metadata:
+  openclaw:
+    credentials:
+      - id: openai_api_key
+        env: OPENAI_API_KEY
+        label: OpenAI API Key
+        description: Used to access OpenAI
+        secret: true
+        required: true
+        input: password
+        help_url: https://platform.openai.com/api-keys
+        group: llm_provider
+---
+body
+`,
+	})
+
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	if err := writer.WriteField("version", "1.1.0"); err != nil {
+		t.Fatalf("WriteField version returned error: %v", err)
+	}
+	part, err := writer.CreateFormFile("skill", "github.zip")
+	if err != nil {
+		t.Fatalf("CreateFormFile returned error: %v", err)
+	}
+	if _, err := part.Write(archive); err != nil {
+		t.Fatalf("part.Write returned error: %v", err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("writer.Close returned error: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/skills/team/github/versions", body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("unexpected status: %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	var version models.SkillVersion
+	if err := db.Where("skill_id = ? AND version = ?", skill.ID, "1.1.0").First(&version).Error; err != nil {
+		t.Fatalf("load created version failed: %v", err)
+	}
+
+	metadata, ok := version.Manifest["metadata"].(map[string]any)
+	if !ok {
+		t.Fatalf("manifest metadata missing: %#v", version.Manifest)
+	}
+	openclaw, ok := metadata["openclaw"].(map[string]any)
+	if !ok {
+		t.Fatalf("manifest openclaw missing: %#v", metadata)
+	}
+	credentials, ok := openclaw["credentials"].([]any)
+	if !ok || len(credentials) != 1 {
+		t.Fatalf("manifest credentials = %#v, want 1 item", openclaw["credentials"])
+	}
+	credential, ok := credentials[0].(map[string]any)
+	if !ok {
+		t.Fatalf("credential item = %#v", credentials[0])
+	}
+	if got := credential["env"]; got != "OPENAI_API_KEY" {
+		t.Fatalf("credential env = %#v, want OPENAI_API_KEY", got)
+	}
+	if got := credential["group"]; got != "llm_provider" {
+		t.Fatalf("credential group = %#v, want llm_provider", got)
+	}
+}
+
+func TestPublishVersionDerivesManifestRequiresFromCredentials(t *testing.T) {
+	db := newTestDatabase(t)
+	objStorage := newTestObjectStorage(t)
+	user := &models.User{ID: uuid.New(), Username: "owner", Email: "owner@example.com"}
+	if err := db.Create(user).Error; err != nil {
+		t.Fatalf("create user failed: %v", err)
+	}
+
+	skill := models.Skill{
+		ID:            uuid.New(),
+		Namespace:     "team",
+		Name:          "github",
+		OwnerID:       user.ID,
+		IsPublic:      true,
+		LatestVersion: "1.0.0",
+	}
+	if err := db.Create(&skill).Error; err != nil {
+		t.Fatalf("create skill failed: %v", err)
+	}
+
+	router := newAuthedRouter(user)
+	router.POST("/api/v1/skills/:namespace/:name/versions", PublishVersion(db, objStorage, validator.NewScanner()))
+
+	archive := mustZipArchive(t, map[string]string{
+		"SKILL.md": `---
+name: github
+version: 1.1.0
+description: GitHub skill
+metadata:
+  openclaw:
+    credentials:
+      - id: openai_api_key
+        env: OPENAI_API_KEY
+      - id: anthropic_api_key
+        env: ANTHROPIC_API_KEY
+---
+body
+`,
+	})
+
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	if err := writer.WriteField("version", "1.1.0"); err != nil {
+		t.Fatalf("WriteField version returned error: %v", err)
+	}
+	part, err := writer.CreateFormFile("skill", "github.zip")
+	if err != nil {
+		t.Fatalf("CreateFormFile returned error: %v", err)
+	}
+	if _, err := part.Write(archive); err != nil {
+		t.Fatalf("part.Write returned error: %v", err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("writer.Close returned error: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/skills/team/github/versions", body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("unexpected status: %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	var version models.SkillVersion
+	if err := db.Where("skill_id = ? AND version = ?", skill.ID, "1.1.0").First(&version).Error; err != nil {
+		t.Fatalf("load created version failed: %v", err)
+	}
+
+	requires, ok := version.Manifest["requires"].([]any)
+	if !ok || len(requires) != 2 {
+		t.Fatalf("manifest requires = %#v, want 2 envs", version.Manifest["requires"])
+	}
+	if requires[0] != "OPENAI_API_KEY" || requires[1] != "ANTHROPIC_API_KEY" {
+		t.Fatalf("manifest requires = %#v, want derived envs", requires)
 	}
 }
 

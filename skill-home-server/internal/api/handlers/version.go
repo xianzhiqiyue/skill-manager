@@ -78,6 +78,7 @@ func PublishVersion(db *storage.Database, objStorage *storage.ObjectStorage, sca
 			c.JSON(http.StatusBadRequest, gin.H{"code": "INVALID_INPUT", "message": err.Error()})
 			return
 		}
+		manifest := parseSkillArchiveManifest(content, archiveFormat)
 
 		// 安全扫描
 		scanResult := scanner.ScanContent(string(content))
@@ -107,6 +108,7 @@ func PublishVersion(db *storage.Database, objStorage *storage.ObjectStorage, sca
 		version := models.SkillVersion{
 			SkillID:     skill.ID,
 			Version:     versionValue,
+			Manifest:    manifest,
 			StoragePath: storagePath,
 			SizeBytes:   int64(len(content)),
 			ScanStatus:  scanResult.Status,

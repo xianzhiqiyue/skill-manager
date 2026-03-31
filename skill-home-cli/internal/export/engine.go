@@ -13,8 +13,8 @@ import (
 
 // Result 导出结果
 type Result struct {
-	Platform string
-	Files    map[string][]byte
+	Platform   string
+	Files      map[string][]byte
 	TargetPath string
 }
 
@@ -46,19 +46,19 @@ func (e *Engine) Export(s *skill.Skill, platform string) (*Result, error) {
 	}
 }
 
-// exportToCopilot 导出到 GitHub Copilot 格式
-func (e *Engine) exportToCopilot(s *skill.Skill) (*Result, error) {
-	result := &Result{
-		Platform: "copilot",
-		Files:    make(map[string][]byte),
-	}
-
+func buildBaseManifest(s *skill.Skill) map[string]interface{} {
 	manifest := map[string]interface{}{
 		"name":        s.Manifest.Name,
 		"version":     s.Manifest.Version,
 		"description": s.Manifest.Description,
 	}
 
+	if s.Manifest.Namespace != "" {
+		manifest["namespace"] = s.Manifest.Namespace
+	}
+	if s.Manifest.DescriptionZh != "" {
+		manifest["description_zh"] = s.Manifest.DescriptionZh
+	}
 	if s.Manifest.Author != "" {
 		manifest["author"] = s.Manifest.Author
 	}
@@ -71,6 +71,78 @@ func (e *Engine) exportToCopilot(s *skill.Skill) (*Result, error) {
 	if s.Manifest.Homepage != "" {
 		manifest["homepage"] = s.Manifest.Homepage
 	}
+	if s.Manifest.Repository != "" {
+		manifest["repository"] = s.Manifest.Repository
+	}
+	requires := s.Manifest.Requires
+	if len(requires) == 0 {
+		requires = deriveRequiresFromMetadata(s.Manifest.Metadata)
+	}
+	if len(requires) > 0 {
+		manifest["requires"] = requires
+	}
+	if len(s.Manifest.Permissions) > 0 {
+		manifest["permissions"] = s.Manifest.Permissions
+	}
+	if len(s.Manifest.Engines) > 0 {
+		manifest["engines"] = s.Manifest.Engines
+	}
+	if len(s.Manifest.Metadata) > 0 {
+		manifest["metadata"] = s.Manifest.Metadata
+	}
+
+	return manifest
+}
+
+func deriveRequiresFromMetadata(metadata map[string]interface{}) []string {
+	if len(metadata) == 0 {
+		return nil
+	}
+
+	openclaw, ok := metadata["openclaw"].(map[string]interface{})
+	if !ok {
+		return nil
+	}
+	rawCredentials, ok := openclaw["credentials"].([]interface{})
+	if !ok || len(rawCredentials) == 0 {
+		return nil
+	}
+
+	requires := make([]string, 0, len(rawCredentials))
+	seen := make(map[string]struct{}, len(rawCredentials))
+	for _, rawCredential := range rawCredentials {
+		credential, ok := rawCredential.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		env, ok := credential["env"].(string)
+		if !ok {
+			continue
+		}
+		env = strings.TrimSpace(env)
+		if env == "" {
+			continue
+		}
+		if _, exists := seen[env]; exists {
+			continue
+		}
+		seen[env] = struct{}{}
+		requires = append(requires, env)
+	}
+	if len(requires) == 0 {
+		return nil
+	}
+	return requires
+}
+
+// exportToCopilot 导出到 GitHub Copilot 格式
+func (e *Engine) exportToCopilot(s *skill.Skill) (*Result, error) {
+	result := &Result{
+		Platform: "copilot",
+		Files:    make(map[string][]byte),
+	}
+
+	manifest := buildBaseManifest(s)
 	if s.Manifest.IDEConfig.Copilot != nil {
 		cfg := s.Manifest.IDEConfig.Copilot
 		if len(cfg.Globs) > 0 {
@@ -113,24 +185,7 @@ func (e *Engine) exportToClaude(s *skill.Skill) (*Result, error) {
 	}
 
 	// 构建 manifest
-	manifest := map[string]interface{}{
-		"name":        s.Manifest.Name,
-		"version":     s.Manifest.Version,
-		"description": s.Manifest.Description,
-	}
-
-	if s.Manifest.Author != "" {
-		manifest["author"] = s.Manifest.Author
-	}
-	if len(s.Manifest.Tags) > 0 {
-		manifest["tags"] = s.Manifest.Tags
-	}
-	if s.Manifest.License != "" {
-		manifest["license"] = s.Manifest.License
-	}
-	if s.Manifest.Homepage != "" {
-		manifest["homepage"] = s.Manifest.Homepage
-	}
+	manifest := buildBaseManifest(s)
 
 	// 添加 Claude 特定配置
 	if s.Manifest.IDEConfig.Claude != nil {

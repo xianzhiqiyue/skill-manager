@@ -11,10 +11,10 @@ import (
 
 // IDEConfig 多平台 IDE 配置
 type IDEConfig struct {
-	Claude *ClaudeConfig `yaml:"claude,omitempty"`
+	Claude  *ClaudeConfig  `yaml:"claude,omitempty"`
 	Copilot *CopilotConfig `yaml:"copilot,omitempty"`
-	Codex  *CodexConfig  `yaml:"codex,omitempty"`
-	Cursor *CursorConfig `yaml:"cursor,omitempty"`
+	Codex   *CodexConfig   `yaml:"codex,omitempty"`
+	Cursor  *CursorConfig  `yaml:"cursor,omitempty"`
 }
 
 // ClaudeConfig Claude Code 特定配置
@@ -60,15 +60,16 @@ type Manifest struct {
 	IDEConfig     IDEConfig              `yaml:"ide_config,omitempty"`
 	Permissions   []string               `yaml:"permissions,omitempty"`
 	Engines       map[string]string      `yaml:"engines,omitempty"`
+	Metadata      map[string]interface{} `yaml:"metadata,omitempty"`
 }
 
 // Skill 技能对象
 type Skill struct {
-	Manifest    Manifest
-	Body        string
-	Path        string
-	References  []string
-	Scripts     []string
+	Manifest   Manifest
+	Body       string
+	Path       string
+	References []string
+	Scripts    []string
 }
 
 // Parse 从路径解析技能
@@ -93,6 +94,7 @@ func Parse(path string) (*Skill, error) {
 	if err := yaml.Unmarshal([]byte(frontmatter), &skill.Manifest); err != nil {
 		return nil, fmt.Errorf("解析 YAML 失败: %w", err)
 	}
+	deriveRequiresFromMetadata(&skill.Manifest)
 
 	skill.Body = body
 
@@ -101,6 +103,47 @@ func Parse(path string) (*Skill, error) {
 	skill.Scripts = scanDir(filepath.Join(path, "scripts"))
 
 	return skill, nil
+}
+
+func deriveRequiresFromMetadata(manifest *Manifest) {
+	if manifest == nil || len(manifest.Requires) > 0 || len(manifest.Metadata) == 0 {
+		return
+	}
+
+	openclaw, ok := manifest.Metadata["openclaw"].(map[string]interface{})
+	if !ok {
+		return
+	}
+	rawCredentials, ok := openclaw["credentials"].([]interface{})
+	if !ok || len(rawCredentials) == 0 {
+		return
+	}
+
+	requires := make([]string, 0, len(rawCredentials))
+	seen := make(map[string]struct{}, len(rawCredentials))
+	for _, rawCredential := range rawCredentials {
+		credential, ok := rawCredential.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		env, ok := credential["env"].(string)
+		if !ok {
+			continue
+		}
+		env = strings.TrimSpace(env)
+		if env == "" {
+			continue
+		}
+		if _, exists := seen[env]; exists {
+			continue
+		}
+		seen[env] = struct{}{}
+		requires = append(requires, env)
+	}
+	if len(requires) == 0 {
+		return
+	}
+	manifest.Requires = requires
 }
 
 // ParseFrontmatter 解析 frontmatter
