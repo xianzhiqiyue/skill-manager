@@ -8,7 +8,7 @@ echo "=== Skill-Home 更新部署 ==="
 
 DEPLOY_DIR="${DEPLOY_DIR:-/opt/skill-home}"
 BACKUP_DIR="${DEPLOY_DIR}/backup-$(date +%Y%m%d-%H%M%S)"
-LOCAL_BASE_URL="${SKILL_HOME_LOCAL_BASE_URL:-http://localhost:8080}"
+LOCAL_BASE_URL="${SKILL_HOME_LOCAL_BASE_URL:-http://localhost:8080/skill-home}"
 HEALTHCHECK_URL="${SKILL_HOME_HEALTHCHECK_URL:-${LOCAL_BASE_URL}/health}"
 INSTALLCHECK_URL="${SKILL_HOME_INSTALLCHECK_URL:-${LOCAL_BASE_URL}/install.sh}"
 RELEASES_LATEST_URL="${SKILL_HOME_RELEASES_LATEST_URL:-${LOCAL_BASE_URL}/releases/latest.json}"
@@ -77,24 +77,26 @@ restore_file_if_needed() {
   local current_path="$1"
   local old_path="${current_path}.old"
 
-  if [ -e "$old_path" ]; then
+  if [ ! -e "$old_path" ]; then
     rm -f "$current_path"
-    mv "$old_path" "$current_path"
-  else
-    rm -f "$current_path"
+    return 0
   fi
+
+  rm -f "$current_path"
+  mv -f "$old_path" "$current_path" || true
 }
 
 restore_dir_if_needed() {
   local current_path="$1"
   local old_path="${current_path}.old"
 
-  if [ -d "$old_path" ]; then
+  if [ ! -d "$old_path" ]; then
     rm -rf "$current_path"
-    mv "$old_path" "$current_path"
-  else
-    rm -rf "$current_path"
+    return 0
   fi
+
+  rm -rf "$current_path"
+  mv "$old_path" "$current_path" || true
 }
 
 verify_deployment() {
@@ -112,6 +114,7 @@ verify_deployment() {
 }
 
 rollback() {
+  set +e
   echo "❌ 健康检查失败，正在回滚..."
 
   if [ "$needs_restart" -eq 1 ]; then
