@@ -6,81 +6,8 @@ script_dir="$(
   pwd
 )"
 
-expand_path() {
-  local path="$1"
-
-  case "$path" in
-    "~")
-      printf '%s\n' "$HOME"
-      ;;
-    "~/"*)
-      printf '%s\n' "${HOME}/${path#~/}"
-      ;;
-    *)
-      printf '%s\n' "$path"
-      ;;
-  esac
-}
-
-resolve_codex_skills_dir() {
-  if [[ -n "${SKILL_HOME_CODEX_SKILLS_DIR:-}" ]]; then
-    expand_path "$SKILL_HOME_CODEX_SKILLS_DIR"
-    return
-  fi
-
-  config_path="${SKILL_HOME_CONFIG:-${HOME}/.config/skill-home/config.yaml}"
-  if [[ -f "$config_path" ]]; then
-    parsed="$(
-      awk '
-        /^[[:space:]]*ide:[[:space:]]*$/ {
-          in_ide=1
-          next
-        }
-        in_ide && /^[[:space:]]*[A-Za-z0-9_-]+:[[:space:]]*$/ {
-          line=$0
-          gsub(/^[[:space:]]+|:[[:space:]]*$/, "", line)
-          in_codex=(line=="codex")
-          next
-        }
-        in_codex && /^[[:space:]]*global_path:[[:space:]]*/ {
-          sub(/^[[:space:]]*global_path:[[:space:]]*/, "", $0)
-          gsub(/["'\'']/, "", $0)
-          print $0
-          exit
-        }
-      ' "$config_path"
-    )"
-    if [[ -n "$parsed" ]]; then
-      expand_path "$parsed"
-      return
-    fi
-  fi
-
-  if [[ -n "${CODEX_HOME:-}" ]]; then
-    printf '%s\n' "$(expand_path "$CODEX_HOME")/skills"
-    return
-  fi
-
-  if [[ -d "${HOME}/.codex" ]]; then
-    printf '%s\n' "${HOME}/.codex/skills"
-    return
-  fi
-
-  if command -v wslpath >/dev/null 2>&1 && [[ -n "${USERPROFILE:-}" ]]; then
-    win_home="$(wslpath "$USERPROFILE")"
-    if [[ -d "${win_home}/.codex" ]]; then
-      printf '%s\n' "${win_home}/.codex/skills"
-      return
-    fi
-  fi
-
-  if [[ -d "/mnt/c/Users/${USER}/.codex" ]]; then
-    printf '%s\n' "/mnt/c/Users/${USER}/.codex/skills"
-    return
-  fi
-
-  printf '%s\n' "${HOME}/.codex/skills"
-}
+# shellcheck source=/dev/null
+source "${script_dir}/common.sh"
 
 codex_skills_dir="$(resolve_codex_skills_dir)"
 
