@@ -111,8 +111,9 @@ const baseModel = {
   manageSuccess: null,
   manageForm: {
     description: '',
+    category: '',
     license: 'MIT',
-    tags: '',
+    tags: [],
     isPublic: true,
     isDeprecated: false,
   },
@@ -127,9 +128,10 @@ const baseModel = {
     namespace: 'testuser',
     name: '',
     description: '',
+    category: '',
     version: '0.1.0',
     license: 'MIT',
-    tags: '',
+    tags: [],
     isPublic: true,
   },
   setPublishForm: vi.fn(),
@@ -467,7 +469,8 @@ describe('App shell', () => {
     renderApp();
 
     expect(screen.getByRole('heading', { name: 'Create a new release' })).toBeInTheDocument();
-    expect(screen.getByRole('textbox', { name: 'Tags' })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Category' })).toBeInTheDocument();
+    expect(screen.getAllByText('Official tags')).toHaveLength(2);
     expect(screen.queryByText('发布清单')).not.toBeInTheDocument();
   });
 

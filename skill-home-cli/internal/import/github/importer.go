@@ -412,7 +412,9 @@ func (g *GitHubImporter) convertReadmeToSkill(readme string) string {
 name: %s
 version: 0.1.0
 description: Imported from GitHub
-tags: [imported, github]
+category: productivity
+tags:
+  - workflow
 license: MIT
 ---
 

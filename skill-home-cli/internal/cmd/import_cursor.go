@@ -178,7 +178,9 @@ func (c *CursorImporter) convertMdcToSkill(mdcContent string) string {
 name: %s
 version: 0.1.0
 description: %s
-tags: [imported, cursor]
+category: productivity
+tags:
+  - workflow
 license: MIT
 `, name, description)
 

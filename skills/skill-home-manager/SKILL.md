@@ -2,14 +2,15 @@
 name: skill-home-manager
 version: 0.2.5
 description: 当用户想用本地 skill-home CLI 创建、编辑、验证、打包、导出、同步、安装或排查 skill 时使用，尤其适合把 skill 交付到 Codex。
+category: productivity
 namespace: "@skill-home"
 author: Skill Home Team
 license: MIT
 tags:
-  - skill-home
-  - codex
-  - cli
-  - skill-management
+  - workflow
+  - automation
+  - docs
+  - integration
 homepage: https://github.com/skill-home/skill-manager
 ide_config:
   codex:
@@ -27,6 +28,7 @@ ide_config:
 - 用户要在当前仓库里新建或修改一个 skill 子项目
 - 用户要运行 `skill-home create/init/validate/scan/pack/preview/export/sync/install/doctor/delete/delete-version`
 - 用户要把本地 skill 安装到 Codex
+- 用户要把本地 skill 发布到 Skill Home 或更新已发布 skill
 - 用户怀疑本机 `skill-home` 二进制过旧，需要重新安装或刷新已发布 CLI
 - 用户要删除自己已发布的远程 skill 或某个远程版本
 
@@ -46,13 +48,16 @@ ide_config:
 2. 先确保本机真的有可用的 `skill-home` CLI。缺 CLI 时，优先跑:
    `scripts/bootstrap-cli.sh`
 3. 对高频动作，优先跑 bundled scripts，而不是手写一长串命令。
-4. 新建本地 skill:
+4. 只要涉及 `validate`、`pack`、`push` 或更新远程 skill，先检查 `SKILL.md` 里的 `category` 和 `tags` 是否齐全且属于官方 taxonomy。
+5. 如果缺失或不合法，优先根据 skill 名称、描述和正文内容推断推荐值，并参考 `references/publish-taxonomy.md` 补齐后写回 `SKILL.md`。
+6. 如果分类存在歧义，只问一个短问题澄清主分类或核心场景；不要把一串 taxonomy 问题丢给用户。
+7. 新建本地 skill:
    `scripts/create-local-skill.sh <name> [description] [output-dir]`
-5. 把本地 skill 安装到 Codex:
+8. 把本地 skill 安装到 Codex:
    `scripts/install-to-codex.sh <skill-path>`
-6. 如果 CLI 版本过旧、缺子命令，或行为不像最新 release，先刷新已发布 CLI 再继续:
+9. 如果 CLI 版本过旧、缺子命令，或行为不像最新 release，先刷新已发布 CLI 再继续:
    `scripts/rebuild-cli.sh`
-7. 如果问题和路径、配置、注册中心或 API Key 有关，先跑 `skill-home doctor`。
+10. 如果问题和路径、配置、注册中心或 API Key 有关，先跑 `skill-home doctor`。
 
 ## 命令选择规则
 
@@ -73,6 +78,8 @@ ide_config:
 
 `install` 适合远程 skill 引用，不适合本地 skill 目录。对本地 skill 目录，优先用 `sync` 或 `export --install`。
 `push`、`delete`、`delete-version` 需要先登录；公开 skill 的 `pull/install/update/search/info/list --remote` 不需要登录。
+`validate` 现在会把 `category` 和 `official tags` 一起作为硬校验；不要把刚 `init` 出来的空骨架误判成“已经可发布”。
+`push` 在交互终端里会尝试补齐缺失的官方分类元数据，但默认仍应由代理先整理好 `SKILL.md`，再进入发布动作。
 `list --remote` 与 `search` 会先检查远程目录版本；版本未变化时优先复用本地目录缓存。如果注册中心临时失败且本地已有对应缓存，会自动回退并提示“结果可能过期”。
 这个目录缓存只覆盖公开目录结构，不保证 `download_count`、`rating`、`rating_count` 这类动态统计字段实时。对 `search` 来说，缓存结果只保证来自同一份公开目录快照，不保证与当前服务端搜索排序或召回逻辑完全一致。
 
@@ -80,6 +87,7 @@ ide_config:
 
 - “帮我把 skill-home CLI 装上 / 补齐本机环境”: 先用 `scripts/bootstrap-cli.sh`
 - “帮我新建一个 skill 子项目”: 先用 `scripts/create-local-skill.sh`
+- “帮我发布一个 skill”: 先补齐 `category/tags`，再跑 `validate -> pack -> push`
 - “帮我把这个 skill 装到 Codex”: 先用 `scripts/install-to-codex.sh`
 - “帮我把本地 skill-home 更新到最新发布版本”: 先用 `scripts/rebuild-cli.sh`
 - “帮我排查为什么没生效”: 先看 `skill-home doctor`，必要时再开 `--debug` 重跑相关命令
@@ -95,9 +103,12 @@ ide_config:
 - `scripts/rebuild-cli.sh` 在这个公共 skill 里表示“重新安装最新发布版 CLI”，不是从源码重建。
 - 不要默认要求本机存在任何 `skill-home` 源码仓库；只有当用户明确在维护该仓库时，才允许走源码工作流。
 - 涉及 registry 写操作时，先检查是否已登录；未登录时提示用户先执行 `skill-home login`。
+- 遇到 skill 发布时，默认要把“补齐官方分类元数据”视为发布前置步骤，而不是等 `push` 失败后再补救。
+- 如果可以明确推断 `category/tags`，直接写回 `SKILL.md`；如果存在歧义，只问一个短问题澄清主分类或核心场景。
 - registry 读操作默认可匿名；如果远程接口异常，或私有 skill 因未登录/无权限被拒绝，直接说明原因并给出下一步。
 - `list --remote` 与 `search` 的目录缓存是读优化层，不要把它表述成“下载量、评分一定最新”的强保证。
 
 ## 参考资料
 
 需要具体命令模板、典型操作顺序或排障清单时，再读取 [references/cli-workflows.md](references/cli-workflows.md)。
+需要为 skill 选择 `category` 和 `official tags` 时，再读取 [references/publish-taxonomy.md](references/publish-taxonomy.md)。
