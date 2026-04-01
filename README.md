@@ -67,7 +67,7 @@ skillManage/
 │   └── pkg/validator/      # 安全扫描
 │
 ├── skills/
-│   └── skill-home-manager/ # 面向 Codex 的 skill，封装 skill-home CLI 工作流
+│   └── skill-home-manager/ # 面向 Codex / OpenClaw 等 AI 助手的 skill，封装 skill-home CLI 工作流
 │
 ├── skill-home-web/         # Web 前端，负责宣传、搜索发现、安装引导
 ├── docs/                   # 设计与补充文档
@@ -227,7 +227,7 @@ systemctl start skill-home  # 启动 API 服务
 | [docs/github-release-topology.md](docs/github-release-topology.md) | GitHub / Registry 发布拓扑 |
 | [skill-home-server/README.md](skill-home-server/README.md) | 服务端说明 |
 | [skill-home-cli/README.md](skill-home-cli/README.md) | CLI 说明 |
-| [skills/skill-home-manager/README.md](skills/skill-home-manager/README.md) | Codex skill 能力与脚本说明 |
+| [skills/skill-home-manager/README.md](skills/skill-home-manager/README.md) | AI 助手 skill 能力与脚本说明 |
 
 ## 贡献
 

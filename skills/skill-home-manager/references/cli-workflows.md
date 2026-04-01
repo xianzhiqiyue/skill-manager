@@ -9,13 +9,22 @@
 - GitHub Releases: `https://github.com/xianzhiqiyue/skill-manager/releases`
 
 除非用户明确在维护 `skill-manager` 仓库，否则不要假设本机存在任何 `skill-home` 源码目录。
+执行 bundled scripts 前，先把当前宿主上的已安装 skill 根目录记成 `skill_home_manager_root`。优先顺序:
+
+- `$SKILL_HOME_MANAGER_ROOT`
+- `skill-home` 配置文件里的 `ide.codex.global_path/skill-home-manager`
+- `$CODEX_HOME/skills/skill-home-manager`
+- `~/.codex/skills/skill-home-manager`
+- `~/.agents/skills/skill-home-manager`
+
+不要把这个路径写死成某台开发机的仓库绝对路径。
 
 ## 先确保 CLI 可用
 
 优先跑 bundled script，让 skill 自己从公开安装入口补齐 CLI:
 
 ```bash
-scripts/bootstrap-cli.sh
+bash "$skill_home_manager_root/scripts/bootstrap-cli.sh"
 ```
 
 这个脚本会优先下载部署页的 `install.sh`，部署页失败时回退到 GitHub 上的安装脚本。  
@@ -24,19 +33,19 @@ scripts/bootstrap-cli.sh
 如果你明确需要系统级安装:
 
 ```bash
-scripts/bootstrap-cli.sh --system
+bash "$skill_home_manager_root/scripts/bootstrap-cli.sh" --system
 ```
 
 如果你明确要刷新到最新发布版本:
 
 ```bash
-scripts/rebuild-cli.sh
+bash "$skill_home_manager_root/scripts/rebuild-cli.sh"
 ```
 
 如果你明确要安装指定版本:
 
 ```bash
-scripts/bootstrap-cli.sh --version v0.2.4
+bash "$skill_home_manager_root/scripts/bootstrap-cli.sh" --version v0.2.4
 ```
 
 ## 本地 skill 工作流
@@ -46,7 +55,7 @@ scripts/bootstrap-cli.sh --version v0.2.4
 优先用 bundled script:
 
 ```bash
-scripts/create-local-skill.sh my-skill "我的 skill 描述"
+bash "$skill_home_manager_root/scripts/create-local-skill.sh" my-skill "我的 skill 描述"
 ```
 
 默认情况下：
@@ -103,7 +112,7 @@ skill-home pack ./my-skill
 优先使用镜像模式，避免 WSL 符号链接问题:
 
 ```bash
-scripts/install-to-codex.sh ./my-skill
+bash "$skill_home_manager_root/scripts/install-to-codex.sh" ./my-skill
 
 skill-home sync ./my-skill --ide codex --global --mode mirror
 find "${CODEX_HOME:-$HOME/.codex}/skills/my-skill" -maxdepth 2 -type f
@@ -114,9 +123,9 @@ find "${CODEX_HOME:-$HOME/.codex}/skills/my-skill" -maxdepth 2 -type f
 当 `skill-home --help`、`doctor` 或 `sync` 的行为看起来不像最新 release 时:
 
 ```bash
-scripts/bootstrap-cli.sh --force-reinstall
+bash "$skill_home_manager_root/scripts/bootstrap-cli.sh" --force-reinstall
 
-scripts/rebuild-cli.sh
+bash "$skill_home_manager_root/scripts/rebuild-cli.sh"
 skill-home self-update
 ```
 

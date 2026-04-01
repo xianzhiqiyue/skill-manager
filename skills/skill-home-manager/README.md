@@ -1,6 +1,6 @@
 # skill-home-manager
 
-`skill-home-manager` 是面向 Codex 的工作流 skill，用来把 `skill-home` CLI 的常用操作封装成一组可复用脚本和约束，让“创建、校验、发布、安装 skill”不需要每次从头拼命令。
+`skill-home-manager` 是面向 Codex / OpenClaw 等 AI 助手的工作流 skill，用来把 `skill-home` CLI 的常用操作封装成一组可复用脚本和约束，让“创建、校验、发布、安装 skill”不需要每次从头拼命令。
 
 ## 能力概览
 
@@ -29,6 +29,8 @@
 | `scripts/create-local-skill.sh` | 新建本地 skill 骨架并提示后续补齐分类元数据 | `bash scripts/create-local-skill.sh my-skill "描述"` |
 | `scripts/install-to-codex.sh` | 把本地 skill 安装到 Codex 全局目录 | `bash scripts/install-to-codex.sh ./skills/my-skill` |
 | `scripts/rebuild-cli.sh` | 重新安装最新已发布 CLI | `bash scripts/rebuild-cli.sh` |
+
+被调用时，不要把脚本路径写死成开发机仓库绝对路径。优先先解析 `skill_home_manager_root`，再通过 `bash "$skill_home_manager_root/scripts/<script>.sh"` 调用 bundled scripts。
 
 ## 常见工作流
 

@@ -39,24 +39,26 @@ ide_config:
 - 公共安装入口: `https://soulstore.ciqtek.com/skill-home/install.sh`
 - GitHub Releases: `https://github.com/xianzhiqiyue/skill-manager/releases`
 - Codex 全局 skills 目录: 优先使用 `$CODEX_HOME/skills`，常见值是 `~/.codex/skills`
+- 运行 bundled scripts 之前，先按宿主环境解析 `skill_home_manager_root`。优先顺序是: `SKILL_HOME_MANAGER_ROOT` -> `skill-home` 配置里的 `ide.codex.global_path/skill-home-manager` -> `$CODEX_HOME/skills/skill-home-manager` -> `~/.codex/skills/skill-home-manager` -> `~/.agents/skills/skill-home-manager`
 
 只有在用户明确说明自己正在 `skill-manager` 仓库里开发时，才把该仓库视作额外上下文；不要默认要求本机存在任何 `skill-home` 源码目录。
+不要把 bundled scripts 路径写死成任何开发机仓库绝对路径，例如 `/home/zhuyue/code/skill-manager/...`。
 
 ## 默认工作流
 
 1. 先查看目标 skill 目录、现有示例和 CLI 支持的真实命令，不靠猜测写操作流。
 2. 先确保本机真的有可用的 `skill-home` CLI。缺 CLI 时，优先跑:
-   `scripts/bootstrap-cli.sh`
+   `bash "$skill_home_manager_root/scripts/bootstrap-cli.sh"`
 3. 对高频动作，优先跑 bundled scripts，而不是手写一长串命令。
 4. 只要涉及 `validate`、`pack`、`push` 或更新远程 skill，先检查 `SKILL.md` 里的 `category` 和 `tags` 是否齐全且属于官方 taxonomy。
 5. 如果缺失或不合法，优先根据 skill 名称、描述和正文内容推断推荐值，并参考 `references/publish-taxonomy.md` 补齐后写回 `SKILL.md`。
 6. 如果分类存在歧义，只问一个短问题澄清主分类或核心场景；不要把一串 taxonomy 问题丢给用户。
 7. 新建本地 skill:
-   `scripts/create-local-skill.sh <name> [description] [output-dir]`
+   `bash "$skill_home_manager_root/scripts/create-local-skill.sh" <name> [description] [output-dir]`
 8. 把本地 skill 安装到 Codex:
-   `scripts/install-to-codex.sh <skill-path>`
+   `bash "$skill_home_manager_root/scripts/install-to-codex.sh" <skill-path>`
 9. 如果 CLI 版本过旧、缺子命令，或行为不像最新 release，先刷新已发布 CLI 再继续:
-   `scripts/rebuild-cli.sh`
+   `bash "$skill_home_manager_root/scripts/rebuild-cli.sh"`
 10. 如果问题和路径、配置、注册中心或 API Key 有关，先跑 `skill-home doctor`。
 
 ## 命令选择规则
@@ -99,8 +101,9 @@ ide_config:
 ## Codex 特别约束
 
 - 这台机器是 WSL + Windows 混合环境，向 Codex 安装 skill 时优先 `--mode mirror`，避免生成指向 Linux 路径的符号链接。
-- `scripts/bootstrap-cli.sh` 默认从已部署安装页拉取公开安装脚本；如果部署页不可用，再回退到 GitHub 上的安装脚本。它安装的是已发布的 CLI，不依赖本地源码目录。
-- `scripts/rebuild-cli.sh` 在这个公共 skill 里表示“重新安装最新发布版 CLI”，不是从源码重建。
+- `skill_home_manager_root` 必须来自当前宿主环境里的已安装 skill 根目录，不能默认继承开发机仓库路径。
+- `bash "$skill_home_manager_root/scripts/bootstrap-cli.sh"` 默认从已部署安装页拉取公开安装脚本；如果部署页不可用，再回退到 GitHub 上的安装脚本。它安装的是已发布的 CLI，不依赖本地源码目录。
+- `bash "$skill_home_manager_root/scripts/rebuild-cli.sh"` 在这个公共 skill 里表示“重新安装最新发布版 CLI”，不是从源码重建。
 - 不要默认要求本机存在任何 `skill-home` 源码仓库；只有当用户明确在维护该仓库时，才允许走源码工作流。
 - 涉及 registry 写操作时，先检查是否已登录；未登录时提示用户先执行 `skill-home login`。
 - 遇到 skill 发布时，默认要把“补齐官方分类元数据”视为发布前置步骤，而不是等 `push` 失败后再补救。
