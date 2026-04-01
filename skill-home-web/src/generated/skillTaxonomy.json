@@ -1,0 +1,145 @@
+{
+  "categories": [
+    {
+      "id": "development",
+      "label": "Development",
+      "description": "代码生成、重构、调试、工程辅助"
+    },
+    {
+      "id": "testing",
+      "label": "Testing",
+      "description": "测试、验证、评审、质量保障"
+    },
+    {
+      "id": "docs",
+      "label": "Docs",
+      "description": "文档编写、知识整理、说明生成"
+    },
+    {
+      "id": "automation",
+      "label": "Automation",
+      "description": "流程编排、重复任务自动化"
+    },
+    {
+      "id": "integration",
+      "label": "Integration",
+      "description": "外部平台、API、第三方工具接入"
+    },
+    {
+      "id": "ops",
+      "label": "Ops",
+      "description": "部署、发布、运维、环境管理"
+    },
+    {
+      "id": "research",
+      "label": "Research",
+      "description": "检索、分析、调研、总结"
+    },
+    {
+      "id": "productivity",
+      "label": "Productivity",
+      "description": "协作推进、组织管理、个人效率"
+    }
+  ],
+  "official_tags": [
+    {
+      "id": "codegen",
+      "description": "代码生成"
+    },
+    {
+      "id": "refactor",
+      "description": "重构与结构调整"
+    },
+    {
+      "id": "debug",
+      "description": "调试与问题定位"
+    },
+    {
+      "id": "testing",
+      "description": "测试设计与执行"
+    },
+    {
+      "id": "review",
+      "description": "评审与审查"
+    },
+    {
+      "id": "docs",
+      "description": "文档写作与整理"
+    },
+    {
+      "id": "search",
+      "description": "检索与查找"
+    },
+    {
+      "id": "analysis",
+      "description": "分析与总结"
+    },
+    {
+      "id": "planning",
+      "description": "规划与方案输出"
+    },
+    {
+      "id": "git",
+      "description": "Git 工作流"
+    },
+    {
+      "id": "ci-cd",
+      "description": "CI/CD 与 pipeline 场景"
+    },
+    {
+      "id": "deployment",
+      "description": "部署与发布"
+    },
+    {
+      "id": "monitoring",
+      "description": "观测、告警与监控"
+    },
+    {
+      "id": "security",
+      "description": "安全与合规"
+    },
+    {
+      "id": "database",
+      "description": "数据库与存储"
+    },
+    {
+      "id": "frontend",
+      "description": "前端与界面实现"
+    },
+    {
+      "id": "backend",
+      "description": "后端与服务实现"
+    },
+    {
+      "id": "api",
+      "description": "API 设计与集成"
+    },
+    {
+      "id": "mcp",
+      "description": "MCP 与工具连接"
+    },
+    {
+      "id": "prompting",
+      "description": "提示词与代理编排"
+    },
+    {
+      "id": "automation",
+      "description": "自动化流程"
+    },
+    {
+      "id": "workflow",
+      "description": "工作流组织"
+    },
+    {
+      "id": "integration",
+      "description": "第三方集成"
+    }
+  ],
+  "aliases": {
+    "ci": "ci-cd",
+    "pipeline": "ci-cd",
+    "deploy": "deployment",
+    "doc": "docs",
+    "documentation": "docs"
+  }
+}

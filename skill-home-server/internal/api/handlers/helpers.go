@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/skill-home/server/internal/models"
 	"github.com/skill-home/server/internal/storage"
+	serverTaxonomy "github.com/skill-home/server/internal/taxonomy"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -356,12 +357,25 @@ func normalizeTagValue(value string) string {
 	return strings.Join(strings.Fields(value), "-")
 }
 
+func normalizeCategoryValue(value string) string {
+	value = strings.ToLower(strings.TrimSpace(value))
+	if value == "" {
+		return ""
+	}
+
+	return strings.Join(strings.Fields(value), "-")
+}
+
 func normalizeTags(values []string) []string {
 	normalized := make([]string, 0, len(values))
 	seen := make(map[string]struct{}, len(values))
+	definition, err := serverTaxonomy.Load()
 
 	for _, value := range values {
 		tag := normalizeTagValue(value)
+		if err == nil && definition != nil {
+			tag = definition.NormalizeTag(tag)
+		}
 		if tag == "" || len(tag) > 64 {
 			continue
 		}
@@ -380,6 +394,36 @@ func parseTagList(raw string) []string {
 		return r == ',' || r == '，' || r == ';' || r == '；' || r == '\n' || r == '\r'
 	})
 	return normalizeTags(parts)
+}
+
+func validateOfficialMetadata(category string, tags []string) (string, []string, error) {
+	definition, err := serverTaxonomy.Load()
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to load taxonomy: %w", err)
+	}
+
+	normalizedCategory := normalizeCategoryValue(category)
+	if normalizedCategory == "" {
+		return "", nil, fmt.Errorf("category is required")
+	}
+	if !definition.HasCategory(normalizedCategory) {
+		return "", nil, fmt.Errorf("category %q is not in the official taxonomy", category)
+	}
+
+	normalizedTags := normalizeTags(tags)
+	if len(normalizedTags) == 0 {
+		return "", nil, fmt.Errorf("at least one official tag is required")
+	}
+	if len(normalizedTags) > 4 {
+		return "", nil, fmt.Errorf("at most four official tags are allowed")
+	}
+	for _, tag := range normalizedTags {
+		if !definition.HasOfficialTag(tag) {
+			return "", nil, fmt.Errorf("tag %q is not in the official taxonomy", tag)
+		}
+	}
+
+	return normalizedCategory, normalizedTags, nil
 }
 
 func resolvePublicDownloadURL(objStorage *storage.ObjectStorage, isPublic bool, storagePath, namespace, name, version string) string {

@@ -16,12 +16,13 @@ const skillTemplate = `---
 name: %s
 version: 0.1.0
 description: %s 的简短描述
+category: ""
+tags: []
 
 # 可选字段
 # namespace: "@username"
 # description_zh: 中文描述
 # author: Your Name <email@example.com>
-# tags: [tag1, tag2]
 # license: MIT
 # homepage: https://github.com/username/%s
 
@@ -156,20 +157,21 @@ func isValidSkillNameChar(c rune) bool {
 
 // SkillManifest 表示 SKILL.md 的元数据
 type SkillManifest struct {
-	Name            string                 `yaml:"name"`
-	Version         string                 `yaml:"version"`
-	Description     string                 `yaml:"description"`
-	Namespace       string                 `yaml:"namespace,omitempty"`
-	DescriptionZh   string                 `yaml:"description_zh,omitempty"`
-	Author          string                 `yaml:"author,omitempty"`
-	Tags            []string               `yaml:"tags,omitempty"`
-	License         string                 `yaml:"license,omitempty"`
-	Homepage        string                 `yaml:"homepage,omitempty"`
-	Repository      string                 `yaml:"repository,omitempty"`
-	Requires        []string               `yaml:"requires,omitempty"`
-	IDEConfig       map[string]interface{} `yaml:"ide_config,omitempty"`
-	Permissions     []string               `yaml:"permissions,omitempty"`
-	Engines         map[string]string      `yaml:"engines,omitempty"`
+	Name          string                 `yaml:"name"`
+	Version       string                 `yaml:"version"`
+	Description   string                 `yaml:"description"`
+	Category      string                 `yaml:"category,omitempty"`
+	Namespace     string                 `yaml:"namespace,omitempty"`
+	DescriptionZh string                 `yaml:"description_zh,omitempty"`
+	Author        string                 `yaml:"author,omitempty"`
+	Tags          []string               `yaml:"tags,omitempty"`
+	License       string                 `yaml:"license,omitempty"`
+	Homepage      string                 `yaml:"homepage,omitempty"`
+	Repository    string                 `yaml:"repository,omitempty"`
+	Requires      []string               `yaml:"requires,omitempty"`
+	IDEConfig     map[string]interface{} `yaml:"ide_config,omitempty"`
+	Permissions   []string               `yaml:"permissions,omitempty"`
+	Engines       map[string]string      `yaml:"engines,omitempty"`
 }
 
 // GetCreatedAt returns the creation time for the skill

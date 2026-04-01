@@ -10,6 +10,8 @@ import (
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
+
+	"github.com/skill-home/cli/internal/taxonomy"
 )
 
 type validateOptions struct {
@@ -185,6 +187,49 @@ func validateSkill(content []byte, strict bool) *ValidationResult {
 		})
 	}
 
+	definition, err := taxonomy.Load()
+	if err != nil {
+		result.Errors = append(result.Errors, ValidationIssue{
+			Field:   "taxonomy",
+			Message: fmt.Sprintf("加载 taxonomy 失败: %v", err),
+		})
+		return result
+	}
+
+	if manifest.Category == "" {
+		result.Errors = append(result.Errors, ValidationIssue{
+			Field:   "category",
+			Message: "缺少 category，请在 SKILL.md 中设置 category",
+		})
+	} else if !definition.HasCategory(manifest.Category) {
+		result.Errors = append(result.Errors, ValidationIssue{
+			Field:   "category",
+			Message: fmt.Sprintf("category %q 不在官方词表中", manifest.Category),
+		})
+	}
+
+	if len(manifest.Tags) == 0 {
+		result.Errors = append(result.Errors, ValidationIssue{
+			Field:   "tags",
+			Message: "tags 至少需要 1 个官方标签",
+		})
+	} else {
+		if len(manifest.Tags) > 4 {
+			result.Errors = append(result.Errors, ValidationIssue{
+				Field:   "tags",
+				Message: "官方 tags 最多只能填写 4 个",
+			})
+		}
+		for _, tag := range manifest.Tags {
+			if !definition.HasOfficialTag(tag) {
+				result.Errors = append(result.Errors, ValidationIssue{
+					Field:   "tags",
+					Message: fmt.Sprintf("tag %q 不在官方词表中", tag),
+				})
+			}
+		}
+	}
+
 	// 验证正文内容
 	if strings.TrimSpace(body) == "" {
 		result.Errors = append(result.Errors, ValidationIssue{
@@ -199,12 +244,6 @@ func validateSkill(content []byte, strict bool) *ValidationResult {
 			result.Warnings = append(result.Warnings, ValidationIssue{
 				Field:   "author",
 				Message: "建议填写作者信息",
-			})
-		}
-		if len(manifest.Tags) == 0 {
-			result.Warnings = append(result.Warnings, ValidationIssue{
-				Field:   "tags",
-				Message: "建议添加标签以提高可搜索性",
 			})
 		}
 	}

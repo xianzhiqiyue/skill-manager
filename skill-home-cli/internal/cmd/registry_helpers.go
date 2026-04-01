@@ -23,6 +23,7 @@ type registryClient interface {
 	GetUserSkills() ([]registry.Skill, error)
 	ListAuditLogs(page, perPage int, action string) (*registry.AuditLogList, error)
 	RateSkill(namespace, name string, req *registry.RateSkillRequest) (*registry.RateSkillResponse, error)
+	Publish(skillPath string, req *registry.PublishRequest) (*registry.PublishResponse, error)
 }
 
 var registryClientFactory = func() registryClient {

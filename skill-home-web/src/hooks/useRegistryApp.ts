@@ -19,6 +19,7 @@ import {
   removeCommunityTag,
   revokeAPIKey,
   updateSkill,
+  normalizeOfficialTags,
   type APIKeyCreateResponse,
   type APIKeySummary,
   type AuthResponse,
@@ -28,6 +29,7 @@ import {
   type PublishResponse,
   type SkillDetail,
   type SkillSummary,
+  validateOfficialMetadataInput,
 } from '../api';
 import {
   defaultCatalogFilters,
@@ -156,8 +158,9 @@ export function useRegistryApp(
   const [manageNonce, setManageNonce] = useState(0);
   const [manageForm, setManageForm] = useState({
     description: '',
+    category: '',
     license: 'MIT',
-    tags: '',
+    tags: [] as string[],
     isPublic: true,
     isDeprecated: false,
   });
@@ -169,9 +172,10 @@ export function useRegistryApp(
     namespace: '',
     name: '',
     description: '',
+    category: '',
     version: '0.1.0',
     license: 'MIT',
-    tags: '',
+    tags: [] as string[],
     isPublic: true,
   });
   const [publishFile, setPublishFile] = useState<File | null>(null);
@@ -462,8 +466,9 @@ export function useRegistryApp(
         setManagedSkill(data);
         setManageForm({
           description: data.description || '',
+          category: data.category || '',
           license: data.license || 'MIT',
-          tags: (data.tags || []).join(', '),
+          tags: data.tags || [],
           isPublic: data.is_public ?? true,
           isDeprecated: data.is_deprecated ?? false,
         });
@@ -643,6 +648,11 @@ export function useRegistryApp(
       setPublishError('请先选择一个 .zip 技能包。');
       return;
     }
+    const metadataError = validateOfficialMetadataInput(publishForm.category, publishForm.tags);
+    if (metadataError) {
+      setPublishError(metadataError);
+      return;
+    }
 
     setPublishLoading(true);
     setPublishError(null);
@@ -653,9 +663,10 @@ export function useRegistryApp(
         namespace: publishForm.namespace.trim(),
         name: publishForm.name.trim(),
         description: publishForm.description.trim(),
+        category: publishForm.category.trim(),
         version: publishForm.version.trim(),
         license: publishForm.license.trim(),
-        tags: parseTags(publishForm.tags),
+        tags: normalizeOfficialTags(publishForm.tags),
         isPublic: publishForm.isPublic,
         archive: publishFile,
       });
@@ -665,8 +676,9 @@ export function useRegistryApp(
         ...current,
         name: '',
         description: '',
+        category: '',
         version: '0.1.0',
-        tags: '',
+        tags: [],
       }));
       setPublishFile(null);
       setAccountNonce((value) => value + 1);
@@ -685,6 +697,11 @@ export function useRegistryApp(
       setManageError('请先登录并选择一个 skill。');
       return;
     }
+    const metadataError = validateOfficialMetadataInput(manageForm.category, manageForm.tags);
+    if (metadataError) {
+      setManageError(metadataError);
+      return;
+    }
 
     setManageSaving(true);
     setManageError(null);
@@ -693,7 +710,8 @@ export function useRegistryApp(
     try {
       await updateSkill(token, managedSkill.namespace, managedSkill.name, {
         description: manageForm.description.trim(),
-        tags: parseTags(manageForm.tags),
+        category: manageForm.category.trim(),
+        tags: normalizeOfficialTags(manageForm.tags),
         license: manageForm.license.trim(),
         isPublic: manageForm.isPublic,
         isDeprecated: manageForm.isDeprecated,

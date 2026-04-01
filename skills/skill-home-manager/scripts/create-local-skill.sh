@@ -16,7 +16,8 @@ usage() {
 Usage: create-local-skill.sh <skill-name> [description] [output-dir]
 
 Create a new local skill directory by calling `skill-home init`, patch the
-generated description if one is provided, and validate the result.
+generated description if one is provided, and print the next steps to fill
+category/tags before validation.
 EOF
 }
 
@@ -46,5 +47,7 @@ if [[ -n "$description" ]]; then
   sed -i "0,/^description: .*/s//description: $escaped_description/" "$skill_file"
 fi
 
-skill-home validate "$skill_dir"
 printf 'Created skill: %s\n' "$skill_dir"
+printf 'Next steps:\n'
+printf '  1. Edit %s and fill category plus official tags.\n' "$skill_file"
+printf '  2. Run skill-home validate %s\n' "$skill_dir"

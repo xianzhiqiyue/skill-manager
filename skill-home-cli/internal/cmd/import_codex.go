@@ -185,12 +185,12 @@ func (c *CodexImporter) parseFrontmatter(skill *types.Skill, content string) {
 // parseAgentJSON 解析 agent.json
 func (c *CodexImporter) parseAgentJSON(skill *types.Skill, data []byte) {
 	var agent struct {
-		Name        string            `json:"name"`
-		Description string            `json:"description"`
-		Version     string            `json:"version"`
-		Author      string            `json:"author"`
-		System      string            `json:"system"`
-		Tags        []string          `json:"tags"`
+		Name        string                 `json:"name"`
+		Description string                 `json:"description"`
+		Version     string                 `json:"version"`
+		Author      string                 `json:"author"`
+		System      string                 `json:"system"`
+		Tags        []string               `json:"tags"`
 		Config      map[string]interface{} `json:"config"`
 	}
 
@@ -236,7 +236,9 @@ func (c *CodexImporter) convertAgentMD(content string) string {
 name: %s
 version: 0.1.0
 description: Imported from Codex
-tags: [imported, codex]
+category: productivity
+tags:
+  - workflow
 license: MIT
 ---
 
@@ -254,7 +256,9 @@ func (c *CodexImporter) generateSkillMD(system string) string {
 name: %s
 version: 0.1.0
 description: Imported from Codex agent configuration
-tags: [imported, codex]
+category: productivity
+tags:
+  - workflow
 license: MIT
 ---
 

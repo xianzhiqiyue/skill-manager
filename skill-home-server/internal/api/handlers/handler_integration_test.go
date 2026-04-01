@@ -54,6 +54,7 @@ func newTestDatabase(t *testing.T) *storage.Database {
 		name TEXT NOT NULL,
 		owner_id TEXT NOT NULL,
 		description TEXT,
+		category TEXT,
 		description_zh TEXT,
 		author TEXT,
 		tags TEXT,
@@ -252,6 +253,8 @@ func TestCreateSkillRequiresAuth(t *testing.T) {
 	req, _ := newCreateSkillRequest(t, map[string]string{
 		"namespace": "team",
 		"name":      "github",
+		"category":  "development",
+		"tags":      "review",
 		"version":   "1.0.0",
 	}, newSkillArchive(t))
 
@@ -865,6 +868,8 @@ func TestCreateSkillReturnsPublicDownloadURL(t *testing.T) {
 	req, _ := newCreateSkillRequest(t, map[string]string{
 		"namespace": "team",
 		"name":      "github",
+		"category":  "development",
+		"tags":      "review",
 		"version":   "1.0.0",
 	}, newSkillArchive(t))
 
@@ -913,6 +918,8 @@ func TestCreateSkillPersistsManifestCredentials(t *testing.T) {
 	req, _ := newCreateSkillRequest(t, map[string]string{
 		"namespace": "team",
 		"name":      "github",
+		"category":  "integration",
+		"tags":      "api",
 		"version":   "1.0.0",
 	}, mustZipArchive(t, map[string]string{
 		"SKILL.md": `---
@@ -988,6 +995,8 @@ func TestCreateTarGzSkillKeepsRelativeDownloadURL(t *testing.T) {
 	req, _ := newCreateSkillRequestWithFilename(t, map[string]string{
 		"namespace": "team",
 		"name":      "github-tgz",
+		"category":  "development",
+		"tags":      "workflow",
 		"version":   "1.0.0",
 	}, "example.tar.gz", mustTarGzArchive(t, map[string]string{"SKILL.md": "# Example Skill\n"}))
 
@@ -1024,6 +1033,8 @@ func TestCreatePrivateSkillKeepsRelativeDownloadURL(t *testing.T) {
 	req, _ := newCreateSkillRequest(t, map[string]string{
 		"namespace": "team",
 		"name":      "private-github",
+		"category":  "integration",
+		"tags":      "api",
 		"version":   "1.0.0",
 		"is_public": "false",
 	}, newSkillArchive(t))
@@ -1061,6 +1072,8 @@ func TestCatalogVersionBumpsOnSkillMutations(t *testing.T) {
 		req, _ := newCreateSkillRequest(t, map[string]string{
 			"namespace": "team",
 			"name":      "github",
+			"category":  "development",
+			"tags":      "review",
 			"version":   "1.0.0",
 		}, newSkillArchive(t))
 
@@ -1096,7 +1109,7 @@ func TestCatalogVersionBumpsOnSkillMutations(t *testing.T) {
 		router := newAuthedRouter(user)
 		router.PUT("/api/v1/skills/:namespace/:name", UpdateSkill(db))
 
-		body := bytes.NewBufferString(`{"description":"after","tags":["review"],"license":"Apache-2.0","is_public":true}`)
+		body := bytes.NewBufferString(`{"description":"after","category":"development","tags":["review"],"license":"Apache-2.0","is_public":true}`)
 		req := httptest.NewRequest(http.MethodPut, "/api/v1/skills/team/github", body)
 		req.Header.Set("Content-Type", "application/json")
 		rec := httptest.NewRecorder()
@@ -1262,7 +1275,7 @@ func TestUpdateSkillVisibilityTransitionsBumpCatalogVersion(t *testing.T) {
 		router := newAuthedRouter(user)
 		router.PUT("/api/v1/skills/:namespace/:name", UpdateSkill(db))
 
-		body := bytes.NewBufferString(`{"description":"after","tags":["review"],"license":"Apache-2.0","is_public":false}`)
+		body := bytes.NewBufferString(`{"description":"after","category":"development","tags":["review"],"license":"Apache-2.0","is_public":false}`)
 		req := httptest.NewRequest(http.MethodPut, "/api/v1/skills/team/github", body)
 		req.Header.Set("Content-Type", "application/json")
 		rec := httptest.NewRecorder()
@@ -1300,7 +1313,7 @@ func TestUpdateSkillVisibilityTransitionsBumpCatalogVersion(t *testing.T) {
 		router := newAuthedRouter(user)
 		router.PUT("/api/v1/skills/:namespace/:name", UpdateSkill(db))
 
-		body := bytes.NewBufferString(`{"description":"after","tags":["review"],"license":"Apache-2.0","is_public":true}`)
+		body := bytes.NewBufferString(`{"description":"after","category":"development","tags":["review"],"license":"Apache-2.0","is_public":true}`)
 		req := httptest.NewRequest(http.MethodPut, "/api/v1/skills/team/github", body)
 		req.Header.Set("Content-Type", "application/json")
 		rec := httptest.NewRecorder()
@@ -1340,6 +1353,8 @@ func TestCreateSkillReturnsAlreadyExistsConflictDoesNotBump(t *testing.T) {
 	req, _ := newCreateSkillRequest(t, map[string]string{
 		"namespace": "team",
 		"name":      "github",
+		"category":  "development",
+		"tags":      "review",
 		"version":   "1.0.0",
 	}, newSkillArchive(t))
 
@@ -1368,6 +1383,8 @@ func TestPrivateSkillMutationsDoNotBumpCatalogVersion(t *testing.T) {
 		req, _ := newCreateSkillRequest(t, map[string]string{
 			"namespace": "team",
 			"name":      "private-github",
+			"category":  "integration",
+			"tags":      "api",
 			"version":   "1.0.0",
 			"is_public": "false",
 		}, newSkillArchive(t))
@@ -1407,7 +1424,7 @@ func TestPrivateSkillMutationsDoNotBumpCatalogVersion(t *testing.T) {
 		router := newAuthedRouter(user)
 		router.PUT("/api/v1/skills/:namespace/:name", UpdateSkill(db))
 
-		body := bytes.NewBufferString(`{"description":"after","tags":["review"],"license":"Apache-2.0","is_public":false}`)
+		body := bytes.NewBufferString(`{"description":"after","category":"development","tags":["review"],"license":"Apache-2.0","is_public":false}`)
 		req := httptest.NewRequest(http.MethodPut, "/api/v1/skills/team/private-github", body)
 		req.Header.Set("Content-Type", "application/json")
 		rec := httptest.NewRecorder()
@@ -1581,6 +1598,8 @@ func TestCreateSkillRollsBackWhenAuditLogWriteFails(t *testing.T) {
 	req, _ := newCreateSkillRequest(t, map[string]string{
 		"namespace": "team",
 		"name":      "github",
+		"category":  "development",
+		"tags":      "review",
 		"version":   "1.0.0",
 	}, newSkillArchive(t))
 
@@ -2316,6 +2335,12 @@ func TestCreateSkillSetsPublishedAtOnInitialVersion(t *testing.T) {
 	if err := writer.WriteField("version", "0.1.0"); err != nil {
 		t.Fatalf("WriteField version returned error: %v", err)
 	}
+	if err := writer.WriteField("category", "productivity"); err != nil {
+		t.Fatalf("WriteField category returned error: %v", err)
+	}
+	if err := writer.WriteField("tags", "workflow"); err != nil {
+		t.Fatalf("WriteField tags returned error: %v", err)
+	}
 	part, err := writer.CreateFormFile("skill", "first-skill.zip")
 	if err != nil {
 		t.Fatalf("CreateFormFile returned error: %v", err)
@@ -2598,9 +2623,10 @@ func TestCreateSkillPersistsOfficialTagsFromPublishForm(t *testing.T) {
 		"namespace":   "team",
 		"name":        "github",
 		"description": "Interact with GitHub using gh.",
+		"category":    "ops",
 		"version":     "1.0.0",
 		"license":     "MIT",
-		"tags":        "automation, github",
+		"tags":        "deploy, ci",
 		"is_public":   "true",
 	}, newSkillArchive(t))
 
@@ -2616,8 +2642,42 @@ func TestCreateSkillPersistsOfficialTagsFromPublishForm(t *testing.T) {
 		t.Fatalf("load skill failed: %v", err)
 	}
 
-	if len(skill.Tags) != 2 || skill.Tags[0] != "automation" || skill.Tags[1] != "github" {
+	if skill.Category != "ops" {
+		t.Fatalf("unexpected category: %+v", skill.Category)
+	}
+	if len(skill.Tags) != 2 || skill.Tags[0] != "deployment" || skill.Tags[1] != "ci-cd" {
 		t.Fatalf("unexpected tags: %+v", skill.Tags)
+	}
+}
+
+func TestCreateSkillRejectsMissingCategory(t *testing.T) {
+	db := newTestDatabase(t)
+	user := &models.User{ID: uuid.New(), Username: "owner", Email: "owner@example.com"}
+	if err := db.Create(user).Error; err != nil {
+		t.Fatalf("create user failed: %v", err)
+	}
+
+	router := newAuthedRouter(user)
+	router.POST("/api/v1/skills", CreateSkill(db, newTestObjectStorage(t), validator.NewScanner()))
+
+	req, _ := newCreateSkillRequest(t, map[string]string{
+		"namespace":   "team",
+		"name":        "github",
+		"description": "Interact with GitHub using gh.",
+		"version":     "1.0.0",
+		"license":     "MIT",
+		"tags":        "deployment",
+		"is_public":   "true",
+	}, newSkillArchive(t))
+
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("unexpected status: %d body=%s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "category") {
+		t.Fatalf("unexpected response body: %s", rec.Body.String())
 	}
 }
 
@@ -2729,6 +2789,7 @@ func TestUpdateSkillSupportsExplicitDeprecationToggle(t *testing.T) {
 		Name:         "reviewer",
 		OwnerID:      user.ID,
 		Description:  "before",
+		Category:     "development",
 		License:      "MIT",
 		IsPublic:     true,
 		IsDeprecated: false,
@@ -2740,7 +2801,7 @@ func TestUpdateSkillSupportsExplicitDeprecationToggle(t *testing.T) {
 	router := newAuthedRouter(user)
 	router.PUT("/api/v1/skills/:namespace/:name", UpdateSkill(db))
 
-	body := bytes.NewBufferString(`{"description":"after","tags":["review"],"license":"Apache-2.0","is_public":true,"is_deprecated":true}`)
+	body := bytes.NewBufferString(`{"description":"after","category":"development","tags":["review"],"license":"Apache-2.0","is_public":true,"is_deprecated":true}`)
 	req := httptest.NewRequest(http.MethodPut, "/api/v1/skills/team/reviewer", body)
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
@@ -2775,7 +2836,8 @@ func TestUpdateSkillDoesNotBumpCatalogVersionForNoOpPublicUpdate(t *testing.T) {
 		Name:         "reviewer",
 		OwnerID:      user.ID,
 		Description:  "before",
-		Tags:         models.StringArray{"review", "quality"},
+		Category:     "development",
+		Tags:         models.StringArray{"review", "analysis"},
 		License:      "MIT",
 		IsPublic:     true,
 		IsDeprecated: false,
@@ -2787,7 +2849,7 @@ func TestUpdateSkillDoesNotBumpCatalogVersionForNoOpPublicUpdate(t *testing.T) {
 	router := newAuthedRouter(user)
 	router.PUT("/api/v1/skills/:namespace/:name", UpdateSkill(db))
 
-	body := bytes.NewBufferString(`{"description":"before","tags":["review","quality"],"license":"MIT","is_public":true,"is_deprecated":false}`)
+	body := bytes.NewBufferString(`{"description":"before","category":"development","tags":["review","analysis"],"license":"MIT","is_public":true,"is_deprecated":false}`)
 	req := httptest.NewRequest(http.MethodPut, "/api/v1/skills/team/reviewer", body)
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
@@ -2798,6 +2860,46 @@ func TestUpdateSkillDoesNotBumpCatalogVersionForNoOpPublicUpdate(t *testing.T) {
 	}
 	if got := currentCatalogVersion(t, db); got != 1 {
 		t.Fatalf("catalog_version = %d, want 1", got)
+	}
+}
+
+func TestUpdateSkillRejectsInvalidCategory(t *testing.T) {
+	db := newTestDatabase(t)
+	user := &models.User{ID: uuid.New(), Username: "owner", Email: "owner@example.com"}
+	if err := db.Create(user).Error; err != nil {
+		t.Fatalf("create user failed: %v", err)
+	}
+
+	skill := models.Skill{
+		ID:           uuid.New(),
+		Namespace:    "team",
+		Name:         "reviewer",
+		OwnerID:      user.ID,
+		Description:  "before",
+		Category:     "development",
+		Tags:         models.StringArray{"review"},
+		License:      "MIT",
+		IsPublic:     true,
+		IsDeprecated: false,
+	}
+	if err := db.Create(&skill).Error; err != nil {
+		t.Fatalf("create skill failed: %v", err)
+	}
+
+	router := newAuthedRouter(user)
+	router.PUT("/api/v1/skills/:namespace/:name", UpdateSkill(db))
+
+	body := bytes.NewBufferString(`{"description":"after","category":"general","tags":["review"],"license":"Apache-2.0","is_public":true,"is_deprecated":false}`)
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/skills/team/reviewer", body)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("unexpected status: %d body=%s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "category") {
+		t.Fatalf("unexpected response body: %s", rec.Body.String())
 	}
 }
 

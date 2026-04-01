@@ -10,6 +10,8 @@ import (
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
+
+	"github.com/skill-home/cli/internal/taxonomy"
 )
 
 // SkillTemplate 技能模板定义
@@ -17,6 +19,7 @@ type SkillTemplate struct {
 	Name        string
 	Description string
 	Category    string
+	DefaultTags []string
 	Content     string
 }
 
@@ -25,11 +28,13 @@ var skillTemplates = []SkillTemplate{
 	{
 		Name:        "basic",
 		Description: "基础模板 - 通用技能",
-		Category:    "general",
+		Category:    "productivity",
+		DefaultTags: []string{"workflow"},
 		Content: `---
 name: {{.Name}}
 version: 0.1.0
 description: {{.Description}}
+category: {{.Category}}
 {{if .Namespace}}namespace: "{{.Namespace}}"{{end}}
 {{if .Author}}author: {{.Author}}{{end}}
 {{if .Tags}}tags:{{range .Tags}}
@@ -60,16 +65,16 @@ license: {{.License}}
 		Name:        "code-reviewer",
 		Description: "代码审查专家",
 		Category:    "development",
+		DefaultTags: []string{"review", "testing", "analysis"},
 		Content: `---
 name: {{.Name}}
 version: 0.1.0
 description: {{.Description}}
+category: {{.Category}}
 {{if .Namespace}}namespace: "{{.Namespace}}"{{end}}
 {{if .Author}}author: {{.Author}}{{end}}
-tags:
-  - code-review
-  - quality
-  - best-practices
+{{if .Tags}}tags:{{range .Tags}}
+  - {{.}}{{end}}{{end}}
 license: {{.License}}
 ide_config:
   cursor:
@@ -132,18 +137,17 @@ ide_config:
 	{
 		Name:        "api-designer",
 		Description: "API 设计专家",
-		Category:    "development",
+		Category:    "integration",
+		DefaultTags: []string{"api", "planning", "integration", "backend"},
 		Content: `---
 name: {{.Name}}
 version: 0.1.0
 description: {{.Description}}
+category: {{.Category}}
 {{if .Namespace}}namespace: "{{.Namespace}}"{{end}}
 {{if .Author}}author: {{.Author}}{{end}}
-tags:
-  - api
-  - design
-  - rest
-  - graphql
+{{if .Tags}}tags:{{range .Tags}}
+  - {{.}}{{end}}{{end}}
 license: {{.License}}
 ---
 
@@ -185,16 +189,16 @@ license: {{.License}}
 		Name:        "refactor-expert",
 		Description: "代码重构专家",
 		Category:    "development",
+		DefaultTags: []string{"refactor", "analysis", "review"},
 		Content: `---
 name: {{.Name}}
 version: 0.1.0
 description: {{.Description}}
+category: {{.Category}}
 {{if .Namespace}}namespace: "{{.Namespace}}"{{end}}
 {{if .Author}}author: {{.Author}}{{end}}
-tags:
-  - refactoring
-  - clean-code
-  - architecture
+{{if .Tags}}tags:{{range .Tags}}
+  - {{.}}{{end}}{{end}}
 license: {{.License}}
 ide_config:
   claude:
@@ -252,17 +256,17 @@ ide_config:
 	{
 		Name:        "test-expert",
 		Description: "测试专家",
-		Category:    "development",
+		Category:    "testing",
+		DefaultTags: []string{"testing", "review", "analysis"},
 		Content: `---
 name: {{.Name}}
 version: 0.1.0
 description: {{.Description}}
+category: {{.Category}}
 {{if .Namespace}}namespace: "{{.Namespace}}"{{end}}
 {{if .Author}}author: {{.Author}}{{end}}
-tags:
-  - testing
-  - tdd
-  - quality
+{{if .Tags}}tags:{{range .Tags}}
+  - {{.}}{{end}}{{end}}
 license: {{.License}}
 ---
 
@@ -321,17 +325,17 @@ describe('功能模块', () => {
 	{
 		Name:        "doc-writer",
 		Description: "文档编写专家",
-		Category:    "documentation",
+		Category:    "docs",
+		DefaultTags: []string{"docs", "analysis", "workflow"},
 		Content: `---
 name: {{.Name}}
 version: 0.1.0
 description: {{.Description}}
+category: {{.Category}}
 {{if .Namespace}}namespace: "{{.Namespace}}"{{end}}
 {{if .Author}}author: {{.Author}}{{end}}
-tags:
-  - documentation
-  - writing
-  - technical-writing
+{{if .Tags}}tags:{{range .Tags}}
+  - {{.}}{{end}}{{end}}
 license: {{.License}}
 ---
 
@@ -385,17 +389,17 @@ license: {{.License}}
 	{
 		Name:        "security-auditor",
 		Description: "安全审计专家",
-		Category:    "security",
+		Category:    "development",
+		DefaultTags: []string{"security", "review", "analysis"},
 		Content: `---
 name: {{.Name}}
 version: 0.1.0
 description: {{.Description}}
+category: {{.Category}}
 {{if .Namespace}}namespace: "{{.Namespace}}"{{end}}
 {{if .Author}}author: {{.Author}}{{end}}
-tags:
-  - security
-  - audit
-  - vulnerability
+{{if .Tags}}tags:{{range .Tags}}
+  - {{.}}{{end}}{{end}}
 license: {{.License}}
 permissions:
   - file:read
@@ -444,17 +448,17 @@ permissions:
 	{
 		Name:        "performance-optimizer",
 		Description: "性能优化专家",
-		Category:    "optimization",
+		Category:    "development",
+		DefaultTags: []string{"analysis", "monitoring", "backend"},
 		Content: `---
 name: {{.Name}}
 version: 0.1.0
 description: {{.Description}}
+category: {{.Category}}
 {{if .Namespace}}namespace: "{{.Namespace}}"{{end}}
 {{if .Author}}author: {{.Author}}{{end}}
-tags:
-  - performance
-  - optimization
-  - scalability
+{{if .Tags}}tags:{{range .Tags}}
+  - {{.}}{{end}}{{end}}
 license: {{.License}}
 ---
 
@@ -557,6 +561,7 @@ func newCreateCmd() *cobra.Command {
 type SkillAnswers struct {
 	Name        string
 	Description string
+	Category    string
 	Namespace   string
 	Author      string
 	Tags        []string
@@ -593,6 +598,10 @@ func runCreate(skillName string, opts *createOptions) error {
 			answers.Template = opts.template
 		} else {
 			answers.Template = "basic"
+		}
+		if template := getTemplate(answers.Template); template != nil {
+			answers.Category = template.Category
+			answers.Tags = append([]string{}, template.DefaultTags...)
 		}
 		if len(answers.Platforms) == 0 {
 			answers.Platforms = []string{"claude"}
@@ -636,6 +645,12 @@ func runCreate(skillName string, opts *createOptions) error {
 	template := getTemplate(answers.Template)
 	if template == nil {
 		return fmt.Errorf("未知模板: %s", answers.Template)
+	}
+	if answers.Category == "" {
+		answers.Category = template.Category
+	}
+	if len(answers.Tags) == 0 {
+		answers.Tags = append([]string{}, template.DefaultTags...)
 	}
 
 	// 渲染模板
@@ -726,6 +741,27 @@ func runInteractiveWizard(skillName string, templateName string, answers *SkillA
 		return err
 	}
 
+	template := getTemplate(answers.Template)
+	if template == nil {
+		return fmt.Errorf("未知模板: %s", answers.Template)
+	}
+	categoryOptions, err := categoryOptions()
+	if err != nil {
+		return err
+	}
+	defaultCategory := template.Category
+	if defaultCategory == "" && len(categoryOptions) > 0 {
+		defaultCategory = categoryOptions[0]
+	}
+	promptCategory := &survey.Select{
+		Message: "选择一级分类:",
+		Options: categoryOptions,
+		Default: defaultCategory,
+	}
+	if err := survey.AskOne(promptCategory, &answers.Category); err != nil {
+		return err
+	}
+
 	// 4. 命名空间（可选）
 	prompt2 := &survey.Input{
 		Message: "命名空间 (可选, 如 @username):",
@@ -743,13 +779,14 @@ func runInteractiveWizard(skillName string, templateName string, answers *SkillA
 		return err
 	}
 
-	// 6. 标签（可选）
+	// 6. 标签（必填，1-4 个）
 	prompt4 := &survey.Input{
-		Message: "标签 (可选, 逗号分隔):",
-		Help:    "例如: go,backend,api",
+		Message: "官方标签 (1-4 个, 逗号分隔):",
+		Default: strings.Join(template.DefaultTags, ", "),
+		Help:    "例如: deployment, ci-cd, workflow",
 	}
 	var tagsStr string
-	if err := survey.AskOne(prompt4, &tagsStr); err != nil {
+	if err := survey.AskOne(prompt4, &tagsStr, survey.WithValidator(survey.Required)); err != nil {
 		return err
 	}
 	if tagsStr != "" {
@@ -855,6 +892,7 @@ func renderTemplate(template string, data *SkillAnswers) (string, error) {
 	// 基本替换
 	result = strings.ReplaceAll(result, "{{.Name}}", data.Name)
 	result = strings.ReplaceAll(result, "{{.Description}}", data.Description)
+	result = strings.ReplaceAll(result, "{{.Category}}", data.Category)
 	result = strings.ReplaceAll(result, "{{.License}}", data.License)
 
 	// 条件替换
@@ -923,6 +961,19 @@ func renderIDEConfig(platforms []string) string {
 	}
 
 	return config.String()
+}
+
+func categoryOptions() ([]string, error) {
+	definition, err := taxonomy.Load()
+	if err != nil {
+		return nil, err
+	}
+
+	options := make([]string, 0, len(definition.Categories))
+	for _, category := range definition.Categories {
+		options = append(options, category.ID)
+	}
+	return options, nil
 }
 
 // 为了兼容性，保留 init 命令

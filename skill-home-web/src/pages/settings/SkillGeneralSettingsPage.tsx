@@ -1,6 +1,13 @@
+import {
+  OFFICIAL_TAGS,
+  SKILL_CATEGORIES,
+  toggleOfficialTag,
+  validateOfficialMetadataInput,
+} from '../../api';
+import { SkillTagButton } from '../../components/object/SkillTagButton';
 import { useRegistryApp } from '../../hooks/useRegistryApp';
-import { SkillSettingsFrame } from './SkillSettingsFrame';
 import { skillKey } from '../../lib/format';
+import { SkillSettingsFrame } from './SkillSettingsFrame';
 
 type AppModel = ReturnType<typeof useRegistryApp>;
 
@@ -20,10 +27,14 @@ export function SkillGeneralSettingsPage({
   const targetKey = `${namespace}/${skillName}`;
   const skill =
     model.managedSkill && skillKey(model.managedSkill) === targetKey ? model.managedSkill : null;
+  const metadataError = validateOfficialMetadataInput(
+    model.manageForm.category,
+    model.manageForm.tags,
+  );
 
   return (
     <SkillSettingsFrame
-      description="编辑 skill 的描述、License 和 tags。"
+      description="编辑 skill 的描述、官方分类和 License。"
       model={model}
       namespace={namespace}
       navigate={navigate}
@@ -64,6 +75,27 @@ export function SkillGeneralSettingsPage({
 
             <div className="form-grid-two">
               <label className="field">
+                <span>Category</span>
+                <select
+                  aria-label="Category"
+                  value={model.manageForm.category}
+                  onChange={(event) =>
+                    model.setManageForm((current) => ({
+                      ...current,
+                      category: event.target.value,
+                    }))
+                  }
+                >
+                  <option value="">请选择一级分类</option>
+                  {SKILL_CATEGORIES.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.label} · {item.description}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="field">
                 <span>License</span>
                 <input
                   placeholder="MIT"
@@ -76,25 +108,41 @@ export function SkillGeneralSettingsPage({
                   }
                 />
               </label>
+            </div>
 
-              <label className="field">
-                <span>Tags</span>
-                <input
-                  placeholder="review, codex, registry"
-                  value={model.manageForm.tags}
-                  onChange={(event) =>
-                    model.setManageForm((current) => ({
-                      ...current,
-                      tags: event.target.value,
-                    }))
-                  }
-                />
-              </label>
+            <div className="field">
+              <span>Official tags</span>
+              <p className="gh-community-tag-copy">
+                选择 1 到 4 个官方标签，保持目录分类和筛选口径一致。
+              </p>
+              <div className="skill-tag-row skill-tag-row--dense">
+                {OFFICIAL_TAGS.map((item) => (
+                  <SkillTagButton
+                    key={item.id}
+                    onSelect={(tag) =>
+                      model.setManageForm((current) => ({
+                        ...current,
+                        tags: toggleOfficialTag(current.tags, tag),
+                      }))
+                    }
+                    selected={model.manageForm.tags.includes(item.id)}
+                    tag={item.id}
+                  />
+                ))}
+              </div>
+              <p className="gh-community-tag-copy">
+                已选 {model.manageForm.tags.length} / 4
+                {metadataError ? ` · ${metadataError}` : ''}
+              </p>
             </div>
           </section>
 
           <div className="gh-settings-actions">
-            <button className="button button--primary" disabled={model.manageSaving} type="submit">
+            <button
+              className="button button--primary"
+              disabled={model.manageSaving || Boolean(metadataError)}
+              type="submit"
+            >
               {model.manageSaving ? '保存中...' : 'Save changes'}
             </button>
           </div>

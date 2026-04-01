@@ -59,6 +59,7 @@ func TestParseDerivesRequiresFromOpenClawCredentials(t *testing.T) {
 name: github
 version: 1.0.0
 description: GitHub skill
+category: ops
 metadata:
   openclaw:
     credentials:
@@ -83,5 +84,8 @@ body
 	}
 	if s.Manifest.Requires[0] != "OPENAI_API_KEY" || s.Manifest.Requires[1] != "ANTHROPIC_API_KEY" {
 		t.Fatalf("requires = %#v, want derived envs", s.Manifest.Requires)
+	}
+	if s.Manifest.Category != "ops" {
+		t.Fatalf("category = %q, want ops", s.Manifest.Category)
 	}
 }

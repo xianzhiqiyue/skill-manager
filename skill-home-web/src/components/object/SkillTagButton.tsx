@@ -24,6 +24,7 @@ export function SkillTagButton({
 
   return (
     <button
+      aria-pressed={selected}
       className={`skill-badge skill-badge--interactive ${selected ? 'is-selected' : ''}`.trim()}
       onClick={() => onSelect(tag)}
       type="button"
