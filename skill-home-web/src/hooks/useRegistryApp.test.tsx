@@ -8,6 +8,7 @@ import {
   loginUser,
   publishSkill,
   removeCommunityTag,
+  updateSkill,
 } from '../api';
 import { PublishNewPage } from '../pages/PublishNewPage';
 import { SkillOverviewPage } from '../pages/skill/SkillOverviewPage';
@@ -60,6 +61,8 @@ vi.mock('../api', async (importOriginal) => {
       namespace: 'testuser',
       name: 'github',
       description: 'Interact with GitHub using gh.',
+      category: 'integration',
+      tags: ['api'],
       download_count: 18,
       rating_count: 0,
       latest_version: '1.0.0',
@@ -196,7 +199,7 @@ describe('useRegistryApp catalog URL sync', () => {
     });
   });
 
-  it('submits parsed publish tags with the release payload', async () => {
+  it('submits selected publish category and tags with the release payload', async () => {
     window.localStorage.setItem('skill-home-web-token', 'token-1');
     vi.mocked(publishSkill).mockResolvedValue({
       namespace: 'testuser',
@@ -218,7 +221,8 @@ describe('useRegistryApp catalog URL sync', () => {
         description: 'Interact with GitHub using gh.',
         version: '1.0.0',
         license: 'MIT',
-        tags: 'automation, github',
+        category: 'integration',
+        tags: ['api', 'automation'],
       }));
       result.current.setPublishFile(new File(['zip-binary'], 'github.zip', { type: 'application/zip' }));
     });
@@ -231,8 +235,68 @@ describe('useRegistryApp catalog URL sync', () => {
       expect(publishSkill).toHaveBeenCalledWith('token-1', expect.objectContaining({
         namespace: 'testuser',
         name: 'github',
-        tags: ['automation', 'github'],
+        category: 'integration',
+        tags: ['api', 'automation'],
       }));
+    });
+  });
+
+  it('submits selected manage category and tags with the update payload', async () => {
+    window.localStorage.setItem('skill-home-web-token', 'token-1');
+    vi.mocked(updateSkill).mockResolvedValue({
+      id: 'skill-1',
+      namespace: 'testuser',
+      name: 'github',
+      description: 'Updated description',
+      category: 'ops',
+      tags: ['deployment', 'ci-cd'],
+      download_count: 18,
+      rating_count: 0,
+      latest_version: '1.0.0',
+      is_public: true,
+      is_deprecated: false,
+      versions: [],
+    });
+
+    const navigate = vi.fn();
+    const { result } = renderHook(() =>
+      useRegistryApp(
+        { name: 'skill-settings', namespace: 'testuser', skillName: 'github', section: 'general' },
+        '',
+        navigate,
+      ),
+    );
+
+    await waitFor(() => {
+      expect(result.current.managedSkill?.name).toBe('github');
+    });
+
+    act(() => {
+      result.current.setManageForm((current) => ({
+        ...current,
+        description: 'Updated description',
+        category: 'ops',
+        tags: ['deployment', 'ci-cd'],
+        license: 'Apache-2.0',
+      }));
+    });
+
+    await act(async () => {
+      await result.current.submitManage();
+    });
+
+    await waitFor(() => {
+      expect(updateSkill).toHaveBeenCalledWith(
+        'token-1',
+        'testuser',
+        'github',
+        expect.objectContaining({
+          description: 'Updated description',
+          category: 'ops',
+          tags: ['deployment', 'ci-cd'],
+          license: 'Apache-2.0',
+        }),
+      );
     });
   });
 
@@ -345,9 +409,10 @@ describe('useRegistryApp catalog URL sync', () => {
             namespace: 'testuser',
             name: 'github',
             description: '',
+            category: '',
             version: '1.0.0',
             license: 'MIT',
-            tags: '',
+            tags: [],
             isPublic: true,
           },
           setPublishForm: vi.fn(),
@@ -381,9 +446,10 @@ describe('useRegistryApp catalog URL sync', () => {
             namespace: 'testuser',
             name: 'github',
             description: '',
+            category: '',
             version: '1.0.0',
             license: 'MIT',
-            tags: '',
+            tags: [],
             isPublic: true,
           },
           setPublishForm: vi.fn(),

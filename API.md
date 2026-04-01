@@ -150,8 +150,9 @@ GET /api/v1/skills?page=1&per_page=20&q=keyword&tag=tag1&namespace=testuser
       "namespace": "testuser",
       "name": "my-skill",
       "description": "技能描述",
+      "category": "automation",
       "author": "testuser",
-      "tags": ["example", "tutorial"],
+      "tags": ["workflow", "automation"],
       "download_count": 42,
       "rating": 4.8,
       "rating_count": 5,
@@ -182,7 +183,8 @@ Authorization: Bearer <token>  // 可选，访问私有技能或返回 user_rati
   "name": "my-skill",
   "owner_id": "...",
   "description": "技能描述",
-  "tags": ["example"],
+  "category": "automation",
+  "tags": ["workflow"],
   "license": "MIT",
   "download_count": 42,
   "rating": 4.8,
@@ -227,11 +229,15 @@ Content-Type: multipart/form-data
 namespace: testuser
 name: my-skill
 description: 技能描述
+category: automation
 version: 1.0.0
 license: MIT
+tags: workflow, automation
 is_public: true
 skill: <文件>
 ```
+
+`category` 和 `tags` 都是必填字段，其中 `tags` 必须是 1 到 4 个官方标签。
 
 **响应**:
 
@@ -255,7 +261,8 @@ Content-Type: application/json
 
 {
   "description": "新描述",
-  "tags": ["new-tag"],
+  "category": "docs",
+  "tags": ["docs", "workflow"],
   "license": "Apache-2.0",
   "is_public": false
 }
@@ -488,7 +495,8 @@ Authorization: Bearer <token>
 | namespace | string | 命名空间 |
 | name | string | 技能名称 |
 | description | string | 描述 |
-| tags | []string | 标签 |
+| category | string | 官方一级分类 |
+| tags | []string | 官方标签，1-4 个 |
 | license | string | 许可证 |
 | is_public | bool | 是否公开 |
 | download_count | int | 下载次数 |
@@ -535,8 +543,9 @@ cat > SKILL.md << 'EOF'
 name: my-skill
 version: 1.0.0
 description: 我的技能
+category: productivity
 tags:
-  - example
+  - workflow
 ---
 
 # 我的技能
@@ -551,7 +560,9 @@ curl -X POST https://soulstore.ciqtek.com/skill-home/api/v1/skills \
   -F "namespace=testuser" \
   -F "name=my-skill" \
   -F "description=我的技能" \
+  -F "category=productivity" \
   -F "version=1.0.0" \
+  -F "tags=workflow" \
   -F "skill=@skill.tar.gz"
 
 # 4. 搜索技能

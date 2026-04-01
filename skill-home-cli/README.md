@@ -54,6 +54,7 @@ make install
 skill-home init my-skill
 cd my-skill
 
+# 先补齐 SKILL.md 里的 category 和 official tags
 skill-home validate .
 skill-home scan .
 skill-home preview . -p codex
@@ -63,9 +64,19 @@ skill-home preview . -p codex
 
 ```bash
 skill-home login
+# 交互终端下，push 会在缺少 category/tags 时提示补齐并写回 SKILL.md
 skill-home pack .
 skill-home push .
 ```
+
+## 发布前分类元数据
+
+每个发布到 Skill Home 的 skill 都必须具备：
+
+- 1 个 `category`
+- 1 到 4 个 `official tags`
+
+`validate` 和 `push` 都会校验这两项。非交互环境下，如果缺失或不合法会直接失败；交互终端下，`push` 会尝试提示补齐并写回 `SKILL.md`。
 
 ### 3. 浏览远程公开目录并安装到 IDE
 
@@ -94,10 +105,10 @@ skill-home update --ide codex --global --mode mirror
 
 | 命令 | 说明 |
 |------|------|
-| `skill-home init <name>` | 创建新技能模板（基础版） |
-| `skill-home create [name]` | 交互式创建技能（增强版） |
+| `skill-home init <name>` | 创建新技能模板（包含 `category/tags` 骨架） |
+| `skill-home create [name]` | 交互式创建技能（会选择分类与官方标签） |
 | `skill-home import <source>` | 从外部源导入技能 |
-| `skill-home validate [path]` | 验证 `SKILL.md` 格式 |
+| `skill-home validate [path]` | 验证 `SKILL.md` 格式与官方分类元数据 |
 | `skill-home scan [path]` | 扫描技能安全 |
 | `skill-home preview [path] -p <platform>` | 预览导出效果 |
 | `skill-home export [path] -p <platform>` | 导出到指定平台格式 |
@@ -111,7 +122,7 @@ skill-home update --ide codex --global --mode mirror
 | `skill-home install <skill-ref>` | 拉取并同步到 IDE |
 | `skill-home uninstall <skill-ref>` | 从本地 IDE 卸载技能 |
 | `skill-home update` | 更新本地缓存技能到最新版 |
-| `skill-home push [path]` | 推送技能到注册中心 |
+| `skill-home push [path]` | 推送技能到注册中心，必要时交互补齐分类元数据 |
 | `skill-home delete <skill-ref>` | 删除远程技能 |
 | `skill-home delete-version <skill-ref>` | 删除远程技能版本 |
 | `skill-home rate <skill-ref> --score 5` | 为技能评分 |

@@ -322,6 +322,16 @@ func (c *Client) publishArchive(path, skillPath string, req *PublishRequest) (*P
 			return nil, err
 		}
 	}
+	if req.Category != "" {
+		if err := writer.WriteField("category", req.Category); err != nil {
+			return nil, err
+		}
+	}
+	if len(req.Tags) > 0 {
+		if err := writer.WriteField("tags", strings.Join(req.Tags, ",")); err != nil {
+			return nil, err
+		}
+	}
 	if req.License != "" {
 		if err := writer.WriteField("license", req.License); err != nil {
 			return nil, err

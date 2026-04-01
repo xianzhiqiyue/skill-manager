@@ -1,4 +1,5 @@
 import { APP_BASE_PATH, resolveAPIBase } from './basePath';
+import skillTaxonomy from './generated/skillTaxonomy.json';
 
 export const API_BASE = resolveAPIBase(
   typeof window !== 'undefined' ? window.location : null,
@@ -47,6 +48,7 @@ export type SkillSummary = {
   namespace: string;
   name: string;
   description?: string;
+  category?: string;
   tags?: string[];
   license?: string;
   download_count: number;
@@ -118,6 +120,7 @@ export type PublishPayload = {
   namespace: string;
   name: string;
   description: string;
+  category: string;
   version: string;
   license: string;
   tags: string[];
@@ -135,11 +138,71 @@ export type PublishResponse = {
 
 export type UpdateSkillPayload = {
   description: string;
+  category: string;
   tags: string[];
   license: string;
   isPublic: boolean;
   isDeprecated: boolean;
 };
+
+export type SkillCategoryOption = {
+  id: string;
+  label: string;
+  description: string;
+};
+
+export type OfficialTagOption = {
+  id: string;
+  description: string;
+};
+
+type SkillTaxonomyDefinition = {
+  categories: SkillCategoryOption[];
+  official_tags: OfficialTagOption[];
+  aliases: Record<string, string>;
+};
+
+const taxonomyDefinition = skillTaxonomy as SkillTaxonomyDefinition;
+
+export const SKILL_CATEGORIES = taxonomyDefinition.categories;
+export const OFFICIAL_TAGS = taxonomyDefinition.official_tags;
+
+export function normalizeOfficialTags(tags: string[]) {
+  return Array.from(
+    new Set(
+      tags
+        .map((tag) => tag.trim())
+        .filter(Boolean),
+    ),
+  );
+}
+
+export function toggleOfficialTag(tags: string[], tag: string) {
+  const normalized = normalizeOfficialTags(tags);
+  if (normalized.includes(tag)) {
+    return normalized.filter((item) => item !== tag);
+  }
+  if (normalized.length >= 4) {
+    return normalized;
+  }
+  return [...normalized, tag];
+}
+
+export function validateOfficialMetadataInput(category: string, tags: string[]) {
+  if (!category.trim()) {
+    return '请选择一级分类。';
+  }
+
+  const normalizedTags = normalizeOfficialTags(tags);
+  if (normalizedTags.length === 0) {
+    return '至少选择 1 个官方标签。';
+  }
+  if (normalizedTags.length > 4) {
+    return '最多选择 4 个官方标签。';
+  }
+
+  return null;
+}
 
 export type MessageResponse = {
   message: string;
@@ -395,6 +458,7 @@ export function publishSkill(token: string, payload: PublishPayload) {
   form.append('namespace', payload.namespace);
   form.append('name', payload.name);
   form.append('description', payload.description);
+  form.append('category', payload.category);
   form.append('version', payload.version);
   form.append('license', payload.license);
   form.append('tags', payload.tags.join(','));
@@ -422,6 +486,7 @@ export function updateSkill(
     },
     body: JSON.stringify({
       description: payload.description,
+      category: payload.category,
       tags: payload.tags,
       license: payload.license,
       is_public: payload.isPublic,

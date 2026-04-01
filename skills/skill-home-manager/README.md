@@ -8,6 +8,7 @@
 |--------|------|
 | CLI 补齐 | 检查本机是否已有 `skill-home`，必要时自动安装或刷新到已发布版本 |
 | 本地 skill 工作流 | 新建、校验、安全扫描、打包、预览、导出 |
+| 发布前元数据整理 | 在 `validate/pack/push` 前补齐 `category + official tags` |
 | Codex 安装 | 将本地 skill 镜像安装到 Codex 全局目录 |
 | 远程 registry 工作流 | 查看公开目录、搜索、拉取、安装、发布、删除版本 |
 | 环境排障 | 通过 `doctor`、`--debug`、路径检查定位配置问题 |
@@ -25,7 +26,7 @@
 | 脚本 | 作用 | 典型用法 |
 |------|------|----------|
 | `scripts/bootstrap-cli.sh` | 安装或刷新已发布的 `skill-home` CLI | `bash scripts/bootstrap-cli.sh --version v0.2.16` |
-| `scripts/create-local-skill.sh` | 新建本地 skill 并做基础校验 | `bash scripts/create-local-skill.sh my-skill "描述"` |
+| `scripts/create-local-skill.sh` | 新建本地 skill 骨架并提示后续补齐分类元数据 | `bash scripts/create-local-skill.sh my-skill "描述"` |
 | `scripts/install-to-codex.sh` | 把本地 skill 安装到 Codex 全局目录 | `bash scripts/install-to-codex.sh ./skills/my-skill` |
 | `scripts/rebuild-cli.sh` | 重新安装最新已发布 CLI | `bash scripts/rebuild-cli.sh` |
 
@@ -38,10 +39,12 @@ bash scripts/bootstrap-cli.sh
 skill-home version
 ```
 
-### 2. 新建并校验一个本地 skill
+### 2. 新建并整理一个本地 skill
 
 ```bash
 bash scripts/create-local-skill.sh my-skill "我的 skill 描述"
+
+# 按 references/publish-taxonomy.md 补齐 category 和 official tags
 skill-home validate ./my-skill
 skill-home scan ./my-skill
 ```
@@ -69,16 +72,20 @@ skill-home delete @team/my-skill --yes
 skill-home delete-version @team/my-skill@1.0.0 --yes
 ```
 
+交互终端里的 `skill-home push` 会在缺少 `category/tags` 时尝试补齐，但这个 skill 的默认要求仍然是先整理好 `SKILL.md`，再进入 `validate -> pack -> push`。
+
 ## 与 CLI / Registry 的关系
 
 - 这个 skill 不是替代 `skill-home` CLI，而是把常用 CLI 工作流整理成可直接复用的 Codex 能力层
 - 公开 skill 的读取命令默认可匿名执行，例如 `list --remote`、`search`、`pull`、`install`
 - 写操作如 `push`、`delete`、`delete-version` 需要先 `skill-home login`
 - `list --remote` 与 `search` 已接入目录版本缓存；目录版本未变化时会优先复用本地缓存
+- 发布前的 `category + official tags` 词表来自同一个 taxonomy 参考，不应由代理或用户自由发明新官方标签
 
 ## 相关文件
 
 - 主定义：[SKILL.md](./SKILL.md)
 - 命令模板：[references/cli-workflows.md](./references/cli-workflows.md)
+- 分类词表：[references/publish-taxonomy.md](./references/publish-taxonomy.md)
 - 安装脚本：[scripts/bootstrap-cli.sh](./scripts/bootstrap-cli.sh)
 - Codex 安装脚本：[scripts/install-to-codex.sh](./scripts/install-to-codex.sh)

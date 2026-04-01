@@ -46,6 +46,11 @@ type fakeRegistryClient struct {
 	rateSkillResp *registry.RateSkillResponse
 	rateSkillErr  error
 
+	publishReq  *registry.PublishRequest
+	publishPath string
+	publishResp *registry.PublishResponse
+	publishErr  error
+
 	healthCheckErr error
 }
 
@@ -176,6 +181,18 @@ func (f *fakeRegistryClient) ListAuditLogs(page, perPage int, action string) (*r
 
 func (f *fakeRegistryClient) RateSkill(namespace, name string, req *registry.RateSkillRequest) (*registry.RateSkillResponse, error) {
 	return f.rateSkillResp, f.rateSkillErr
+}
+
+func (f *fakeRegistryClient) Publish(skillPath string, req *registry.PublishRequest) (*registry.PublishResponse, error) {
+	f.publishPath = skillPath
+	if req != nil {
+		copyReq := *req
+		if req.Tags != nil {
+			copyReq.Tags = append([]string{}, req.Tags...)
+		}
+		f.publishReq = &copyReq
+	}
+	return f.publishResp, f.publishErr
 }
 
 func (f *fakeRegistryClient) HealthCheck() error {

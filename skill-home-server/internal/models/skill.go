@@ -18,6 +18,7 @@ type Skill struct {
 	Name          string                      `gorm:"size:64;not null;index:idx_namespace_name,unique" json:"name"`
 	OwnerID       uuid.UUID                   `gorm:"type:uuid;not null;index" json:"owner_id"`
 	Description   string                      `gorm:"size:500" json:"description"`
+	Category      string                      `gorm:"size:64;index" json:"category,omitempty"`
 	DescriptionZh string                      `gorm:"size:500" json:"description_zh,omitempty"`
 	Author        string                      `gorm:"size:255" json:"author,omitempty"`
 	Tags          StringArray                 `gorm:"type:text[]" json:"tags,omitempty"`

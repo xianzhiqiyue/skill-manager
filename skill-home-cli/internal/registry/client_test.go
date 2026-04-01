@@ -615,3 +615,46 @@ func TestPublishFallsBackToVersionEndpointWhenSkillAlreadyExists(t *testing.T) {
 		t.Fatalf("unexpected response: %+v", resp)
 	}
 }
+
+func TestPublishSendsCategoryAndTagsInMultipartForm(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/api/v1/skills" {
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+		if err := r.ParseMultipartForm(1 << 20); err != nil {
+			t.Fatalf("ParseMultipartForm returned error: %v", err)
+		}
+		if got := r.FormValue("category"); got != "ops" {
+			t.Fatalf("unexpected category: %q", got)
+		}
+		if got := r.FormValue("tags"); got != "deployment,ci-cd" {
+			t.Fatalf("unexpected tags: %q", got)
+		}
+		_ = json.NewEncoder(w).Encode(PublishResponse{
+			Namespace:   "team",
+			Name:        "deploy-buddy",
+			Version:     "1.2.3",
+			DownloadURL: "/api/v1/download/team/deploy-buddy/1.2.3",
+			PublishedAt: "2026-04-01T00:00:00Z",
+		})
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "sk_test")
+	skillPath := filepath.Join(t.TempDir(), "deploy-buddy.zip")
+	if err := os.WriteFile(skillPath, []byte("zip-bytes"), 0644); err != nil {
+		t.Fatalf("WriteFile returned error: %v", err)
+	}
+
+	if _, err := client.Publish(skillPath, &PublishRequest{
+		Namespace: "team",
+		Name:      "deploy-buddy",
+		Version:   "1.2.3",
+		Category:  "ops",
+		Tags:      []string{"deployment", "ci-cd"},
+	}); err != nil {
+		t.Fatalf("Publish returned error: %v", err)
+	}
+}

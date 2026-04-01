@@ -1,4 +1,11 @@
-import { resolveDownloadUrl } from '../api';
+import {
+  OFFICIAL_TAGS,
+  SKILL_CATEGORIES,
+  resolveDownloadUrl,
+  toggleOfficialTag,
+  validateOfficialMetadataInput,
+} from '../api';
+import { SkillTagButton } from '../components/object/SkillTagButton';
 import { PageHeader } from '../components/layout/PageHeader';
 import { SidebarLayout } from '../components/layout/SidebarLayout';
 import { CopyActionButton } from '../components/object/CopyActionButton';
@@ -28,6 +35,11 @@ function renderStatusBanner(tone: 'danger' | 'success', message: string) {
 }
 
 export function PublishNewPage({ model, navigate }: PublishNewPageProps) {
+  const metadataError = validateOfficialMetadataInput(
+    model.publishForm.category,
+    model.publishForm.tags,
+  );
+
   if (!model.token) {
     return (
       <SettingsAuthCallout
@@ -77,8 +89,16 @@ export function PublishNewPage({ model, navigate }: PublishNewPageProps) {
                     <strong>{model.publishForm.namespace || '未填写'}</strong>
                   </article>
                   <article className="gh-settings-summary-item">
+                    <span>Category</span>
+                    <strong>{model.publishForm.category || '未填写'}</strong>
+                  </article>
+                  <article className="gh-settings-summary-item">
                     <span>Version</span>
                     <strong>{model.publishForm.version || '未填写'}</strong>
+                  </article>
+                  <article className="gh-settings-summary-item">
+                    <span>Official tags</span>
+                    <strong>{model.publishForm.tags.length ? `${model.publishForm.tags.length} / 4` : '未选择'}</strong>
                   </article>
                 </div>
               </section>
@@ -167,18 +187,52 @@ export function PublishNewPage({ model, navigate }: PublishNewPageProps) {
                   </label>
 
                   <label className="field">
-                    <span>Tags</span>
-                    <input
-                      placeholder="automation, github, cli"
-                      value={model.publishForm.tags}
+                    <span>Category</span>
+                    <select
+                      aria-label="Category"
+                      required
+                      value={model.publishForm.category}
                       onChange={(event) =>
                         model.setPublishForm((current) => ({
                           ...current,
-                          tags: event.target.value,
+                          category: event.target.value,
                         }))
                       }
-                    />
+                    >
+                      <option value="">请选择一级分类</option>
+                      {SKILL_CATEGORIES.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.label} · {item.description}
+                        </option>
+                      ))}
+                    </select>
                   </label>
+
+                  <div className="field">
+                    <span>Official tags</span>
+                    <p className="gh-community-tag-copy">
+                      选择 1 到 4 个官方标签，说明这个 skill 最典型的使用场景。
+                    </p>
+                    <div className="skill-tag-row skill-tag-row--dense">
+                      {OFFICIAL_TAGS.map((item) => (
+                        <SkillTagButton
+                          key={item.id}
+                          onSelect={(tag) =>
+                            model.setPublishForm((current) => ({
+                              ...current,
+                              tags: toggleOfficialTag(current.tags, tag),
+                            }))
+                          }
+                          selected={model.publishForm.tags.includes(item.id)}
+                          tag={item.id}
+                        />
+                      ))}
+                    </div>
+                    <p className="gh-community-tag-copy">
+                      已选 {model.publishForm.tags.length} / 4
+                      {metadataError ? ` · ${metadataError}` : ''}
+                    </p>
+                  </div>
 
                   <div className="form-grid-two">
                     <label className="field">
@@ -221,7 +275,11 @@ export function PublishNewPage({ model, navigate }: PublishNewPageProps) {
                   </label>
 
                   <div className="gh-settings-actions">
-                    <button className="button button--primary" disabled={model.publishLoading} type="submit">
+                    <button
+                      className="button button--primary"
+                      disabled={model.publishLoading || Boolean(metadataError)}
+                      type="submit"
+                    >
                       {model.publishLoading ? '发布中...' : 'Upload release'}
                     </button>
                   </div>

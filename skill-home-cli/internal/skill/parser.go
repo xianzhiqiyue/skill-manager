@@ -49,6 +49,7 @@ type Manifest struct {
 	Name          string                 `yaml:"name"`
 	Version       string                 `yaml:"version"`
 	Description   string                 `yaml:"description"`
+	Category      string                 `yaml:"category,omitempty"`
 	Namespace     string                 `yaml:"namespace,omitempty"`
 	DescriptionZh string                 `yaml:"description_zh,omitempty"`
 	Author        string                 `yaml:"author,omitempty"`

@@ -11,6 +11,7 @@ type Skill struct {
 	Name          string                      `json:"name"`
 	OwnerID       string                      `json:"owner_id,omitempty"`
 	Description   string                      `json:"description"`
+	Category      string                      `json:"category,omitempty"`
 	DescriptionZh string                      `json:"description_zh,omitempty"`
 	Author        string                      `json:"author"`
 	Tags          []string                    `json:"tags,omitempty"`
@@ -75,6 +76,7 @@ type Manifest struct {
 	Name          string                 `json:"name"`
 	Version       string                 `json:"version"`
 	Description   string                 `json:"description"`
+	Category      string                 `json:"category,omitempty"`
 	Namespace     string                 `json:"namespace,omitempty"`
 	DescriptionZh string                 `json:"description_zh,omitempty"`
 	Author        string                 `json:"author,omitempty"`
@@ -149,13 +151,15 @@ type ListSkillsOptions struct {
 
 // PublishRequest 发布请求
 type PublishRequest struct {
-	Namespace   string `json:"namespace,omitempty"`
-	Name        string `json:"name,omitempty"`
-	Version     string `json:"version,omitempty"`
-	Description string `json:"description,omitempty"`
-	License     string `json:"license,omitempty"`
-	IsPublic    *bool  `json:"is_public,omitempty"`
-	Force       bool   `json:"force,omitempty"`
+	Namespace   string   `json:"namespace,omitempty"`
+	Name        string   `json:"name,omitempty"`
+	Version     string   `json:"version,omitempty"`
+	Description string   `json:"description,omitempty"`
+	Category    string   `json:"category,omitempty"`
+	Tags        []string `json:"tags,omitempty"`
+	License     string   `json:"license,omitempty"`
+	IsPublic    *bool    `json:"is_public,omitempty"`
+	Force       bool     `json:"force,omitempty"`
 }
 
 // PublishResponse 发布响应

@@ -195,6 +195,7 @@ type CreateSkillRequest struct {
 	Namespace   string   `json:"namespace"`
 	Name        string   `json:"name" binding:"required"`
 	Description string   `json:"description"`
+	Category    string   `json:"category"`
 	Tags        []string `json:"tags"`
 	License     string   `json:"license"`
 	IsPublic    bool     `json:"is_public"`
@@ -202,6 +203,7 @@ type CreateSkillRequest struct {
 
 type UpdateSkillRequest struct {
 	Description  string   `json:"description"`
+	Category     string   `json:"category"`
 	Tags         []string `json:"tags"`
 	License      string   `json:"license"`
 	IsPublic     bool     `json:"is_public"`
@@ -238,6 +240,11 @@ func CreateSkill(db *storage.Database, objStorage *storage.ObjectStorage, scanne
 			return
 		}
 		if err := validateVersion(version); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"code": "INVALID_INPUT", "message": err.Error()})
+			return
+		}
+		category, normalizedTags, err := validateOfficialMetadata(c.PostForm("category"), parseTagList(c.PostForm("tags")))
+		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"code": "INVALID_INPUT", "message": err.Error()})
 			return
 		}
@@ -300,7 +307,8 @@ func CreateSkill(db *storage.Database, objStorage *storage.ObjectStorage, scanne
 			Name:        name,
 			OwnerID:     user.ID,
 			Description: c.PostForm("description"),
-			Tags:        models.StringArray(parseTagList(c.PostForm("tags"))),
+			Category:    category,
+			Tags:        models.StringArray(normalizedTags),
 			License:     c.PostForm("license"),
 			IsPublic:    isPublic,
 		}
@@ -393,8 +401,13 @@ func UpdateSkill(db *storage.Database) gin.HandlerFunc {
 			return
 		}
 		wasPublic := skill.IsPublic
-		normalizedTags := normalizeTags(req.Tags)
+		normalizedCategory, normalizedTags, err := validateOfficialMetadata(req.Category, req.Tags)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"code": "INVALID_INPUT", "message": err.Error()})
+			return
+		}
 		hasEffectiveChange := skill.Description != req.Description ||
+			skill.Category != normalizedCategory ||
 			!stringSlicesEqual([]string(skill.Tags), normalizedTags) ||
 			skill.License != req.License ||
 			skill.IsPublic != req.IsPublic ||
@@ -402,6 +415,7 @@ func UpdateSkill(db *storage.Database) gin.HandlerFunc {
 
 		// 更新字段
 		skill.Description = req.Description
+		skill.Category = normalizedCategory
 		skill.Tags = models.StringArray(normalizedTags)
 		skill.License = req.License
 		skill.IsPublic = req.IsPublic
