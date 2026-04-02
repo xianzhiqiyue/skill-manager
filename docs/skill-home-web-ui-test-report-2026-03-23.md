@@ -40,14 +40,14 @@
   - 首页更像“重构说明页”，而不是产品入口页。
   - 用户在真正进入技能中心之前，要先消费大量重复说明，认知负担偏高。
 - 代码定位：
-  - [App.tsx](/home/zhuyue/code/skill-manager/skill-home-web/src/App.tsx#L529)
-  - [App.tsx](/home/zhuyue/code/skill-manager/skill-home-web/src/App.tsx#L559)
-  - [App.tsx](/home/zhuyue/code/skill-manager/skill-home-web/src/App.tsx#L575)
-  - [App.tsx](/home/zhuyue/code/skill-manager/skill-home-web/src/App.tsx#L619)
-  - [App.tsx](/home/zhuyue/code/skill-manager/skill-home-web/src/App.tsx#L625)
+  - [App.tsx](../skill-home-web/src/App.tsx#L529)
+  - [App.tsx](../skill-home-web/src/App.tsx#L559)
+  - [App.tsx](../skill-home-web/src/App.tsx#L575)
+  - [App.tsx](../skill-home-web/src/App.tsx#L619)
+  - [App.tsx](../skill-home-web/src/App.tsx#L625)
 - 证据截图：
-  - [首页桌面截图](/home/zhuyue/code/skill-manager/.playwright-cli/page-2026-03-22T16-03-32-830Z.png)
-  - [首页移动端截图](/home/zhuyue/code/skill-manager/.playwright-cli/page-2026-03-22T16-04-56-719Z.png)
+  - [首页桌面截图](../.playwright-cli/page-2026-03-22T16-03-32-830Z.png)
+  - [首页移动端截图](../.playwright-cli/page-2026-03-22T16-04-56-719Z.png)
 - 建议：
   - 删除 `Highlights` 模块，保留 Hero。
   - 把首页压缩成 `Hero + 推荐技能/最新技能 + 进入技能中心 CTA + 精简 FAQ`。
@@ -63,16 +63,16 @@
   - 用户的主任务应是“找到 skill 并进入详情页”，现在却被分散成“看卡片、点即时预览、再点详情页”三段。
   - 技能中心的信息密度虽然提高了，但有效信息密度没有提高，重复信息反而挤压了浏览面积。
 - 代码定位：
-  - [App.tsx](/home/zhuyue/code/skill-manager/skill-home-web/src/App.tsx#L659)
-  - [App.tsx](/home/zhuyue/code/skill-manager/skill-home-web/src/App.tsx#L801)
-  - [App.tsx](/home/zhuyue/code/skill-manager/skill-home-web/src/App.tsx#L840)
-  - [styles.css](/home/zhuyue/code/skill-manager/skill-home-web/src/styles.css#L593)
-  - [styles.css](/home/zhuyue/code/skill-manager/skill-home-web/src/styles.css#L669)
-  - [styles.css](/home/zhuyue/code/skill-manager/skill-home-web/src/styles.css#L730)
+  - [App.tsx](../skill-home-web/src/App.tsx#L659)
+  - [App.tsx](../skill-home-web/src/App.tsx#L801)
+  - [App.tsx](../skill-home-web/src/App.tsx#L840)
+  - [styles.css](../skill-home-web/src/styles.css#L593)
+  - [styles.css](../skill-home-web/src/styles.css#L669)
+  - [styles.css](../skill-home-web/src/styles.css#L730)
 - 证据截图：
-  - [技能中心桌面截图](/home/zhuyue/code/skill-manager/.playwright-cli/page-2026-03-22T16-04-15-781Z.png)
-  - [技能中心移动端首屏](/home/zhuyue/code/skill-manager/.playwright-cli/page-2026-03-22T16-06-52-838Z.png)
-  - [技能中心移动端下滚截图](/home/zhuyue/code/skill-manager/.playwright-cli/page-2026-03-22T16-07-20-374Z.png)
+  - [技能中心桌面截图](../.playwright-cli/page-2026-03-22T16-04-15-781Z.png)
+  - [技能中心移动端首屏](../.playwright-cli/page-2026-03-22T16-06-52-838Z.png)
+  - [技能中心移动端下滚截图](../.playwright-cli/page-2026-03-22T16-07-20-374Z.png)
 - 建议：
   - 删除所有 `即时预览` 按钮。
   - 删除 `PreviewPanel`。
@@ -86,10 +86,10 @@
 - 影响：
   - 这是比视觉更严重的 UI 展示缺陷，会直接伤害“可安装、可信”的产品定位。
 - 代码定位：
-  - [App.tsx](/home/zhuyue/code/skill-manager/skill-home-web/src/App.tsx#L968)
-  - [App.tsx](/home/zhuyue/code/skill-manager/skill-home-web/src/App.tsx#L973)
+  - [App.tsx](../skill-home-web/src/App.tsx#L968)
+  - [App.tsx](../skill-home-web/src/App.tsx#L973)
 - 证据截图：
-  - [版本表截图](/home/zhuyue/code/skill-manager/.playwright-cli/page-2026-03-22T16-11-11-714Z.png)
+  - [版本表截图](../.playwright-cli/page-2026-03-22T16-11-11-714Z.png)
 - 建议：
   - 优先核对 `published_at` / `created_at` 的真实值与格式化逻辑。
   - 遇到空值时不要输出时间零值，应回退为 `未发布` 或 `未知时间`。
@@ -103,15 +103,15 @@
   - 首页和技能中心都要先穿过一层很厚的顶栏，内容触达速度偏慢。
   - 对移动端来说，当前头部不是“导航”，而是“占位”。
 - 代码定位：
-  - [App.tsx](/home/zhuyue/code/skill-manager/skill-home-web/src/App.tsx#L1640)
-  - [App.tsx](/home/zhuyue/code/skill-manager/skill-home-web/src/App.tsx#L1702)
-  - [styles.css](/home/zhuyue/code/skill-manager/skill-home-web/src/styles.css#L89)
-  - [styles.css](/home/zhuyue/code/skill-manager/skill-home-web/src/styles.css#L1026)
-  - [styles.css](/home/zhuyue/code/skill-manager/skill-home-web/src/styles.css#L1081)
+  - [App.tsx](../skill-home-web/src/App.tsx#L1640)
+  - [App.tsx](../skill-home-web/src/App.tsx#L1702)
+  - [styles.css](../skill-home-web/src/styles.css#L89)
+  - [styles.css](../skill-home-web/src/styles.css#L1026)
+  - [styles.css](../skill-home-web/src/styles.css#L1081)
 - 证据截图：
-  - [首页移动端截图](/home/zhuyue/code/skill-manager/.playwright-cli/page-2026-03-22T16-04-56-719Z.png)
-  - [首页移动端菜单展开](/home/zhuyue/code/skill-manager/.playwright-cli/page-2026-03-22T16-05-43-466Z.png)
-  - [技能中心移动端截图](/home/zhuyue/code/skill-manager/.playwright-cli/page-2026-03-22T16-06-52-838Z.png)
+  - [首页移动端截图](../.playwright-cli/page-2026-03-22T16-04-56-719Z.png)
+  - [首页移动端菜单展开](../.playwright-cli/page-2026-03-22T16-05-43-466Z.png)
+  - [技能中心移动端截图](../.playwright-cli/page-2026-03-22T16-06-52-838Z.png)
 - 建议：
   - 移动端收敛为 `品牌 + 搜索入口/图标 + 菜单`。
   - `登录/注册` 放入抽屉式菜单，不要永久占首屏。
@@ -126,12 +126,12 @@
   - “技能中心”的主要任务应该是找技能，但当前移动端先把用户带进一个长表单。
   - 这和“高信息密度”的目标冲突，高的是控件密度，不是结果密度。
 - 代码定位：
-  - [App.tsx](/home/zhuyue/code/skill-manager/skill-home-web/src/App.tsx#L660)
-  - [styles.css](/home/zhuyue/code/skill-manager/skill-home-web/src/styles.css#L593)
-  - [styles.css](/home/zhuyue/code/skill-manager/skill-home-web/src/styles.css#L1040)
+  - [App.tsx](../skill-home-web/src/App.tsx#L660)
+  - [styles.css](../skill-home-web/src/styles.css#L593)
+  - [styles.css](../skill-home-web/src/styles.css#L1040)
 - 证据截图：
-  - [技能中心移动端首屏](/home/zhuyue/code/skill-manager/.playwright-cli/page-2026-03-22T16-06-52-838Z.png)
-  - [技能中心移动端下滚截图](/home/zhuyue/code/skill-manager/.playwright-cli/page-2026-03-22T16-07-20-374Z.png)
+  - [技能中心移动端首屏](../.playwright-cli/page-2026-03-22T16-06-52-838Z.png)
+  - [技能中心移动端下滚截图](../.playwright-cli/page-2026-03-22T16-07-20-374Z.png)
 - 建议：
   - 移动端把筛选器折叠成 `筛选` 抽屉或底部面板。
   - 默认先展示结果列表和结果数，再允许用户展开高级筛选。
@@ -145,12 +145,12 @@
   - 详情页第一屏没有形成一个紧凑的“摘要 + 主操作”区。
   - 用户先看到大块留白，再看到操作和指标，空间效率偏低。
 - 代码定位：
-  - [App.tsx](/home/zhuyue/code/skill-manager/skill-home-web/src/App.tsx#L896)
-  - [App.tsx](/home/zhuyue/code/skill-manager/skill-home-web/src/App.tsx#L939)
-  - [styles.css](/home/zhuyue/code/skill-manager/skill-home-web/src/styles.css#L582)
-  - [styles.css](/home/zhuyue/code/skill-manager/skill-home-web/src/styles.css#L1040)
+  - [App.tsx](../skill-home-web/src/App.tsx#L896)
+  - [App.tsx](../skill-home-web/src/App.tsx#L939)
+  - [styles.css](../skill-home-web/src/styles.css#L582)
+  - [styles.css](../skill-home-web/src/styles.css#L1040)
 - 证据截图：
-  - [详情页首屏截图](/home/zhuyue/code/skill-manager/.playwright-cli/page-2026-03-22T16-08-31-509Z.png)
+  - [详情页首屏截图](../.playwright-cli/page-2026-03-22T16-08-31-509Z.png)
 - 建议：
   - 详情页首屏改成更紧凑的双栏。
   - 把按钮和 2-3 个关键指标整合到同一个摘要区域，避免上半屏留白。
@@ -164,8 +164,8 @@
   - 用户很难判断复制是否真的成功。
   - 一旦环境不支持剪贴板，当前界面也不会告诉用户为什么失败。
 - 代码定位：
-  - [App.tsx](/home/zhuyue/code/skill-manager/skill-home-web/src/App.tsx#L128)
-  - [App.tsx](/home/zhuyue/code/skill-manager/skill-home-web/src/App.tsx#L139)
+  - [App.tsx](../skill-home-web/src/App.tsx#L128)
+  - [App.tsx](../skill-home-web/src/App.tsx#L139)
 - 建议：
   - 增加统一 toast。
   - 复制失败时给出明确错误提示，例如“浏览器不支持自动复制，请手动复制命令”。
@@ -178,10 +178,10 @@
 - 影响：
   - 与“扁平风、高密度”的目标不完全一致，视觉上仍保留了轻玻璃感和层叠质感。
 - 代码定位：
-  - [styles.css](/home/zhuyue/code/skill-manager/skill-home-web/src/styles.css#L80)
-  - [styles.css](/home/zhuyue/code/skill-manager/skill-home-web/src/styles.css#L89)
-  - [styles.css](/home/zhuyue/code/skill-manager/skill-home-web/src/styles.css#L108)
-  - [styles.css](/home/zhuyue/code/skill-manager/skill-home-web/src/styles.css#L681)
+  - [styles.css](../skill-home-web/src/styles.css#L80)
+  - [styles.css](../skill-home-web/src/styles.css#L89)
+  - [styles.css](../skill-home-web/src/styles.css#L108)
+  - [styles.css](../skill-home-web/src/styles.css#L681)
 - 建议：
   - 去掉 `backdrop-filter`、渐变和大面积柔和阴影。
   - 用纯色面、边框和轻微层级差解决分区关系。
@@ -195,13 +195,13 @@
 
 ## 测试工件
 
-- [首页桌面截图](/home/zhuyue/code/skill-manager/.playwright-cli/page-2026-03-22T16-03-32-830Z.png)
-- [技能中心桌面截图](/home/zhuyue/code/skill-manager/.playwright-cli/page-2026-03-22T16-04-15-781Z.png)
-- [首页移动端截图](/home/zhuyue/code/skill-manager/.playwright-cli/page-2026-03-22T16-04-56-719Z.png)
-- [首页移动端菜单展开](/home/zhuyue/code/skill-manager/.playwright-cli/page-2026-03-22T16-05-43-466Z.png)
-- [技能中心移动端首屏](/home/zhuyue/code/skill-manager/.playwright-cli/page-2026-03-22T16-06-52-838Z.png)
-- [技能中心移动端下滚截图](/home/zhuyue/code/skill-manager/.playwright-cli/page-2026-03-22T16-07-20-374Z.png)
-- [详情页首屏截图](/home/zhuyue/code/skill-manager/.playwright-cli/page-2026-03-22T16-08-31-509Z.png)
-- [详情页安装区截图](/home/zhuyue/code/skill-manager/.playwright-cli/page-2026-03-22T16-08-53-413Z.png)
-- [详情页版本区截图](/home/zhuyue/code/skill-manager/.playwright-cli/page-2026-03-22T16-11-11-714Z.png)
-- [技能详情控制台检查结果](/home/zhuyue/code/skill-manager/.playwright-cli/console-2026-03-22T16-08-31-743Z.log)
+- [首页桌面截图](../.playwright-cli/page-2026-03-22T16-03-32-830Z.png)
+- [技能中心桌面截图](../.playwright-cli/page-2026-03-22T16-04-15-781Z.png)
+- [首页移动端截图](../.playwright-cli/page-2026-03-22T16-04-56-719Z.png)
+- [首页移动端菜单展开](../.playwright-cli/page-2026-03-22T16-05-43-466Z.png)
+- [技能中心移动端首屏](../.playwright-cli/page-2026-03-22T16-06-52-838Z.png)
+- [技能中心移动端下滚截图](../.playwright-cli/page-2026-03-22T16-07-20-374Z.png)
+- [详情页首屏截图](../.playwright-cli/page-2026-03-22T16-08-31-509Z.png)
+- [详情页安装区截图](../.playwright-cli/page-2026-03-22T16-08-53-413Z.png)
+- [详情页版本区截图](../.playwright-cli/page-2026-03-22T16-11-11-714Z.png)
+- [技能详情控制台检查结果](../.playwright-cli/console-2026-03-22T16-08-31-743Z.log)

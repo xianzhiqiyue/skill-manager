@@ -1,4 +1,5 @@
 const fallbackAPIBase = 'https://soulstore.ciqtek.com/skill-home';
+const localRegistryOrigin = 'http://127.0.0.1:8080';
 
 export type LocationLike = {
   hostname: string;
@@ -62,13 +63,16 @@ export function resolveAPIBase(
   }
 
   const normalizedBasePath = normalizeBasePath(appBasePath);
+  if (!locationLike) {
+    return fallbackAPIBase;
+  }
+
   const isLocalhost =
-    !locationLike ||
     locationLike.hostname === '127.0.0.1' ||
     locationLike.hostname === 'localhost';
 
   if (isLocalhost) {
-    return fallbackAPIBase;
+    return `${localRegistryOrigin}${normalizedBasePath}`.replace(/\/$/, '');
   }
 
   return `${locationLike.origin}${normalizedBasePath}`.replace(/\/$/, '');

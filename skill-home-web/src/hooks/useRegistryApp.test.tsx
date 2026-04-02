@@ -14,7 +14,7 @@ import { PublishNewPage } from '../pages/PublishNewPage';
 import { SkillOverviewPage } from '../pages/skill/SkillOverviewPage';
 import { useRegistryApp } from './useRegistryApp';
 
-const mockRegistryBase = 'https://soulstore.ciqtek.com/skill-home';
+const mockRegistryBase = 'http://127.0.0.1:8080';
 const { mockedRateSkill } = vi.hoisted(() => ({
   mockedRateSkill: vi.fn(),
 }));

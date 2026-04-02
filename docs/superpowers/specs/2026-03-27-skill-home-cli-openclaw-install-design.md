@@ -148,7 +148,7 @@ If OpenClaw later needs richer metadata shaping, that can be a follow-up task.
 
 ### 9.1 Config layer
 
-Update [config.go](/home/zhuyue/code/skill-manager/skill-home-cli/internal/config/config.go):
+Update [config.go](../../../skill-home-cli/internal/config/config.go):
 
 - add `OpenClaw IDE` to `IDEConfig`
 - load `ide.openclaw.enabled`
@@ -162,7 +162,7 @@ Update [config.go](/home/zhuyue/code/skill-manager/skill-home-cli/internal/confi
 
 ### 9.2 Path resolution
 
-Update [paths.go](/home/zhuyue/code/skill-manager/skill-home-cli/internal/config/paths.go):
+Update [paths.go](../../../skill-home-cli/internal/config/paths.go):
 
 - support `openclaw` in `GetIDEProjectPath`
 - support `openclaw` in `GetIDEGlobalPath`
@@ -181,17 +181,17 @@ Behavior:
 - list inspects directories containing `SKILL.md`
 - `SupportsSymlink()` returns `true`
 
-Update [adapter.go](/home/zhuyue/code/skill-manager/skill-home-cli/internal/ide/adapter.go) so `NewAdapter("openclaw", ...)` works.
+Update [adapter.go](../../../skill-home-cli/internal/ide/adapter.go) so `NewAdapter("openclaw", ...)` works.
 
 ### 9.4 Command layer
 
 Update command help text and target enumeration in:
 
-- [install.go](/home/zhuyue/code/skill-manager/skill-home-cli/internal/cmd/install.go)
-- [sync.go](/home/zhuyue/code/skill-manager/skill-home-cli/internal/cmd/sync.go)
-- [uninstall.go](/home/zhuyue/code/skill-manager/skill-home-cli/internal/cmd/uninstall.go)
-- [update.go](/home/zhuyue/code/skill-manager/skill-home-cli/internal/cmd/update.go)
-- [doctor.go](/home/zhuyue/code/skill-manager/skill-home-cli/internal/cmd/doctor.go)
+- [install.go](../../../skill-home-cli/internal/cmd/install.go)
+- [sync.go](../../../skill-home-cli/internal/cmd/sync.go)
+- [uninstall.go](../../../skill-home-cli/internal/cmd/uninstall.go)
+- [update.go](../../../skill-home-cli/internal/cmd/update.go)
+- [doctor.go](../../../skill-home-cli/internal/cmd/doctor.go)
 
 `getTargetIDEs()` must include OpenClaw when enabled in config.
 

@@ -52,6 +52,40 @@ parse_codex_global_path_from_config() {
   ' "$config_path"
 }
 
+resolve_windows_home() {
+  local raw_home=""
+  local win_home=""
+
+  if ! command -v wslpath >/dev/null 2>&1; then
+    return 1
+  fi
+
+  if [[ -n "${USERPROFILE:-}" ]]; then
+    win_home="$(wslpath "$USERPROFILE" 2>/dev/null || true)"
+    if [[ -n "$win_home" ]]; then
+      printf '%s\n' "$win_home"
+      return 0
+    fi
+  fi
+
+  if command -v cmd.exe >/dev/null 2>&1; then
+    raw_home="$(
+      cmd.exe /c "echo %USERPROFILE%" 2>/dev/null \
+        | tr -d '\r' \
+        | awk 'NF { value=$0 } END { print value }'
+    )"
+    if [[ -n "$raw_home" && "$raw_home" != "%USERPROFILE%" ]]; then
+      win_home="$(wslpath "$raw_home" 2>/dev/null || true)"
+      if [[ -n "$win_home" ]]; then
+        printf '%s\n' "$win_home"
+        return 0
+      fi
+    fi
+  fi
+
+  return 1
+}
+
 resolve_codex_skills_dir() {
   local parsed=""
   local config_path=""
@@ -84,8 +118,8 @@ resolve_codex_skills_dir() {
     return
   fi
 
-  if command -v wslpath >/dev/null 2>&1 && [[ -n "${USERPROFILE:-}" ]]; then
-    win_home="$(wslpath "$USERPROFILE")"
+  win_home="$(resolve_windows_home || true)"
+  if [[ -n "$win_home" ]]; then
     if [[ -d "${win_home}/.codex" ]]; then
       printf '%s\n' "${win_home}/.codex/skills"
       return
@@ -151,8 +185,8 @@ resolve_skill_home_manager_root() {
     fi
   done
 
-  if command -v wslpath >/dev/null 2>&1 && [[ -n "${USERPROFILE:-}" ]]; then
-    win_home="$(wslpath "$USERPROFILE")"
+  win_home="$(resolve_windows_home || true)"
+  if [[ -n "$win_home" ]]; then
     for candidate in \
       "${win_home}/.codex/skills/skill-home-manager" \
       "${win_home}/.agents/skills/skill-home-manager"

@@ -22,9 +22,9 @@
   - 为命令层暴露目录版本读取能力，并集中创建缓存依赖。
 - 新建：`skill-home-cli/internal/cmd/registry_test_helpers.go`
   - 承载共享的 `fakeRegistryClient`、缓存测试辅助函数和命令输出捕获逻辑。
-- 修改：`/mnt/c/Users/zhuyu/.codex/skills/skill-home-manager/SKILL.md`
+- 修改：`../../../skills/skill-home-manager/SKILL.md`
   - 说明 `list --remote` / `search` 的缓存与回退行为。
-- 修改：`/mnt/c/Users/zhuyu/.codex/skills/skill-home-manager/references/cli-workflows.md`
+- 修改：`../../../skills/skill-home-manager/references/cli-workflows.md`
   - 补远程发现与排障文案。
 
 ### 新文件
@@ -184,8 +184,8 @@ git commit -m "feat(cli): cache remote search results"
 ### Task 4: 更新 `skill-home-manager` 文档
 
 **Files:**
-- Modify: `/mnt/c/Users/zhuyu/.codex/skills/skill-home-manager/SKILL.md`
-- Modify: `/mnt/c/Users/zhuyu/.codex/skills/skill-home-manager/references/cli-workflows.md`
+- Modify: `../../../skills/skill-home-manager/SKILL.md`
+- Modify: `../../../skills/skill-home-manager/references/cli-workflows.md`
 
 - [ ] **Step 1: 写文档改动**
 
@@ -202,7 +202,7 @@ git commit -m "feat(cli): cache remote search results"
 - [ ] **Step 3: 提交**
 
 ```bash
-git add /mnt/c/Users/zhuyu/.codex/skills/skill-home-manager/SKILL.md /mnt/c/Users/zhuyu/.codex/skills/skill-home-manager/references/cli-workflows.md
+git add skills/skill-home-manager/SKILL.md skills/skill-home-manager/references/cli-workflows.md
 git commit -m "docs(skill): describe catalog cache behavior"
 ```
 

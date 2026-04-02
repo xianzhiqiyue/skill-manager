@@ -238,7 +238,7 @@ JSON 输出下：
 
 至少更新：
 
-- `/mnt/c/Users/zhuyu/.codex/skills/skill-home-manager/SKILL.md`
+- `../../../skills/skill-home-manager/SKILL.md`
 
 建议同步更新：
 

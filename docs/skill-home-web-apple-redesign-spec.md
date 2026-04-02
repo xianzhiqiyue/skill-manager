@@ -9,11 +9,11 @@
 - 页面只保留当前任务需要的信息，不展示重复标题、重复提示和重复 CTA。
 - 交互优先服务“找 skill、判断是否可信、复制安装、管理发布”四类核心任务。
 
-这份设计将替代旧版 [skill-home-web-redesign-spec.md](/home/zhuyue/code/skill-manager/docs/skill-home-web-redesign-spec.md) 中的“扁平风”视觉方向，但保留其路由拆分和信息架构结论。
+这份设计将替代旧版 [skill-home-web-redesign-spec.md](./skill-home-web-redesign-spec.md) 中的“扁平风”视觉方向，但保留其路由拆分和信息架构结论。
 
 ## 2. 当前问题
 
-以下问题来自当前实现和实机页面检查，主要参考 [App.tsx](/home/zhuyue/code/skill-manager/skill-home-web/src/App.tsx) 与 [styles.css](/home/zhuyue/code/skill-manager/skill-home-web/src/styles.css)：
+以下问题来自当前实现和实机页面检查，主要参考 [App.tsx](../skill-home-web/src/App.tsx) 与 [styles.css](../skill-home-web/src/styles.css)：
 
 - 视觉碎片化严重。`topbar`、`surface-panel`、`metric-card`、`catalog-row__fact`、`detail-fact`、`api-key-card` 等几乎所有层级都画了完整边框，导致页面像“很多白盒子叠在一起”，缺少苹果式的大块分组感。
 - 同类文案反复出现。几乎每个区块都有 `eyebrow + 标题 + 描述` 三连，首页又重复出现“快速开始/最短路径/安装说明/FAQ”，信息不够克制。
@@ -120,7 +120,7 @@
 - `/login` `/register`
   - 独立认证页。
 
-保留现有 `console` 二级路由思路，见 [routes.ts](/home/zhuyue/code/skill-manager/skill-home-web/src/lib/routes.ts)。
+保留现有 `console` 二级路由思路，见 [routes.ts](../skill-home-web/src/lib/routes.ts)。
 
 ## 6. 页面级设计
 
@@ -344,7 +344,7 @@
 
 ## 9. 组件与代码重构建议
 
-当前 [App.tsx](/home/zhuyue/code/skill-manager/skill-home-web/src/App.tsx) 已经承担过多页面和展示逻辑，本轮实现建议同步拆分：
+当前 [App.tsx](../skill-home-web/src/App.tsx) 已经承担过多页面和展示逻辑，本轮实现建议同步拆分：
 
 - `src/ui/layout/AppShell.tsx`
 - `src/ui/layout/PageSection.tsx`
@@ -362,7 +362,7 @@
 - `src/pages/ConsoleSkillsPage.tsx`
 - `src/pages/ConsoleAPIKeysPage.tsx`
 
-样式层建议把 [styles.css](/home/zhuyue/code/skill-manager/skill-home-web/src/styles.css) 拆成：
+样式层建议把 [styles.css](../skill-home-web/src/styles.css) 拆成：
 
 - `styles/tokens.css`
 - `styles/layout.css`

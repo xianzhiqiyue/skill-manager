@@ -416,7 +416,7 @@ These primitives should replace the current repeated page-local combinations of:
 
 ## 9. Current Codebase Implications
 
-The current app is still organized as one large page-composition file in [App.tsx](/home/zhuyue/code/skill-manager/skill-home-web/src/App.tsx), with routes defined in [routes.ts](/home/zhuyue/code/skill-manager/skill-home-web/src/lib/routes.ts).
+The current app is still organized as one large page-composition file in [App.tsx](../../../skill-home-web/src/App.tsx), with routes defined in [routes.ts](../../../skill-home-web/src/lib/routes.ts).
 
 That structure is no longer a good fit for this redesign. The rebuild should include:
 

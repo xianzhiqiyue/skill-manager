@@ -42,13 +42,13 @@ describe('basePath helpers', () => {
     ).toBe('https://registry.example.test/skill-home');
   });
 
-  it('falls back to the soul public registry when running from localhost', () => {
+  it('falls back to the local registry when running from localhost', () => {
     expect(
       resolveAPIBase(
         { hostname: '127.0.0.1', origin: 'http://127.0.0.1:5173' },
         '',
         '/skill-home/',
       ),
-    ).toBe('https://soulstore.ciqtek.com/skill-home');
+    ).toBe('http://127.0.0.1:8080/skill-home');
   });
 });

@@ -4,7 +4,7 @@
 
 **Goal:** Rebuild Skill Home into a GitHub-style product UI where skills behave like first-class objects with search workspaces, object tabs, and settings architecture instead of page-local card layouts.
 
-**Architecture:** Keep the current React + Vite app, but stop extending the single-file page composition in [App.tsx](/home/zhuyue/code/skill-manager/skill-home-web/src/App.tsx). First introduce route-aware layouts and reusable GitHub-style primitives, then migrate search, object pages, settings, publish, and home in separate phases while preserving legacy URLs through redirects. Keep the existing API surface for now; this is a front-end information-architecture rebuild, not a back-end feature rewrite.
+**Architecture:** Keep the current React + Vite app, but stop extending the single-file page composition in [App.tsx](../../../skill-home-web/src/App.tsx). First introduce route-aware layouts and reusable GitHub-style primitives, then migrate search, object pages, settings, publish, and home in separate phases while preserving legacy URLs through redirects. Keep the existing API surface for now; this is a front-end information-architecture rebuild, not a back-end feature rewrite.
 
 **Tech Stack:** React 18, TypeScript, Vite, CSS, Vitest, React Testing Library, Playwright CLI
 

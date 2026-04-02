@@ -81,4 +81,4 @@
 
 ## 相关文档
 
-- 问题基线报告：[skill-home-web-ui-test-report-2026-03-23.md](/home/zhuyue/code/skill-manager/docs/skill-home-web-ui-test-report-2026-03-23.md)
+- 问题基线报告：[skill-home-web-ui-test-report-2026-03-23.md](./skill-home-web-ui-test-report-2026-03-23.md)

@@ -2,7 +2,7 @@ id: T20260322-001
 title: Skill-Home Web Flat Redesign
 slug: skill-home-web-flat-redesign
 status: review_ready
-project_root: /home/zhuyue/code/skill-manager
+project_root: ../../../..
 created_at: 2026-03-22 23:20:17
 updated_at: 2026-03-22 23:49:00
 current_step: 5

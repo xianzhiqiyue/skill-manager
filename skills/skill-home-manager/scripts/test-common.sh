@@ -94,4 +94,29 @@ EOF
 run_with_env "${TMP_DIR}/home-three" "${OVERRIDE_ROOT}" \
   "SKILL_HOME_MANAGER_ROOT=${OVERRIDE_ROOT}"
 
+WINDOWS_HOME="${TMP_DIR}/windows-home"
+mkdir -p "${WINDOWS_HOME}/.codex/skills/skill-home-manager"
+cat > "${WINDOWS_HOME}/.codex/skills/skill-home-manager/SKILL.md" <<'EOF'
+---
+name: skill-home-manager
+---
+EOF
+
+MOCK_WSL_BIN="${TMP_DIR}/mock-wsl-bin"
+mkdir -p "${MOCK_WSL_BIN}"
+cat > "${MOCK_WSL_BIN}/wslpath" <<EOF
+#!/usr/bin/env bash
+printf '%s\n' "${WINDOWS_HOME}"
+EOF
+chmod +x "${MOCK_WSL_BIN}/wslpath"
+
+cat > "${MOCK_WSL_BIN}/cmd.exe" <<'EOF'
+#!/usr/bin/env bash
+printf 'C:\Users\WinTester\r\n'
+EOF
+chmod +x "${MOCK_WSL_BIN}/cmd.exe"
+
+run_with_env "${TMP_DIR}/home-wsl" "${WINDOWS_HOME}/.codex/skills/skill-home-manager" \
+  "PATH=${MOCK_WSL_BIN}:${PATH}"
+
 echo "test-common: ok"

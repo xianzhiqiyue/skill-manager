@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import App from './App';
 
+const mockLocalRegistryBase = 'http://127.0.0.1:8080';
+
 const baseModel = {
   health: { service: 'skill-home', status: 'ok', version: '1.0.0' },
   healthError: null,
@@ -205,7 +207,7 @@ describe('App shell', () => {
     renderApp();
 
     expect(screen.getByRole('heading', { name: 'Install CLI' })).toBeInTheDocument();
-    expect(screen.getByText('curl -fsSL https://soulstore.ciqtek.com/skill-home/install.sh | bash')).toBeInTheDocument();
+    expect(screen.getByText(`curl -fsSL ${mockLocalRegistryBase}/install.sh | bash`)).toBeInTheDocument();
     expect(screen.getByText('Skill Home /releases')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Open install guide' }));
