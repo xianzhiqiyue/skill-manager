@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react';
+
 import type { SkillSummary } from '../../api';
 import type { CatalogFilters, CatalogSort, CatalogView } from '../../lib/catalogState';
 
@@ -54,7 +56,24 @@ export function FilterRail({
   skills,
   tagOptions,
 }: FilterRailProps) {
+  const [queryDraft, setQueryDraft] = useState(filters.query);
   const topTags = collectTopTags(skills);
+
+  useEffect(() => {
+    setQueryDraft(filters.query);
+  }, [filters.query]);
+
+  useEffect(() => {
+    if (queryDraft === filters.query) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      onQueryChange(queryDraft);
+    }, 250);
+
+    return () => window.clearTimeout(timer);
+  }, [filters.query, onQueryChange, queryDraft]);
 
   return (
     <aside className="search-filter-rail">
@@ -73,9 +92,19 @@ export function FilterRail({
       <label className="field">
         <span>关键词</span>
         <input
-          onChange={(event) => onQueryChange(event.target.value)}
+          onBlur={() => {
+            if (queryDraft !== filters.query) {
+              onQueryChange(queryDraft);
+            }
+          }}
+          onChange={(event) => setQueryDraft(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' && queryDraft !== filters.query) {
+              onQueryChange(queryDraft);
+            }
+          }}
           placeholder="搜索 skill、能力、场景"
-          value={filters.query}
+          value={queryDraft}
         />
       </label>
 

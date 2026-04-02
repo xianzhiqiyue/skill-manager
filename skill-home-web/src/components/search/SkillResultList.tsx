@@ -114,12 +114,16 @@ export function SkillResultList({
   total,
   view,
 }: SkillResultListProps) {
+  const refreshing = loading && skills.length > 0;
+  const loadingEmptyState = loading && !skills.length;
+
   return (
     <section className="skill-results-panel">
       <div className="skill-results-panel__toolbar">
         <div>
           <strong>{total} 结果</strong>
           <span>{sortLabel}</span>
+          {refreshing ? <span aria-live="polite">更新结果中...</span> : null}
         </div>
         <button className="button button--ghost" onClick={onRefresh} type="button">
           刷新
@@ -139,7 +143,7 @@ export function SkillResultList({
         </div>
       ) : null}
 
-      {loading ? (
+      {loadingEmptyState ? (
         <div className="empty-panel">正在读取技能目录...</div>
       ) : error ? (
         <div className="empty-panel empty-panel--danger">读取技能目录失败：{error}</div>

@@ -78,4 +78,18 @@ describe('SkillsSearchPage', () => {
     expect(screen.getAllByText('12 人评分').length).toBeGreaterThan(0);
     expect(screen.getAllByText('暂无评分').length).toBeGreaterThan(0);
   });
+
+  it('keeps current results visible while a filtered refresh is in flight', () => {
+    render(
+      <SkillsSearchPage
+        model={{
+          ...model,
+          skillsLoading: true,
+        }}
+      />,
+    );
+
+    expect(screen.getAllByText('@testuser/github').length).toBeGreaterThan(0);
+    expect(screen.queryByText('正在读取技能目录...')).not.toBeInTheDocument();
+  });
 });
