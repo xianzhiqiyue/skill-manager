@@ -104,7 +104,7 @@ describe('useRegistryApp catalog URL sync', () => {
     expect(result.current.catalogFilters.sort).toBe('updated');
   });
 
-  it('writes non-default catalog filters back to the skills URL', async () => {
+  it('commits non-default catalog filters to the skills URL instead of mutating local state', () => {
     const navigate = vi.fn();
     const { result } = renderHook(() =>
       useRegistryApp({ name: 'skills' }, '?q=doc', navigate),
@@ -114,9 +114,37 @@ describe('useRegistryApp catalog URL sync', () => {
       result.current.updateCatalogFilter('sort', 'updated');
     });
 
-    await waitFor(() => {
-      expect(navigate).toHaveBeenCalledWith('/skills?q=doc&sort=updated', { replace: true });
+    expect(navigate).toHaveBeenCalledWith('/skills?q=doc&sort=updated', { replace: true });
+    expect(result.current.catalogFilters.query).toBe('doc');
+    expect(result.current.catalogFilters.sort).toBe('downloads');
+  });
+
+  it('commits submitted catalog queries to the skills URL instead of mutating local state', () => {
+    const navigate = vi.fn();
+    const { result } = renderHook(() =>
+      useRegistryApp({ name: 'skills' }, '?q=doc&sort=updated', navigate),
+    );
+
+    act(() => {
+      result.current.setCatalogQuery('fmea');
     });
+
+    expect(navigate).toHaveBeenCalledWith('/skills?q=fmea&sort=updated', { replace: true });
+    expect(result.current.catalogFilters.query).toBe('doc');
+    expect(result.current.catalogFilters.sort).toBe('updated');
+  });
+
+  it('commits filter resets to the bare skills URL', () => {
+    const navigate = vi.fn();
+    const { result } = renderHook(() =>
+      useRegistryApp({ name: 'skills' }, '?q=doc&namespace=testuser&sort=updated', navigate),
+    );
+
+    act(() => {
+      result.current.resetCatalogFilters();
+    });
+
+    expect(navigate).toHaveBeenCalledWith('/skills', { replace: true });
   });
 
   it('preserves the current catalog search when opening a skill result', () => {

@@ -19,7 +19,7 @@ const model: SkillsSearchPageModel = {
       updated_at: '2026-03-22T21:32:00Z',
     },
   ],
-  skillsTotal: 12,
+  skillsTotal: 1,
   skillsLoading: false,
   skillsError: null,
   catalogFilters: {
@@ -83,13 +83,12 @@ describe('SkillsSearchPage', () => {
     expect(screen.getAllByText('暂无评分').length).toBeGreaterThan(0);
   });
 
-  it('immediately narrows the rendered catalog to the active query', () => {
+  it('renders the committed catalog result set from the model as-is', () => {
     render(
       <SkillsSearchPage
         model={{
           ...model,
           skills: [
-            ...model.skills,
             {
               id: '2',
               namespace: 'zhuyuxiao314',
@@ -107,7 +106,7 @@ describe('SkillsSearchPage', () => {
             ...model.catalogFilters,
             query: 'fmea',
           },
-          skillsTotal: 34,
+          skillsTotal: 1,
         }}
       />,
     );
@@ -115,6 +114,7 @@ describe('SkillsSearchPage', () => {
     expect(screen.getByText('@zhuyuxiao314/openclaw-fmea-cocreator')).toBeInTheDocument();
     expect(screen.queryByText('@testuser/github')).not.toBeInTheDocument();
     expect(screen.getByText('1 结果')).toBeInTheDocument();
+    expect(screen.getByText('关键词：fmea')).toBeInTheDocument();
   });
 
   it('keeps current results visible while a filtered refresh is in flight', () => {

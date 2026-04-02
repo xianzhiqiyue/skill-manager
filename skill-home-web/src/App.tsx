@@ -159,7 +159,17 @@ export default function App() {
 
       <main className="app-main">
         {route.name === 'home' ? <HomeRoutePage model={model} navigate={navigateInternal} /> : null}
-        {route.name === 'skills' ? <SkillsSearchPage model={model} /> : null}
+        {route.name === 'skills' ? (
+          <SkillsSearchPage
+            model={{
+              ...model,
+              skills: model.catalogSkills ?? model.skills,
+              skillsError: model.catalogError ?? model.skillsError,
+              skillsLoading: model.catalogLoading ?? model.skillsLoading,
+              skillsTotal: model.catalogTotal ?? model.catalogSkills?.length ?? model.skills.length,
+            }}
+          />
+        ) : null}
         {route.name === 'skill-tab' && route.tab === 'overview' ? (
           <SkillOverviewPage model={model} navigate={navigateInternal} search={location.search} />
         ) : null}

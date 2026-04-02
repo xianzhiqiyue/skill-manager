@@ -1,4 +1,4 @@
-import { startTransition, useDeferredValue, useEffect, useLayoutEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { APP_BASE_PATH, stripBasePath } from '../basePath';
 import {
@@ -88,26 +88,29 @@ export function useRegistryApp(
   locationSearch: string,
   navigate: (path: string, options?: { replace?: boolean }) => void,
 ) {
+  const catalogFilters =
+    route.name === 'skills' || route.name === 'skill-tab'
+      ? parseCatalogSearch(locationSearch)
+      : defaultCatalogFilters;
   const normalizedCatalogSearch =
     route.name === 'skills' || route.name === 'skill-tab'
-      ? toCatalogSearch(parseCatalogSearch(locationSearch))
+      ? toCatalogSearch(catalogFilters)
       : '';
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [healthError, setHealthError] = useState<string | null>(null);
-
-  const [catalogFilters, setCatalogFilters] = useState<CatalogFilters>(() =>
-    route.name === 'skills' || route.name === 'skill-tab'
-      ? parseCatalogSearch(locationSearch)
-      : defaultCatalogFilters,
-  );
-  const [catalogSearchSource, setCatalogSearchSource] = useState(normalizedCatalogSearch);
-  const deferredQuery = useDeferredValue(catalogFilters.query);
 
   const [skills, setSkills] = useState<SkillSummary[]>([]);
   const [skillsTotal, setSkillsTotal] = useState(0);
   const [skillsLoading, setSkillsLoading] = useState(true);
   const [skillsError, setSkillsError] = useState<string | null>(null);
   const [catalogNonce, setCatalogNonce] = useState(0);
+  const [catalogSkills, setCatalogSkills] = useState<SkillSummary[]>([]);
+  const [catalogTotal, setCatalogTotal] = useState(0);
+  const [catalogLoading, setCatalogLoading] = useState(false);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
+  const [catalogSearchKey, setCatalogSearchKey] = useState('');
+  const [catalogSearchNonce, setCatalogSearchNonce] = useState(0);
+  const previousCatalogRouteRef = useRef(route.name);
 
   const routeSkillKey = route.name === 'skill-tab' ? `${route.namespace}/${route.skillName}` : null;
 
@@ -206,36 +209,6 @@ export function useRegistryApp(
     tagCount: tagOptions.length,
   };
 
-  useLayoutEffect(() => {
-    if (route.name !== 'skills' && route.name !== 'skill-tab') {
-      setCatalogSearchSource((current) => (current ? '' : current));
-      return;
-    }
-
-    const nextFilters = parseCatalogSearch(locationSearch);
-    setCatalogSearchSource((current) =>
-      current === normalizedCatalogSearch ? current : normalizedCatalogSearch,
-    );
-    setCatalogFilters((current) => {
-      const currentSearch = toCatalogSearch(current);
-      return currentSearch === normalizedCatalogSearch ? current : nextFilters;
-    });
-  }, [locationSearch, normalizedCatalogSearch, route.name]);
-
-  useEffect(() => {
-    if (route.name !== 'skills') {
-      return;
-    }
-
-    const nextSearch = toCatalogSearch(catalogFilters);
-    if (catalogSearchSource !== normalizedCatalogSearch || nextSearch === catalogSearchSource) {
-      return;
-    }
-
-    setCatalogSearchSource(nextSearch);
-    navigate(`/skills${nextSearch}`, { replace: true });
-  }, [catalogFilters, catalogSearchSource, navigate, normalizedCatalogSearch, route.name]);
-
   useEffect(() => {
     let disposed = false;
 
@@ -262,11 +235,6 @@ export function useRegistryApp(
     setSkillsError(null);
 
     fetchSkills({
-      query: deferredQuery,
-      namespace: catalogFilters.namespace,
-      tag: catalogFilters.tag,
-      license: catalogFilters.license,
-      sort: catalogFilters.sort,
       perPage: 100,
     })
       .then((data) => {
@@ -288,13 +256,66 @@ export function useRegistryApp(
     return () => {
       cancelled = true;
     };
+  }, [catalogNonce]);
+
+  useEffect(() => {
+    if (route.name !== 'skills') {
+      previousCatalogRouteRef.current = route.name;
+      setCatalogLoading(false);
+      return;
+    }
+
+    const enteringCatalogFromOutside = previousCatalogRouteRef.current !== 'skills';
+    previousCatalogRouteRef.current = route.name;
+
+    let cancelled = false;
+    if (enteringCatalogFromOutside && catalogSearchKey !== normalizedCatalogSearch) {
+      setCatalogSkills([]);
+      setCatalogTotal(0);
+    }
+    setCatalogLoading(true);
+    setCatalogError(null);
+
+    fetchSkills({
+      query: catalogFilters.query,
+      namespace: catalogFilters.namespace,
+      tag: catalogFilters.tag,
+      license: catalogFilters.license,
+      sort: catalogFilters.sort,
+      perPage: 100,
+    })
+      .then((data) => {
+        if (cancelled) {
+          return;
+        }
+
+        setCatalogSkills(data.results);
+        setCatalogTotal(data.total ?? data.results.length);
+        setCatalogSearchKey(normalizedCatalogSearch);
+        setCatalogLoading(false);
+      })
+      .catch((error: Error) => {
+        if (cancelled) {
+          return;
+        }
+
+        setCatalogError(error.message);
+        setCatalogLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [
     catalogFilters.license,
     catalogFilters.namespace,
+    catalogFilters.query,
     catalogFilters.sort,
     catalogFilters.tag,
-    catalogNonce,
-    deferredQuery,
+    catalogSearchKey,
+    catalogSearchNonce,
+    normalizedCatalogSearch,
+    route.name,
   ]);
 
   useEffect(() => {
@@ -498,12 +519,14 @@ export function useRegistryApp(
     };
   }, [manageNonce, managedSkillKey, token]);
 
+  function commitCatalogFilters(nextFilters: CatalogFilters) {
+    navigate(`/skills${toCatalogSearch(nextFilters)}`, { replace: true });
+  }
+
   function setCatalogQuery(nextValue: string) {
-    startTransition(() => {
-      setCatalogFilters((current) => ({
-        ...current,
-        query: nextValue,
-      }));
+    commitCatalogFilters({
+      ...catalogFilters,
+      query: nextValue,
     });
   }
 
@@ -511,23 +534,23 @@ export function useRegistryApp(
     key: 'namespace' | 'tag' | 'license' | 'sort' | 'view',
     value: string,
   ) {
-    setCatalogFilters((current) => ({
-      ...current,
+    commitCatalogFilters({
+      ...catalogFilters,
       [key]: value,
-    }));
+    });
   }
 
   function resetCatalogFilters() {
-    setCatalogFilters(defaultCatalogFilters);
+    navigate('/skills', { replace: true });
   }
 
   function openSkill(namespace: string, name: string) {
-    const search = locationSearch || toCatalogSearch(catalogFilters);
+    const search = normalizedCatalogSearch || locationSearch || '';
     navigate(`${buildSkillPath(namespace, name)}${search}`);
   }
 
   function returnToCatalog() {
-    const search = locationSearch || toCatalogSearch(catalogFilters);
+    const search = normalizedCatalogSearch || locationSearch || '';
     navigate(`/skills${search}`);
   }
 
@@ -987,6 +1010,10 @@ export function useRegistryApp(
     skillsTotal,
     skillsLoading,
     skillsError,
+    catalogSkills,
+    catalogTotal,
+    catalogLoading,
+    catalogError,
     catalogFilters,
     namespaceOptions,
     tagOptions,
@@ -997,7 +1024,7 @@ export function useRegistryApp(
     setCatalogQuery,
     updateCatalogFilter,
     resetCatalogFilters,
-    refreshCatalog: () => setCatalogNonce((value) => value + 1),
+    refreshCatalog: () => setCatalogSearchNonce((value) => value + 1),
     openSkill,
     returnToCatalog,
     detailSkill,
