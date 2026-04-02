@@ -1,3 +1,5 @@
+import type { SkillSummary } from '../api';
+
 export type CatalogSort = 'downloads' | 'updated' | 'rating' | 'name';
 export type CatalogView = 'cards' | 'list';
 
@@ -62,4 +64,69 @@ export function toCatalogSearch(filters: CatalogFilters) {
 
   const serialized = params.toString();
   return serialized ? `?${serialized}` : '';
+}
+
+function compareCatalogSkills(left: SkillSummary, right: SkillSummary, sort: CatalogSort) {
+  if (sort === 'updated') {
+    return (
+      new Date(right.updated_at || 0).getTime() - new Date(left.updated_at || 0).getTime() ||
+      right.download_count - left.download_count ||
+      left.name.localeCompare(right.name)
+    );
+  }
+
+  if (sort === 'rating') {
+    return (
+      (right.rating || 0) - (left.rating || 0) ||
+      right.rating_count - left.rating_count ||
+      right.download_count - left.download_count ||
+      left.name.localeCompare(right.name)
+    );
+  }
+
+  if (sort === 'name') {
+    return left.name.localeCompare(right.name) || left.namespace.localeCompare(right.namespace);
+  }
+
+  return (
+    right.download_count - left.download_count ||
+    new Date(right.updated_at || 0).getTime() - new Date(left.updated_at || 0).getTime() ||
+    left.name.localeCompare(right.name)
+  );
+}
+
+export function filterCatalogSkills(skills: SkillSummary[], filters: CatalogFilters) {
+  const query = filters.query.trim().toLowerCase();
+
+  return skills
+    .filter((skill) => {
+      if (filters.namespace !== defaultCatalogFilters.namespace && skill.namespace !== filters.namespace) {
+        return false;
+      }
+
+      if (filters.tag !== defaultCatalogFilters.tag && !(skill.tags || []).includes(filters.tag)) {
+        return false;
+      }
+
+      const license = skill.license || '';
+      if (filters.license !== defaultCatalogFilters.license && license !== filters.license) {
+        return false;
+      }
+
+      if (!query) {
+        return true;
+      }
+
+      const reference = `${skill.namespace}/${skill.name}`.toLowerCase();
+      const description = (skill.description || '').toLowerCase();
+      const tags = (skill.tags || []).map((tag) => tag.toLowerCase());
+
+      return (
+        skill.name.toLowerCase().includes(query) ||
+        reference.includes(query) ||
+        description.includes(query) ||
+        tags.some((tag) => tag.includes(query))
+      );
+    })
+    .sort((left, right) => compareCatalogSkills(left, right, filters.sort));
 }

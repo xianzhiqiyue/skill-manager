@@ -1,5 +1,5 @@
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { cleanup, render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { SkillsSearchPage, type SkillsSearchPageModel } from '../../pages/SkillsSearchPage';
 
@@ -41,11 +41,15 @@ const model: SkillsSearchPageModel = {
 };
 
 describe('SkillsSearchPage', () => {
+  afterEach(() => {
+    cleanup();
+  });
+
   it('shows a left filter rail and compact result rows', () => {
     render(<SkillsSearchPage model={model} />);
 
     expect(screen.getAllByText('Filter by')[0]).toBeInTheDocument();
-    expect(screen.getByText('12 结果')).toBeInTheDocument();
+    expect(screen.getByText('1 结果')).toBeInTheDocument();
     expect(screen.queryByText('查看详情')).not.toBeInTheDocument();
   });
 
@@ -77,6 +81,40 @@ describe('SkillsSearchPage', () => {
     expect(screen.getAllByText('4.8 分').length).toBeGreaterThan(0);
     expect(screen.getAllByText('12 人评分').length).toBeGreaterThan(0);
     expect(screen.getAllByText('暂无评分').length).toBeGreaterThan(0);
+  });
+
+  it('immediately narrows the rendered catalog to the active query', () => {
+    render(
+      <SkillsSearchPage
+        model={{
+          ...model,
+          skills: [
+            ...model.skills,
+            {
+              id: '2',
+              namespace: 'zhuyuxiao314',
+              name: 'openclaw-fmea-cocreator',
+              description: 'Builds FMEA drafts.',
+              tags: ['analysis', 'docs'],
+              license: 'MIT',
+              download_count: 3,
+              rating_count: 0,
+              latest_version: '0.2.0',
+              updated_at: '2026-04-02T00:00:00Z',
+            },
+          ],
+          catalogFilters: {
+            ...model.catalogFilters,
+            query: 'fmea',
+          },
+          skillsTotal: 34,
+        }}
+      />,
+    );
+
+    expect(screen.getByText('@zhuyuxiao314/openclaw-fmea-cocreator')).toBeInTheDocument();
+    expect(screen.queryByText('@testuser/github')).not.toBeInTheDocument();
+    expect(screen.getByText('1 结果')).toBeInTheDocument();
   });
 
   it('keeps current results visible while a filtered refresh is in flight', () => {

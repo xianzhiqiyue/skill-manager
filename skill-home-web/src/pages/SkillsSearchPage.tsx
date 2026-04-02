@@ -5,7 +5,7 @@ import { PageHeader } from '../components/layout/PageHeader';
 import { SidebarLayout } from '../components/layout/SidebarLayout';
 import { FilterRail } from '../components/search/FilterRail';
 import { SkillResultList } from '../components/search/SkillResultList';
-import type { CatalogFilters } from '../lib/catalogState';
+import { filterCatalogSkills, type CatalogFilters } from '../lib/catalogState';
 
 export type SkillsSearchPageModel = {
   catalogFilters: CatalogFilters;
@@ -53,6 +53,24 @@ function buildActiveFilterLabels(filters: CatalogFilters) {
 }
 
 export function SkillsSearchPage({ model }: { model: SkillsSearchPageModel }) {
+  const visibleSkills = useMemo(
+    () => filterCatalogSkills(model.skills, model.catalogFilters),
+    [model.catalogFilters, model.skills],
+  );
+  const visibleNamespaceOptions = useMemo(
+    () => Array.from(new Set(visibleSkills.map((skill) => skill.namespace))).sort(),
+    [visibleSkills],
+  );
+  const visibleTagOptions = useMemo(
+    () => Array.from(new Set(visibleSkills.flatMap((skill) => skill.tags || []))).sort(),
+    [visibleSkills],
+  );
+  const visibleLicenseOptions = useMemo(
+    () => Array.from(new Set(visibleSkills.map((skill) => skill.license || '')))
+      .filter(Boolean)
+      .sort(),
+    [visibleSkills],
+  );
   const activeFilterLabels = useMemo(
     () => buildActiveFilterLabels(model.catalogFilters),
     [model.catalogFilters],
@@ -77,9 +95,9 @@ export function SkillsSearchPage({ model }: { model: SkillsSearchPageModel }) {
               onClearFilters={model.resetCatalogFilters}
               onOpen={model.openSkill}
               onRefresh={model.refreshCatalog}
-              skills={model.skills}
+              skills={visibleSkills}
               sortLabel={sortLabels[model.catalogFilters.sort]}
-              total={model.skillsTotal}
+              total={visibleSkills.length}
               view={model.catalogFilters.view}
             />
           )}
@@ -87,13 +105,13 @@ export function SkillsSearchPage({ model }: { model: SkillsSearchPageModel }) {
             <FilterRail
               activeFilterLabels={activeFilterLabels}
               filters={model.catalogFilters}
-              licenseOptions={model.licenseOptions}
-              namespaceOptions={model.namespaceOptions}
+              licenseOptions={visibleLicenseOptions}
+              namespaceOptions={visibleNamespaceOptions}
               onChange={model.updateCatalogFilter}
               onQueryChange={model.setCatalogQuery}
               onReset={model.resetCatalogFilters}
-              skills={model.skills}
-              tagOptions={model.tagOptions}
+              skills={visibleSkills}
+              tagOptions={visibleTagOptions}
             />
           )}
         />

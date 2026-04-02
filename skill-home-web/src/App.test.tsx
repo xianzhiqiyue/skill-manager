@@ -348,7 +348,7 @@ describe('App shell', () => {
     renderApp();
 
     expect(screen.getAllByText('Filter by')[0]).toBeInTheDocument();
-    expect(screen.getByText('12 结果')).toBeInTheDocument();
+    expect(screen.getByText('1 结果')).toBeInTheDocument();
     expect(screen.queryByText('查看详情')).not.toBeInTheDocument();
   });
 
