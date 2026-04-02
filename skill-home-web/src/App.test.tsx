@@ -237,6 +237,29 @@ describe('App shell', () => {
     expect(navigate).toHaveBeenCalledWith('/skills?q=github');
   });
 
+  it('updates the in-place catalog query instead of re-navigating when the header search submits on /skills', () => {
+    const navigate = vi.fn();
+    const setCatalogQuery = vi.fn();
+    mockUseRoute.mockReturnValue({
+      route: { name: 'skills' },
+      location: { pathname: '/skills', search: '' },
+      navigate,
+    });
+    mockUseRegistryApp.mockReturnValue({
+      ...baseModel,
+      setCatalogQuery,
+    });
+
+    renderApp();
+
+    const input = screen.getByRole('searchbox', { name: '搜索 skill、能力、场景' });
+    fireEvent.change(input, { target: { value: 'fmea' } });
+    fireEvent.submit(input.closest('form')!);
+
+    expect(setCatalogQuery).toHaveBeenCalledWith('fmea');
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
   it('renders the GitHub-style object shell for the canonical skill-tab route', () => {
     mockUseRoute.mockReturnValue({
       route: {

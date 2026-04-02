@@ -84,6 +84,19 @@ export default function App() {
     model.handleLogout();
   }
 
+  function handleHeaderSearchSubmit(query: string, event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setMobileNavOpen(false);
+    setMobileSearchOpen(false);
+
+    if (route.name === 'skills') {
+      model.setCatalogQuery(query);
+      return;
+    }
+
+    navigate(buildHeaderSearch('/skills', query));
+  }
+
   function handleSkillsNavigation() {
     setMobileNavOpen(false);
     setMobileSearchOpen(false);
@@ -131,10 +144,7 @@ export default function App() {
         onSearchSuggestionSelect={(query, namespace, name) => {
           navigateInternal(buildHeaderSearch(buildSkillPath(namespace, name), query));
         }}
-        onSearchSubmit={(query, event) => {
-          event.preventDefault();
-          navigateInternal(buildHeaderSearch('/skills', query));
-        }}
+        onSearchSubmit={handleHeaderSearchSubmit}
         onSkills={handleSkillsNavigation}
         onToggleMobileNav={() => {
           setMobileNavOpen((value) => !value);
