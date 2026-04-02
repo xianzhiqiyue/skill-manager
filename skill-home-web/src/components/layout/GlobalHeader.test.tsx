@@ -6,32 +6,32 @@ import { GlobalHeader } from './GlobalHeader';
 const noop = vi.fn();
 
 function renderHeader({
+  catalogQuery = '',
   mobileNavOpen = false,
   onSearchSubmit = noop,
   onSearchSuggestionSelect = noop,
-  searchSuggestions = [],
-  searchValue = '',
+  skills = [],
 }: {
+  catalogQuery?: string;
   mobileNavOpen?: boolean;
-  onSearchSubmit?: (event: React.FormEvent<HTMLFormElement>) => void;
-  onSearchSuggestionSelect?: (namespace: string, name: string) => void;
-  searchSuggestions?: Array<{
+  onSearchSubmit?: (query: string, event: React.FormEvent<HTMLFormElement>) => void;
+  onSearchSuggestionSelect?: (query: string, namespace: string, name: string) => void;
+  skills?: Array<{
     id: string;
     namespace: string;
     name: string;
     description?: string;
     latestVersion?: string;
   }>;
-  searchValue?: string;
 } = {}) {
   return render(
     <GlobalHeader
       activeNav="home"
+      catalogQuery={catalogQuery}
       currentUser={{ username: 'zhuyuxiao314' }}
       mobileNavOpen={mobileNavOpen}
       mobileSearchOpen={false}
-      searchSuggestions={searchSuggestions}
-      searchValue={searchValue}
+      skills={skills}
       onConsole={noop}
       onHome={noop}
       onInstall={noop}
@@ -39,7 +39,6 @@ function renderHeader({
       onLogout={noop}
       onPublish={noop}
       onRegister={noop}
-      onSearchChange={noop}
       onSearchSuggestionSelect={onSearchSuggestionSelect}
       onSearchSubmit={onSearchSubmit}
       onSkills={noop}
@@ -74,7 +73,7 @@ describe('GlobalHeader', () => {
   });
 
   it('removes the explicit search button but still submits on Enter', () => {
-    const handleSearchSubmit = vi.fn((event: React.FormEvent<HTMLFormElement>) => event.preventDefault());
+    const handleSearchSubmit = vi.fn((_: string, event: React.FormEvent<HTMLFormElement>) => event.preventDefault());
     const { container } = renderHeader({ onSearchSubmit: handleSearchSubmit });
 
     expect(screen.queryByRole('button', { name: '搜索' })).not.toBeInTheDocument();
@@ -89,7 +88,8 @@ describe('GlobalHeader', () => {
     const handleSearchSuggestionSelect = vi.fn();
     renderHeader({
       onSearchSuggestionSelect: handleSearchSuggestionSelect,
-      searchSuggestions: [
+      catalogQuery: 'git',
+      skills: [
         {
           id: '1',
           namespace: 'testuser',
@@ -98,7 +98,6 @@ describe('GlobalHeader', () => {
           latestVersion: '1.0.0',
         },
       ],
-      searchValue: 'git',
     });
 
     const input = screen.getByRole('searchbox', { name: '搜索 skill、能力、场景' });
@@ -106,16 +105,17 @@ describe('GlobalHeader', () => {
 
     expect(screen.getByRole('listbox', { name: '搜索联想' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('option', { name: 'testuser / github Interact with GitHub using gh.' }));
-    expect(handleSearchSuggestionSelect).toHaveBeenCalledWith('testuser', 'github');
+    expect(handleSearchSuggestionSelect).toHaveBeenCalledWith('git', 'testuser', 'github');
   });
 
   it('uses the highlighted suggestion on Enter instead of submitting the search form', () => {
-    const handleSearchSubmit = vi.fn((event: React.FormEvent<HTMLFormElement>) => event.preventDefault());
+    const handleSearchSubmit = vi.fn((_: string, event: React.FormEvent<HTMLFormElement>) => event.preventDefault());
     const handleSearchSuggestionSelect = vi.fn();
     renderHeader({
       onSearchSubmit: handleSearchSubmit,
       onSearchSuggestionSelect: handleSearchSuggestionSelect,
-      searchSuggestions: [
+      catalogQuery: 'g',
+      skills: [
         {
           id: '1',
           namespace: 'testuser',
@@ -129,7 +129,6 @@ describe('GlobalHeader', () => {
           description: 'Work with .docx files.',
         },
       ],
-      searchValue: 'g',
     });
 
     const input = screen.getByRole('searchbox', { name: '搜索 skill、能力、场景' });
@@ -137,7 +136,7 @@ describe('GlobalHeader', () => {
     fireEvent.keyDown(input, { key: 'ArrowDown' });
     fireEvent.keyDown(input, { key: 'Enter' });
 
-    expect(handleSearchSuggestionSelect).toHaveBeenCalledWith('testuser', 'github');
+    expect(handleSearchSuggestionSelect).toHaveBeenCalledWith('g', 'testuser', 'github');
     expect(handleSearchSubmit).not.toHaveBeenCalled();
   });
 });

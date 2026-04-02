@@ -1,4 +1,6 @@
-import { useEffect, useId, useState, type FormEventHandler } from 'react';
+import { useEffect, useId, useState } from 'react';
+
+import { type SkillSummary } from '../../api';
 
 type HeaderNav = 'home' | 'skills' | 'install' | 'publish' | 'settings' | null;
 
@@ -16,11 +18,11 @@ export type HeaderSearchSuggestion = {
 
 type GlobalHeaderProps = {
   activeNav: HeaderNav;
+  catalogQuery: string;
   currentUser: HeaderUser;
   mobileNavOpen: boolean;
   mobileSearchOpen: boolean;
-  searchSuggestions: HeaderSearchSuggestion[];
-  searchValue: string;
+  skills: SkillSummary[];
   onConsole: () => void;
   onHome: () => void;
   onInstall: () => void;
@@ -28,9 +30,8 @@ type GlobalHeaderProps = {
   onLogout: () => void;
   onPublish: () => void;
   onRegister: () => void;
-  onSearchChange: (value: string) => void;
-  onSearchSuggestionSelect: (namespace: string, name: string) => void;
-  onSearchSubmit: FormEventHandler<HTMLFormElement>;
+  onSearchSuggestionSelect: (query: string, namespace: string, name: string) => void;
+  onSearchSubmit: (query: string, event: React.FormEvent<HTMLFormElement>) => void;
   onSkills: () => void;
   onToggleMobileNav: () => void;
   onToggleMobileSearch: () => void;
@@ -57,13 +58,60 @@ function NavButton({
   );
 }
 
+function buildHeaderSearchSuggestions(skills: SkillSummary[], query: string): HeaderSearchSuggestion[] {
+  const normalizedQuery = query.trim().toLowerCase();
+  if (!normalizedQuery) {
+    return [];
+  }
+
+  return skills
+    .map((skill) => {
+      const reference = `${skill.namespace}/${skill.name}`.toLowerCase();
+      const name = skill.name.toLowerCase();
+      const description = skill.description?.toLowerCase() || '';
+      const tags = (skill.tags || []).map((tag) => tag.toLowerCase());
+
+      let score = Number.POSITIVE_INFINITY;
+      if (name === normalizedQuery || reference === normalizedQuery) {
+        score = 0;
+      } else if (name.startsWith(normalizedQuery)) {
+        score = 1;
+      } else if (reference.startsWith(normalizedQuery)) {
+        score = 2;
+      } else if (tags.some((tag) => tag.startsWith(normalizedQuery))) {
+        score = 3;
+      } else if (description.includes(normalizedQuery)) {
+        score = 4;
+      } else if (reference.includes(normalizedQuery) || tags.some((tag) => tag.includes(normalizedQuery))) {
+        score = 5;
+      }
+
+      return Number.isFinite(score) ? { score, skill } : null;
+    })
+    .filter((entry): entry is { score: number; skill: SkillSummary } => entry !== null)
+    .sort(
+      (left, right) =>
+        left.score - right.score ||
+        right.skill.download_count - left.skill.download_count ||
+        left.skill.name.localeCompare(right.skill.name),
+    )
+    .slice(0, 5)
+    .map(({ skill }) => ({
+      id: skill.id,
+      namespace: skill.namespace,
+      name: skill.name,
+      description: skill.description,
+      latestVersion: skill.latest_version,
+    }));
+}
+
 export function GlobalHeader({
   activeNav,
+  catalogQuery,
   currentUser,
   mobileNavOpen,
   mobileSearchOpen,
-  searchSuggestions,
-  searchValue,
+  skills,
   onConsole,
   onHome,
   onInstall,
@@ -71,17 +119,22 @@ export function GlobalHeader({
   onLogout,
   onPublish,
   onRegister,
-  onSearchChange,
   onSearchSuggestionSelect,
   onSearchSubmit,
   onSkills,
   onToggleMobileNav,
   onToggleMobileSearch,
 }: GlobalHeaderProps) {
+  const [searchValue, setSearchValue] = useState(catalogQuery);
   const [searchFocused, setSearchFocused] = useState(false);
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
   const suggestionListId = useId();
+  const searchSuggestions = buildHeaderSearchSuggestions(skills, searchValue);
   const suggestionsVisible = searchFocused && searchValue.trim().length > 0 && searchSuggestions.length > 0;
+
+  useEffect(() => {
+    setSearchValue(catalogQuery);
+  }, [catalogQuery]);
 
   useEffect(() => {
     setActiveSuggestionIndex(-1);
@@ -98,7 +151,7 @@ export function GlobalHeader({
 
     setSearchFocused(false);
     setActiveSuggestionIndex(-1);
-    onSearchSuggestionSelect(suggestion.namespace, suggestion.name);
+    onSearchSuggestionSelect(searchValue, suggestion.namespace, suggestion.name);
   }
 
   return (
@@ -130,7 +183,7 @@ export function GlobalHeader({
               setActiveSuggestionIndex(-1);
             }
           }}
-          onSubmit={onSearchSubmit}
+          onSubmit={(event) => onSearchSubmit(searchValue, event)}
         >
           <input
             aria-activedescendant={
@@ -142,9 +195,11 @@ export function GlobalHeader({
             aria-autocomplete="list"
             aria-controls={suggestionsVisible ? suggestionListId : undefined}
             aria-expanded={suggestionsVisible}
+            autoComplete="off"
             onChange={(event) => {
-              onSearchChange(event.target.value);
-              setSearchFocused(Boolean(event.target.value.trim()));
+              const nextValue = event.target.value;
+              setSearchValue(nextValue);
+              setSearchFocused(Boolean(nextValue.trim()));
             }}
             onFocus={() => {
               if (searchValue.trim()) {
@@ -188,7 +243,6 @@ export function GlobalHeader({
             placeholder="搜索 skill、能力、场景"
             type="search"
             value={searchValue}
-            autoComplete="off"
           />
           {suggestionsVisible ? (
             <div

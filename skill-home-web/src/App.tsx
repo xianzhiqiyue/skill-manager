@@ -1,6 +1,6 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useState } from 'react';
 
-import { API_BASE, type SkillSummary } from './api';
+import { API_BASE } from './api';
 import { GlobalHeader } from './components/layout/GlobalHeader';
 import { useRegistryApp } from './hooks/useRegistryApp';
 import { useRoute } from './hooks/useRoute';
@@ -33,61 +33,12 @@ function StatusBanner({
   return <div className={`status-banner status-banner--${tone}`}>{message}</div>;
 }
 
-function buildHeaderSearchSuggestions(skills: SkillSummary[], query: string) {
-  const normalizedQuery = query.trim().toLowerCase();
-  if (!normalizedQuery) {
-    return [];
-  }
-
-  return skills
-    .map((skill) => {
-      const reference = `${skill.namespace}/${skill.name}`.toLowerCase();
-      const name = skill.name.toLowerCase();
-      const description = skill.description?.toLowerCase() || '';
-      const tags = (skill.tags || []).map((tag) => tag.toLowerCase());
-
-      let score = Number.POSITIVE_INFINITY;
-      if (name === normalizedQuery || reference === normalizedQuery) {
-        score = 0;
-      } else if (name.startsWith(normalizedQuery)) {
-        score = 1;
-      } else if (reference.startsWith(normalizedQuery)) {
-        score = 2;
-      } else if (tags.some((tag) => tag.startsWith(normalizedQuery))) {
-        score = 3;
-      } else if (description.includes(normalizedQuery)) {
-        score = 4;
-      } else if (reference.includes(normalizedQuery) || tags.some((tag) => tag.includes(normalizedQuery))) {
-        score = 5;
-      }
-
-      return Number.isFinite(score) ? { score, skill } : null;
-    })
-    .filter((entry): entry is { score: number; skill: SkillSummary } => entry !== null)
-    .sort(
-      (left, right) =>
-        left.score - right.score ||
-        right.skill.download_count - left.skill.download_count ||
-        left.skill.name.localeCompare(right.skill.name),
-    )
-    .slice(0, 5)
-    .map(({ skill }) => ({
-      id: skill.id,
-      namespace: skill.namespace,
-      name: skill.name,
-      description: skill.description,
-      latestVersion: skill.latest_version,
-    }));
-}
-
 export default function App() {
   const { route, location, navigate } = useRoute();
   const model = useRegistryApp(route, location.search, navigate);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
-  const [headerSearchValue, setHeaderSearchValue] = useState(model.catalogFilters.query);
   const [toast, setToast] = useState<{ tone: ToastTone; message: string } | null>(null);
-  const headerSearchSuggestions = buildHeaderSearchSuggestions(model.skills, headerSearchValue);
   const activeNav =
     route.name === 'skill-tab'
       ? 'skills'
@@ -121,10 +72,6 @@ export default function App() {
     };
   }, []);
 
-  useEffect(() => {
-    setHeaderSearchValue(model.catalogFilters.query);
-  }, [location.search, model.catalogFilters.query, route.name]);
-
   function navigateInternal(path: string) {
     setMobileNavOpen(false);
     setMobileSearchOpen(false);
@@ -137,16 +84,11 @@ export default function App() {
     model.handleLogout();
   }
 
-  function buildHeaderSearch(searchPath: string) {
+  function buildHeaderSearch(searchPath: string, query: string) {
     return `${searchPath}${toCatalogSearch({
       ...model.catalogFilters,
-      query: headerSearchValue,
+      query,
     })}`;
-  }
-
-  function submitGlobalSearch(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    navigateInternal(buildHeaderSearch('/skills'));
   }
 
   return (
@@ -169,11 +111,14 @@ export default function App() {
         onLogout={handleLogout}
         onPublish={() => navigateInternal('/publish/new')}
         onRegister={() => navigateInternal(buildAuthPath('register', `${location.pathname}${location.search}`))}
-        onSearchChange={(nextValue) => setHeaderSearchValue(nextValue)}
-        onSearchSuggestionSelect={(namespace, name) => {
-          navigateInternal(buildHeaderSearch(buildSkillPath(namespace, name)));
+        catalogQuery={model.catalogFilters.query}
+        onSearchSuggestionSelect={(query, namespace, name) => {
+          navigateInternal(buildHeaderSearch(buildSkillPath(namespace, name), query));
         }}
-        onSearchSubmit={submitGlobalSearch}
+        onSearchSubmit={(query, event) => {
+          event.preventDefault();
+          navigateInternal(buildHeaderSearch('/skills', query));
+        }}
         onSkills={() => navigateInternal('/skills')}
         onToggleMobileNav={() => {
           setMobileNavOpen((value) => !value);
@@ -183,8 +128,7 @@ export default function App() {
           setMobileSearchOpen((value) => !value);
           setMobileNavOpen(false);
         }}
-        searchSuggestions={headerSearchSuggestions}
-        searchValue={headerSearchValue}
+        skills={model.skills}
       />
 
       <main className="app-main">
