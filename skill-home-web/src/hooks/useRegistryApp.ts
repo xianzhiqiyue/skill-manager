@@ -1,4 +1,4 @@
-import { startTransition, useDeferredValue, useEffect, useState } from 'react';
+import { startTransition, useDeferredValue, useEffect, useLayoutEffect, useState } from 'react';
 
 import { APP_BASE_PATH, stripBasePath } from '../basePath';
 import {
@@ -88,6 +88,10 @@ export function useRegistryApp(
   locationSearch: string,
   navigate: (path: string, options?: { replace?: boolean }) => void,
 ) {
+  const normalizedCatalogSearch =
+    route.name === 'skills' || route.name === 'skill-tab'
+      ? toCatalogSearch(parseCatalogSearch(locationSearch))
+      : '';
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [healthError, setHealthError] = useState<string | null>(null);
 
@@ -96,6 +100,7 @@ export function useRegistryApp(
       ? parseCatalogSearch(locationSearch)
       : defaultCatalogFilters,
   );
+  const [catalogSearchSource, setCatalogSearchSource] = useState(normalizedCatalogSearch);
   const deferredQuery = useDeferredValue(catalogFilters.query);
 
   const [skills, setSkills] = useState<SkillSummary[]>([]);
@@ -201,18 +206,21 @@ export function useRegistryApp(
     tagCount: tagOptions.length,
   };
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (route.name !== 'skills' && route.name !== 'skill-tab') {
+      setCatalogSearchSource((current) => (current ? '' : current));
       return;
     }
 
     const nextFilters = parseCatalogSearch(locationSearch);
+    setCatalogSearchSource((current) =>
+      current === normalizedCatalogSearch ? current : normalizedCatalogSearch,
+    );
     setCatalogFilters((current) => {
       const currentSearch = toCatalogSearch(current);
-      const nextSearch = toCatalogSearch(nextFilters);
-      return currentSearch === nextSearch ? current : nextFilters;
+      return currentSearch === normalizedCatalogSearch ? current : nextFilters;
     });
-  }, [locationSearch, route.name]);
+  }, [locationSearch, normalizedCatalogSearch, route.name]);
 
   useEffect(() => {
     if (route.name !== 'skills') {
@@ -220,12 +228,13 @@ export function useRegistryApp(
     }
 
     const nextSearch = toCatalogSearch(catalogFilters);
-    const currentSearch = locationSearch || '';
-
-    if (nextSearch !== currentSearch) {
-      navigate(`/skills${nextSearch}`, { replace: true });
+    if (catalogSearchSource !== normalizedCatalogSearch || nextSearch === catalogSearchSource) {
+      return;
     }
-  }, [catalogFilters, locationSearch, navigate, route.name]);
+
+    setCatalogSearchSource(nextSearch);
+    navigate(`/skills${nextSearch}`, { replace: true });
+  }, [catalogFilters, catalogSearchSource, navigate, normalizedCatalogSearch, route.name]);
 
   useEffect(() => {
     let disposed = false;

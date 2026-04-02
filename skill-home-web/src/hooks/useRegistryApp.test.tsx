@@ -163,6 +163,28 @@ describe('useRegistryApp catalog URL sync', () => {
     expect(result.current.catalogFilters.tag).toBe('automation');
   });
 
+  it('hydrates catalog filters immediately when routing from home into a filtered skills URL', () => {
+    const navigate = vi.fn();
+    const { result, rerender } = renderHook(
+      ({ route, search }: { route: { name: 'home' } | { name: 'skills' }; search: string }) =>
+        useRegistryApp(route, search, navigate),
+      {
+        initialProps: {
+          route: { name: 'home' } as const,
+          search: '',
+        },
+      },
+    );
+
+    rerender({
+      route: { name: 'skills' } as const,
+      search: '?q=fmea',
+    });
+
+    expect(result.current.catalogFilters.query).toBe('fmea');
+    expect(navigate).not.toHaveBeenCalledWith('/skills', { replace: true });
+  });
+
   it('returns to the encoded redirect target after a successful login', async () => {
     vi.mocked(loginUser).mockResolvedValue({
       token: 'token-1',
