@@ -329,6 +329,58 @@ describe('App shell', () => {
     expect(screen.queryByText('查看详情')).not.toBeInTheDocument();
   });
 
+  it('does not reset the active search workspace when clicking 技能中心 from a filtered catalog page', () => {
+    const navigate = vi.fn();
+    mockUseRoute.mockReturnValue({
+      route: { name: 'skills' },
+      location: { pathname: '/skills', search: '?q=fmea' },
+      navigate,
+    });
+    mockUseRegistryApp.mockReturnValue({
+      ...baseModel,
+      catalogFilters: {
+        ...baseModel.catalogFilters,
+        query: 'fmea',
+      },
+    });
+
+    renderApp();
+
+    fireEvent.click(screen.getAllByRole('button', { name: '技能中心' })[0]);
+
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it('returns to the filtered catalog when clicking 技能中心 from a skill detail page', () => {
+    const navigate = vi.fn();
+    const returnToCatalog = vi.fn();
+    mockUseRoute.mockReturnValue({
+      route: {
+        name: 'skill-tab',
+        namespace: 'testuser',
+        skillName: 'github',
+        tab: 'overview',
+      },
+      location: { pathname: '/skills/testuser/github', search: '?q=fmea&tag=analysis' },
+      navigate,
+    });
+    mockUseRegistryApp.mockReturnValue({
+      ...baseModel,
+      returnToCatalog,
+      detailSkill: {
+        ...baseModel.skills[0],
+        versions: [],
+      },
+    });
+
+    renderApp();
+
+    fireEvent.click(screen.getAllByRole('button', { name: '技能中心' })[0]);
+
+    expect(returnToCatalog).toHaveBeenCalledTimes(1);
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
   it('renders an account settings shell on /settings/profile instead of the legacy console dashboard', () => {
     mockUseRoute.mockReturnValue({
       route: { name: 'settings', section: 'profile' },

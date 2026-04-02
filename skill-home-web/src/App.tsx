@@ -84,6 +84,22 @@ export default function App() {
     model.handleLogout();
   }
 
+  function handleSkillsNavigation() {
+    setMobileNavOpen(false);
+    setMobileSearchOpen(false);
+
+    if (route.name === 'skills') {
+      return;
+    }
+
+    if (route.name === 'skill-tab') {
+      model.returnToCatalog();
+      return;
+    }
+
+    navigate('/skills');
+  }
+
   function buildHeaderSearch(searchPath: string, query: string) {
     return `${searchPath}${toCatalogSearch({
       ...model.catalogFilters,
@@ -119,7 +135,7 @@ export default function App() {
           event.preventDefault();
           navigateInternal(buildHeaderSearch('/skills', query));
         }}
-        onSkills={() => navigateInternal('/skills')}
+        onSkills={handleSkillsNavigation}
         onToggleMobileNav={() => {
           setMobileNavOpen((value) => !value);
           setMobileSearchOpen(false);
@@ -207,7 +223,7 @@ export default function App() {
           <a href={API_BASE} rel="noreferrer" target="_blank">
             Registry API
           </a>
-          <button className="footer-link" onClick={() => navigateInternal('/skills')} type="button">
+          <button className="footer-link" onClick={handleSkillsNavigation} type="button">
             技能中心
           </button>
           <button className="footer-link" onClick={() => navigateInternal('/publish/new')} type="button">
