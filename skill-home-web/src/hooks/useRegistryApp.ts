@@ -33,6 +33,7 @@ import {
 } from '../api';
 import {
   defaultCatalogFilters,
+  filterCatalogSkills,
   parseCatalogSearch,
   toCatalogSearch,
   type CatalogFilters,
@@ -994,6 +995,18 @@ export function useRegistryApp(
     }).length,
   };
 
+  const catalogPreviewSkills =
+    catalogSearchKey === normalizedCatalogSearch
+      ? catalogSkills
+      : filterCatalogSkills(skills, catalogFilters);
+  const catalogDisplaySkills = route.name === 'skills' ? catalogPreviewSkills : [];
+  const catalogDisplayTotal =
+    catalogSearchKey === normalizedCatalogSearch ? catalogTotal : catalogPreviewSkills.length;
+  const catalogDisplayLoading =
+    route.name === 'skills' && (catalogLoading || catalogSearchKey !== normalizedCatalogSearch);
+  const catalogDisplayError =
+    route.name === 'skills' && catalogSearchKey === normalizedCatalogSearch ? catalogError : null;
+
   return {
     health,
     healthError,
@@ -1014,6 +1027,10 @@ export function useRegistryApp(
     catalogTotal,
     catalogLoading,
     catalogError,
+    catalogDisplaySkills,
+    catalogDisplayTotal,
+    catalogDisplayLoading,
+    catalogDisplayError,
     catalogFilters,
     namespaceOptions,
     tagOptions,

@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   addCommunityTag,
   deleteSkill,
+  fetchSkills,
   fetchSkillDetail,
   loginUser,
   publishSkill,
@@ -211,6 +212,98 @@ describe('useRegistryApp catalog URL sync', () => {
 
     expect(result.current.catalogFilters.query).toBe('fmea');
     expect(navigate).not.toHaveBeenCalledWith('/skills', { replace: true });
+  });
+
+  it('uses the directory snapshot as a preview while a new committed catalog search is loading', async () => {
+    const navigate = vi.fn();
+    let resolveCatalogFetch:
+      | ((value: { total: number; results: Array<Record<string, unknown>> }) => void)
+      | null = null;
+    const pendingCatalogFetch = new Promise<{ total: number; results: Array<Record<string, unknown>> }>(
+      (resolve) => {
+        resolveCatalogFetch = resolve;
+      },
+    );
+
+    vi.mocked(fetchSkills)
+      .mockResolvedValueOnce({
+        total: 2,
+        results: [
+          {
+            id: '1',
+            namespace: 'testuser',
+            name: 'github',
+            description: 'Interact with GitHub using gh.',
+            tags: ['automation', 'github'],
+            license: 'MIT',
+            download_count: 18,
+            rating_count: 0,
+            latest_version: '1.0.0',
+            updated_at: '2026-03-22T21:32:00Z',
+          },
+          {
+            id: '2',
+            namespace: 'zhuyuxiao314',
+            name: 'openclaw-fmea-cocreator',
+            description: 'Builds FMEA drafts.',
+            tags: ['analysis', 'docs'],
+            license: 'MIT',
+            download_count: 3,
+            rating_count: 0,
+            latest_version: '0.2.0',
+            updated_at: '2026-04-02T00:00:00Z',
+          },
+        ],
+      })
+      .mockImplementationOnce(() => pendingCatalogFetch as never);
+
+    const { result, rerender } = renderHook(
+      ({ route, search }: { route: { name: 'home' } | { name: 'skills' }; search: string }) =>
+        useRegistryApp(route, search, navigate),
+      {
+        initialProps: {
+          route: { name: 'home' } as const,
+          search: '',
+        },
+      },
+    );
+
+    await waitFor(() => {
+      expect(result.current.skills).toHaveLength(2);
+    });
+
+    rerender({
+      route: { name: 'skills' } as const,
+      search: '?q=fmea',
+    });
+
+    expect(result.current.catalogDisplayLoading).toBe(true);
+    expect(result.current.catalogDisplayTotal).toBe(1);
+    expect(result.current.catalogDisplaySkills.map((skill) => skill.name)).toEqual([
+      'openclaw-fmea-cocreator',
+    ]);
+
+    resolveCatalogFetch?.({
+      total: 1,
+      results: [
+        {
+          id: '2',
+          namespace: 'zhuyuxiao314',
+          name: 'openclaw-fmea-cocreator',
+          description: 'Builds FMEA drafts.',
+          tags: ['analysis', 'docs'],
+          license: 'MIT',
+          download_count: 3,
+          rating_count: 0,
+          latest_version: '0.2.0',
+          updated_at: '2026-04-02T00:00:00Z',
+        },
+      ],
+    });
+
+    await waitFor(() => {
+      expect(result.current.catalogDisplayLoading).toBe(false);
+    });
   });
 
   it('returns to the encoded redirect target after a successful login', async () => {

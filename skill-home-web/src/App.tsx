@@ -163,10 +163,14 @@ export default function App() {
           <SkillsSearchPage
             model={{
               ...model,
-              skills: model.catalogSkills ?? model.skills,
-              skillsError: model.catalogError ?? model.skillsError,
-              skillsLoading: model.catalogLoading ?? model.skillsLoading,
-              skillsTotal: model.catalogTotal ?? model.catalogSkills?.length ?? model.skills.length,
+              skills: model.catalogDisplaySkills ?? model.catalogSkills ?? model.skills,
+              skillsError: model.catalogDisplayError ?? model.catalogError ?? model.skillsError,
+              skillsLoading: model.catalogDisplayLoading ?? model.catalogLoading ?? model.skillsLoading,
+              skillsTotal:
+                model.catalogDisplayTotal ??
+                model.catalogTotal ??
+                model.catalogSkills?.length ??
+                model.skills.length,
             }}
           />
         ) : null}
