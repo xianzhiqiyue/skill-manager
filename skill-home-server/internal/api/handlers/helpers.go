@@ -38,6 +38,27 @@ func normalizeNamespace(namespace string) string {
 	return strings.TrimPrefix(namespace, "@")
 }
 
+func isSuperAdmin(user *models.User) bool {
+	return user != nil && user.IsSuperAdmin
+}
+
+func canManageOwnedResource(user *models.User, ownerID uuid.UUID) bool {
+	if user == nil {
+		return false
+	}
+	return user.ID == ownerID || user.IsSuperAdmin
+}
+
+func canAccessSkill(user *models.User, skill *models.Skill) bool {
+	if skill == nil {
+		return false
+	}
+	if skill.IsPublic {
+		return true
+	}
+	return canManageOwnedResource(user, skill.OwnerID)
+}
+
 func namespaceVariants(namespace string) []string {
 	namespace = strings.TrimSpace(namespace)
 	if namespace == "" {

@@ -24,6 +24,7 @@ import (
 	"github.com/skill-home/server/internal/models"
 	"github.com/skill-home/server/internal/storage"
 	"github.com/skill-home/server/pkg/validator"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -44,6 +45,7 @@ func newTestDatabase(t *testing.T) *storage.Database {
 		password TEXT,
 		avatar_url TEXT,
 		is_active NUMERIC DEFAULT 1,
+		is_super_admin NUMERIC DEFAULT 0,
 		created_at DATETIME,
 		updated_at DATETIME,
 		deleted_at DATETIME
@@ -263,6 +265,26 @@ func TestCreateSkillRequiresAuth(t *testing.T) {
 
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("expected 401, got %d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestEnsureBootstrapSuperAdminMarksConfiguredUser(t *testing.T) {
+	db := newTestDatabase(t)
+	user := &models.User{ID: uuid.New(), Username: "zhuyuxiao314", Email: "zhuyue314@gmail.com"}
+	if err := db.Create(user).Error; err != nil {
+		t.Fatalf("create user failed: %v", err)
+	}
+
+	if err := EnsureBootstrapSuperAdmin(db, "zhuyuxiao314"); err != nil {
+		t.Fatalf("EnsureBootstrapSuperAdmin returned error: %v", err)
+	}
+
+	var updated models.User
+	if err := db.First(&updated, "id = ?", user.ID).Error; err != nil {
+		t.Fatalf("load user failed: %v", err)
+	}
+	if !updated.IsSuperAdmin {
+		t.Fatal("expected user to be promoted to super admin")
 	}
 }
 
@@ -1207,6 +1229,58 @@ func TestCatalogVersionBumpsOnSkillMutations(t *testing.T) {
 		}
 	})
 
+	t.Run("super admin can publish another user's version", func(t *testing.T) {
+		db := newTestDatabase(t)
+		objStorage := newTestObjectStorage(t)
+		owner := &models.User{ID: uuid.New(), Username: "owner", Email: "owner@example.com"}
+		admin := &models.User{ID: uuid.New(), Username: "admin", Email: "admin@example.com", IsSuperAdmin: true}
+		if err := db.Create(owner).Error; err != nil {
+			t.Fatalf("create owner failed: %v", err)
+		}
+		if err := db.Create(admin).Error; err != nil {
+			t.Fatalf("create admin failed: %v", err)
+		}
+		skill := models.Skill{
+			ID:            uuid.New(),
+			Namespace:     "team",
+			Name:          "github",
+			OwnerID:       owner.ID,
+			IsPublic:      true,
+			LatestVersion: "1.0.0",
+		}
+		if err := db.Create(&skill).Error; err != nil {
+			t.Fatalf("create skill failed: %v", err)
+		}
+
+		router := newAuthedRouter(admin)
+		router.POST("/api/v1/skills/:namespace/:name/versions", PublishVersion(db, objStorage, validator.NewScanner()))
+
+		body := &bytes.Buffer{}
+		writer := multipart.NewWriter(body)
+		if err := writer.WriteField("version", "1.1.0"); err != nil {
+			t.Fatalf("WriteField version returned error: %v", err)
+		}
+		part, err := writer.CreateFormFile("skill", "github.zip")
+		if err != nil {
+			t.Fatalf("CreateFormFile returned error: %v", err)
+		}
+		if _, err := part.Write(newSkillArchive(t)); err != nil {
+			t.Fatalf("part.Write returned error: %v", err)
+		}
+		if err := writer.Close(); err != nil {
+			t.Fatalf("writer.Close returned error: %v", err)
+		}
+
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/skills/team/github/versions", body)
+		req.Header.Set("Content-Type", writer.FormDataContentType())
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("unexpected status: %d body=%s", rec.Code, rec.Body.String())
+		}
+	})
+
 	t.Run("delete version", func(t *testing.T) {
 		db := newTestDatabase(t)
 		user := &models.User{ID: uuid.New(), Username: "owner", Email: "owner@example.com"}
@@ -1326,6 +1400,99 @@ func TestUpdateSkillVisibilityTransitionsBumpCatalogVersion(t *testing.T) {
 			t.Fatalf("catalog_version = %d, want 2", got)
 		}
 	})
+}
+
+func TestSuperAdminCanUpdateAndDeleteAnotherUsersSkill(t *testing.T) {
+	db := newTestDatabase(t)
+	owner := &models.User{ID: uuid.New(), Username: "owner", Email: "owner@example.com"}
+	admin := &models.User{ID: uuid.New(), Username: "admin", Email: "admin@example.com", IsSuperAdmin: true}
+	if err := db.Create(owner).Error; err != nil {
+		t.Fatalf("create owner failed: %v", err)
+	}
+	if err := db.Create(admin).Error; err != nil {
+		t.Fatalf("create admin failed: %v", err)
+	}
+
+	skill := models.Skill{
+		ID:          uuid.New(),
+		Namespace:   "team",
+		Name:        "github",
+		OwnerID:     owner.ID,
+		Description: "before",
+		Category:    "development",
+		Tags:        models.StringArray{"review"},
+		License:     "MIT",
+		IsPublic:    true,
+	}
+	if err := db.Create(&skill).Error; err != nil {
+		t.Fatalf("create skill failed: %v", err)
+	}
+
+	router := newAuthedRouter(admin)
+	router.PUT("/api/v1/skills/:namespace/:name", UpdateSkill(db))
+	router.DELETE("/api/v1/skills/:namespace/:name", DeleteSkill(db, newTestObjectStorage(t)))
+
+	updateBody := bytes.NewBufferString(`{"description":"after","category":"development","tags":["review"],"license":"Apache-2.0","is_public":true}`)
+	updateReq := httptest.NewRequest(http.MethodPut, "/api/v1/skills/team/github", updateBody)
+	updateReq.Header.Set("Content-Type", "application/json")
+	updateRec := httptest.NewRecorder()
+	router.ServeHTTP(updateRec, updateReq)
+	if updateRec.Code != http.StatusOK {
+		t.Fatalf("update status: %d body=%s", updateRec.Code, updateRec.Body.String())
+	}
+
+	deleteReq := httptest.NewRequest(http.MethodDelete, "/api/v1/skills/team/github", nil)
+	deleteRec := httptest.NewRecorder()
+	router.ServeHTTP(deleteRec, deleteReq)
+	if deleteRec.Code != http.StatusOK {
+		t.Fatalf("delete status: %d body=%s", deleteRec.Code, deleteRec.Body.String())
+	}
+}
+
+func TestSuperAdminCanManageUsers(t *testing.T) {
+	db := newTestDatabase(t)
+	admin := &models.User{ID: uuid.New(), Username: "admin", Email: "admin@example.com", IsSuperAdmin: true}
+	target := &models.User{ID: uuid.New(), Username: "member", Email: "member@example.com", IsActive: true}
+	if err := db.Create(admin).Error; err != nil {
+		t.Fatalf("create admin failed: %v", err)
+	}
+	if err := db.Create(target).Error; err != nil {
+		t.Fatalf("create target failed: %v", err)
+	}
+
+	router := newAuthedRouter(admin)
+	router.GET("/api/v1/admin/users", ListUsers(db))
+	router.PUT("/api/v1/admin/users/:id", UpdateUserByAdmin(db))
+
+	listReq := httptest.NewRequest(http.MethodGet, "/api/v1/admin/users", nil)
+	listRec := httptest.NewRecorder()
+	router.ServeHTTP(listRec, listReq)
+	if listRec.Code != http.StatusOK {
+		t.Fatalf("list status: %d body=%s", listRec.Code, listRec.Body.String())
+	}
+
+	updateBody := bytes.NewBufferString(`{"is_super_admin":true,"is_active":false,"password":"new-password"}`)
+	updateReq := httptest.NewRequest(http.MethodPut, "/api/v1/admin/users/"+target.ID.String(), updateBody)
+	updateReq.Header.Set("Content-Type", "application/json")
+	updateRec := httptest.NewRecorder()
+	router.ServeHTTP(updateRec, updateReq)
+	if updateRec.Code != http.StatusOK {
+		t.Fatalf("update status: %d body=%s", updateRec.Code, updateRec.Body.String())
+	}
+
+	var updated models.User
+	if err := db.First(&updated, "id = ?", target.ID).Error; err != nil {
+		t.Fatalf("reload target failed: %v", err)
+	}
+	if !updated.IsSuperAdmin {
+		t.Fatal("expected target to become super admin")
+	}
+	if updated.IsActive {
+		t.Fatal("expected target to become inactive")
+	}
+	if err := bcrypt.CompareHashAndPassword([]byte(updated.Password), []byte("new-password")); err != nil {
+		t.Fatalf("expected password to be updated: %v", err)
+	}
 }
 
 func TestCreateSkillReturnsAlreadyExistsConflictDoesNotBump(t *testing.T) {

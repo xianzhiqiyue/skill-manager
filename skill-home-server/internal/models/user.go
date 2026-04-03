@@ -9,19 +9,20 @@ import (
 
 // User 用户模型
 type User struct {
-	ID        uuid.UUID      `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
-	Username  string         `gorm:"uniqueIndex;size:32;not null" json:"username"`
-	Email     string         `gorm:"uniqueIndex;size:255;not null" json:"email"`
-	Password  string         `gorm:"size:255" json:"-"` // 不序列化到 JSON
-	AvatarURL string         `gorm:"size:500" json:"avatar_url,omitempty"`
-	IsActive  bool           `gorm:"default:true" json:"is_active"`
-	CreatedAt time.Time      `json:"created_at"`
-	UpdatedAt time.Time      `json:"updated_at"`
-	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
+	ID           uuid.UUID      `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
+	Username     string         `gorm:"uniqueIndex;size:32;not null" json:"username"`
+	Email        string         `gorm:"uniqueIndex;size:255;not null" json:"email"`
+	Password     string         `gorm:"size:255" json:"-"` // 不序列化到 JSON
+	AvatarURL    string         `gorm:"size:500" json:"avatar_url,omitempty"`
+	IsActive     bool           `gorm:"default:true" json:"is_active"`
+	IsSuperAdmin bool           `gorm:"default:false;index" json:"is_super_admin"`
+	CreatedAt    time.Time      `json:"created_at"`
+	UpdatedAt    time.Time      `json:"updated_at"`
+	DeletedAt    gorm.DeletedAt `gorm:"index" json:"-"`
 
 	// 关联
-	Skills  []Skill   `gorm:"foreignKey:OwnerID" json:"-"`
-	APIKeys []APIKey  `gorm:"foreignKey:UserID" json:"-"`
+	Skills  []Skill  `gorm:"foreignKey:OwnerID" json:"-"`
+	APIKeys []APIKey `gorm:"foreignKey:UserID" json:"-"`
 }
 
 // BeforeCreate 创建前钩子
@@ -58,15 +59,15 @@ func (k *APIKey) BeforeCreate(tx *gorm.DB) error {
 
 // AuditLog 审计日志
 type AuditLog struct {
-	ID           uuid.UUID `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
+	ID           uuid.UUID  `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
 	UserID       *uuid.UUID `gorm:"type:uuid;index" json:"user_id,omitempty"`
-	Action       string    `gorm:"size:50;not null" json:"action"`
-	ResourceType string    `gorm:"size:50;not null" json:"resource_type"`
+	Action       string     `gorm:"size:50;not null" json:"action"`
+	ResourceType string     `gorm:"size:50;not null" json:"resource_type"`
 	ResourceID   *uuid.UUID `gorm:"type:uuid" json:"resource_id,omitempty"`
-	Metadata     JSON      `gorm:"type:jsonb" json:"metadata,omitempty"`
-	IPAddress    string    `gorm:"size:45" json:"ip_address,omitempty"`
-	UserAgent    string    `gorm:"size:500" json:"user_agent,omitempty"`
-	CreatedAt    time.Time `json:"created_at"`
+	Metadata     JSON       `gorm:"type:jsonb" json:"metadata,omitempty"`
+	IPAddress    string     `gorm:"size:45" json:"ip_address,omitempty"`
+	UserAgent    string     `gorm:"size:500" json:"user_agent,omitempty"`
+	CreatedAt    time.Time  `json:"created_at"`
 }
 
 // BeforeCreate 创建前钩子

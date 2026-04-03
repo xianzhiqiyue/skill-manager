@@ -57,6 +57,10 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Failed to migrate database: %v\n", err)
 		os.Exit(1)
 	}
+	if err := handlers.EnsureBootstrapSuperAdmin(db, cfg.Auth.BootstrapSuperAdmin); err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to bootstrap super admin: %v\n", err)
+		os.Exit(1)
+	}
 
 	objStorage, err := storage.NewObjectStorage(cfg.Storage)
 	if err != nil {
@@ -137,6 +141,8 @@ func setupRouter(db *storage.Database, objStorage *storage.ObjectStorage, scanne
 			auth.GET("/user/api-keys", handlers.ListAPIKeys(db))
 			auth.POST("/user/api-keys", handlers.CreateAPIKey(db))
 			auth.DELETE("/user/api-keys/:id", handlers.RevokeAPIKey(db))
+			auth.GET("/admin/users", handlers.ListUsers(db))
+			auth.PUT("/admin/users/:id", handlers.UpdateUserByAdmin(db))
 		}
 	}
 

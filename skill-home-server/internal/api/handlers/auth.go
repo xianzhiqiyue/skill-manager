@@ -32,9 +32,10 @@ type LoginRequest struct {
 type AuthResponse struct {
 	Token string `json:"token"`
 	User  struct {
-		ID       string `json:"id"`
-		Username string `json:"username"`
-		Email    string `json:"email"`
+		ID           string `json:"id"`
+		Username     string `json:"username"`
+		Email        string `json:"email"`
+		IsSuperAdmin bool   `json:"is_super_admin"`
 	} `json:"user"`
 }
 
@@ -105,6 +106,7 @@ func Register(db *storage.Database) gin.HandlerFunc {
 		resp.User.ID = user.ID.String()
 		resp.User.Username = user.Username
 		resp.User.Email = user.Email
+		resp.User.IsSuperAdmin = user.IsSuperAdmin
 
 		c.JSON(http.StatusCreated, resp)
 	}
@@ -165,6 +167,7 @@ func Login(db *storage.Database) gin.HandlerFunc {
 		resp.User.ID = user.ID.String()
 		resp.User.Username = user.Username
 		resp.User.Email = user.Email
+		resp.User.IsSuperAdmin = user.IsSuperAdmin
 
 		writeAuditLog(db, c, &user.ID, "auth.login", resourceTypeUser, &user.ID, models.JSON{
 			"email": user.Email,

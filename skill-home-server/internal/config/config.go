@@ -53,9 +53,10 @@ type StorageConfig struct {
 
 // AuthConfig 认证配置
 type AuthConfig struct {
-	JWTSecret    string `mapstructure:"jwt_secret"`
-	TokenExpire  int    `mapstructure:"token_expire_hours"`
-	APIKeyPrefix string `mapstructure:"api_key_prefix"`
+	JWTSecret           string `mapstructure:"jwt_secret"`
+	TokenExpire         int    `mapstructure:"token_expire_hours"`
+	APIKeyPrefix        string `mapstructure:"api_key_prefix"`
+	BootstrapSuperAdmin string `mapstructure:"bootstrap_super_admin"`
 }
 
 // SearchConfig 搜索配置
@@ -177,6 +178,9 @@ func loadFromEnv() {
 	}
 	if v := os.Getenv("SKILL_HOME_AUTH_API_KEY_PREFIX"); v != "" {
 		cfg.Auth.APIKeyPrefix = v
+	}
+	if v := os.Getenv("SKILL_HOME_AUTH_BOOTSTRAP_SUPER_ADMIN"); v != "" {
+		cfg.Auth.BootstrapSuperAdmin = v
 	}
 
 	// Search

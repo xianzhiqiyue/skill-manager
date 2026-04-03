@@ -47,7 +47,7 @@ func RateSkill(db *storage.Database) gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{"code": "INTERNAL_ERROR", "message": err.Error()})
 			return
 		}
-		if !skill.IsPublic && skill.OwnerID != user.ID {
+		if !skill.IsPublic && !canManageOwnedResource(user, skill.OwnerID) {
 			c.JSON(http.StatusForbidden, gin.H{"code": "FORBIDDEN", "message": "Access denied"})
 			return
 		}

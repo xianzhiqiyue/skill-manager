@@ -73,6 +73,7 @@ export SKILL_HOME_STORAGE_SECRET_KEY=minioadmin
 export SKILL_HOME_STORAGE_BUCKET=skill-home
 export SKILL_HOME_STORAGE_USE_SSL=false
 export SKILL_HOME_AUTH_JWT_SECRET=wCvPQQBsITss8vZM37rGzUSZuTLeVNwxRuNGAtuPFpl7NJEWngnDeW9IHiwcV
+export SKILL_HOME_AUTH_BOOTSTRAP_SUPER_ADMIN=zhuyuxiao314
 
 ./server
 ```
@@ -104,6 +105,7 @@ Environment=SKILL_HOME_STORAGE_SECRET_KEY=minioadmin
 Environment=SKILL_HOME_STORAGE_BUCKET=skill-home
 Environment=SKILL_HOME_STORAGE_USE_SSL=false
 Environment=SKILL_HOME_AUTH_JWT_SECRET=wCvPQQBsITss8vZM37rGzUSZuTLeVNwxRuNGAtuPFpl7NJEWngnDeW9IHiwcV
+Environment=SKILL_HOME_AUTH_BOOTSTRAP_SUPER_ADMIN=zhuyuxiao314
 ExecStart=/opt/skill-home/server
 Restart=always
 RestartSec=5
@@ -175,6 +177,11 @@ ssh root@47.122.112.210 "systemctl restart skill-home"
 - `GET /api/v1/user` - 当前用户
 - `POST /api/v1/skills` - 创建技能
 - `POST /api/v1/skills/:namespace/:name/versions` - 发布版本
+
+### 超级管理员
+- 设置 `SKILL_HOME_AUTH_BOOTSTRAP_SUPER_ADMIN=zhuyuxiao314` 后，服务启动时会将该用户提升为 `is_super_admin=true`
+- 超级管理员可发布、修改、删除任意用户的 skill/版本
+- 超级管理员可通过 `/api/v1/admin/users` 和 `/api/v1/admin/users/:id` 管理其他用户密码和权限
 
 ## 安全信息
 

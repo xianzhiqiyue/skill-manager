@@ -88,7 +88,7 @@ func GetSkill(db *storage.Database, objStorages ...*storage.ObjectStorage) gin.H
 				return
 			}
 			owner, ok := user.(*models.User)
-			if !ok || owner.ID != skill.OwnerID {
+			if !ok || !canAccessSkill(owner, &skill) {
 				c.JSON(http.StatusForbidden, gin.H{"code": "FORBIDDEN", "message": "Access denied"})
 				return
 			}
@@ -173,7 +173,7 @@ func ListVersions(db *storage.Database, objStorages ...*storage.ObjectStorage) g
 				return
 			}
 			owner, ok := user.(*models.User)
-			if !ok || owner.ID != skill.OwnerID {
+			if !ok || !canAccessSkill(owner, &skill) {
 				c.JSON(http.StatusForbidden, gin.H{"code": "FORBIDDEN", "message": "Access denied"})
 				return
 			}
@@ -390,7 +390,7 @@ func UpdateSkill(db *storage.Database) gin.HandlerFunc {
 		}
 
 		// 检查权限
-		if skill.OwnerID != user.ID {
+		if !canManageOwnedResource(user, skill.OwnerID) {
 			c.JSON(http.StatusForbidden, gin.H{"code": "FORBIDDEN", "message": "You don't have permission to update this skill"})
 			return
 		}
@@ -473,7 +473,7 @@ func DeleteSkill(db *storage.Database, objStorage *storage.ObjectStorage) gin.Ha
 		}
 
 		// 检查权限
-		if skill.OwnerID != user.ID {
+		if !canManageOwnedResource(user, skill.OwnerID) {
 			c.JSON(http.StatusForbidden, gin.H{"code": "FORBIDDEN", "message": "You don't have permission to delete this skill"})
 			return
 		}

@@ -10,6 +10,7 @@
 | 目录版本 | 提供 `catalog/version`，供 CLI 判断是否需要刷新远程目录缓存 |
 | 认证与权限 | 用户注册、密码登录、JWT 会话、API Key |
 | 技能治理 | 创建技能、更新元数据、发布版本、删除技能、删除版本 |
+| 超级管理员 | 可管理任意 skill/版本，并可修改其他用户的密码、启停状态和超管权限 |
 | 下载编排 | 公开 zip skill 优先返回 OSS 直链；兼容保留 `/api/v1/download/...` |
 | 运营能力 | 评分、审计日志、用户技能列表 |
 | 安装页托管 | `install.sh` 与 `/releases/*` 由服务端统一挂载 |
@@ -59,6 +60,24 @@
 | POST | `/api/v1/skills/:namespace/:name/versions` | 发布新版本 |
 | DELETE | `/api/v1/skills/:namespace/:name/versions/:version` | 删除版本 |
 | POST | `/api/v1/skills/:namespace/:name/rating` | 为技能评分 |
+| GET | `/api/v1/admin/users` | 超级管理员查看用户列表 |
+| PUT | `/api/v1/admin/users/:id` | 超级管理员修改用户密码、权限、启停状态 |
+
+说明：
+
+- 超级管理员可以发布、修改、删除任意用户名下的 skill 和版本
+- 超级管理员可以重置其他用户密码，调整 `is_super_admin` 与 `is_active`
+- 当前用户接口 `/api/v1/user`、登录响应、注册响应都会返回 `is_super_admin`
+
+## 超级管理员引导
+
+服务端支持启动时按用户名引导一个超级管理员：
+
+```bash
+export SKILL_HOME_AUTH_BOOTSTRAP_SUPER_ADMIN=zhuyuxiao314
+```
+
+服务启动并完成数据库迁移后，会把该用户名对应的用户记录写成 `is_super_admin=true`。这个操作是幂等的，适合首次开通或灾备恢复。
 
 ## 接口示例
 
