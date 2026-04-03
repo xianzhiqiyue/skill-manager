@@ -4,10 +4,17 @@
 
 | 项目 | 值 |
 |------|-----|
-| **IP 地址** | 47.122.112.210 |
+| **公网入口服务器** | soul正式服务器 `121.40.85.95` |
+| **registry 进程宿主** | soul正式服务器本机 `127.0.0.1:8080` |
 | **用户名** | root |
 | **部署目录** | /opt/skill-home |
 | **服务端口** | 8080 |
+
+## 部署注意
+
+- 公网 `https://soulstore.ciqtek.com/skill-home/` 由 `soul正式服务器` 上的 nginx 反代到本机 `127.0.0.1:8080`
+- 不要把 `skill-home-server` 发布到 `47.122.112.210`；那台机器不是当前公网入口后端
+- 这套线上服务启用了 `/skill-home` 路径前缀；更新服务后优先检查本机 `http://127.0.0.1:8080/skill-home/health`，再检查公网 `https://soulstore.ciqtek.com/skill-home/health`
 
 ## 环境变量配置
 
@@ -23,7 +30,7 @@ JWT_SECRET=wCvPQQBsITss8vZM37rGzUSZuTLeVNwxRuNGAtuPFpl7NJEWngnDeW9IHiwcV
 ### 1. 连接服务器
 
 ```bash
-ssh root@47.122.112.210
+ssh root@121.40.85.95
 ```
 
 ### 2. 进入部署目录
@@ -51,7 +58,7 @@ cd skill-home-server
 CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o server cmd/server/main.go
 
 # 上传到服务器
-scp server root@47.122.112.210:/opt/skill-home/
+scp server root@121.40.85.95:/opt/skill-home/
 ```
 
 **服务器执行：**
@@ -126,7 +133,13 @@ systemctl status skill-home
 
 ### 健康检查
 ```bash
-curl http://47.122.112.210:8080/health
+curl http://127.0.0.1:8080/skill-home/health
+```
+
+如果验证公网入口，请使用：
+
+```bash
+curl https://soulstore.ciqtek.com/skill-home/health
 ```
 
 预期响应：
@@ -142,9 +155,10 @@ curl http://47.122.112.210:8080/health
 
 | 服务 | 地址 | 说明 |
 |------|------|------|
-| Web UI | http://47.122.112.210:8080 | 根路径首页与管理台 |
-| API | http://47.122.112.210:8080/api/v1 | Registry API |
-| MinIO Console | http://47.122.112.210:9001 | 对象存储管理 (minioadmin/minioadmin) |
+| Web UI | https://soulstore.ciqtek.com/skill-home/ | 公网入口，由 soul正式服务器 nginx 反代 |
+| API | https://soulstore.ciqtek.com/skill-home/api/v1 | 公网 Registry API |
+| 本机健康检查 | http://127.0.0.1:8080/skill-home/health | soul正式服务器本机进程监听 |
+| MinIO Console | http://121.40.85.95:19001 | 对象存储管理 (minioadmin/minioadmin) |
 
 ## Web UI 部署
 
@@ -158,10 +172,10 @@ cd skill-home-web
 npm run build
 
 # 上传到服务器
-scp -r dist root@47.122.112.210:/opt/skill-home/web
+scp -r dist root@121.40.85.95:/opt/skill-home/web
 
 # 重启服务
-ssh root@47.122.112.210 "systemctl restart skill-home"
+ssh root@121.40.85.95 "systemctl restart skill-home"
 ```
 
 ## API 端点
@@ -217,4 +231,23 @@ docker exec skill-home-postgres-1 pg_dump -U skillhome skillhome > backup.sql
 
 # 备份存储
 tar -czf minio-backup.tar.gz /var/lib/docker/volumes/skill-home_minio_data/_data
+```
+
+## 回滚
+
+如果替换了 `/opt/skill-home/server` 或 `/etc/systemd/system/skill-home.service`，建议同时备份这两个文件并按下面方式回滚：
+
+```bash
+cp /opt/skill-home/server /opt/skill-home/server.bak-$(date +%Y%m%d-%H%M%S)
+cp /etc/systemd/system/skill-home.service /etc/systemd/system/skill-home.service.bak-$(date +%Y%m%d-%H%M%S)
+```
+
+发生异常时：
+
+```bash
+cp /opt/skill-home/server.bak-<timestamp> /opt/skill-home/server
+cp /etc/systemd/system/skill-home.service.bak-<timestamp> /etc/systemd/system/skill-home.service
+systemctl daemon-reload
+systemctl restart skill-home
+curl http://127.0.0.1:8080/skill-home/health
 ```
