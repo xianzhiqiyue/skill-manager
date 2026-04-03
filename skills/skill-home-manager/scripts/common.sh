@@ -108,31 +108,26 @@ resolve_codex_skills_dir() {
     return
   fi
 
-  if [[ -d "${HOME}/.codex" ]]; then
-    printf '%s\n' "${HOME}/.codex/skills"
-    return
-  fi
-
   if [[ -d "${HOME}/.agents" ]]; then
     printf '%s\n' "${HOME}/.agents/skills"
     return
   fi
 
+  if [[ -d "${HOME}/.codex" ]]; then
+    printf '%s\n' "${HOME}/.codex/skills"
+    return
+  fi
+
   win_home="$(resolve_windows_home || true)"
   if [[ -n "$win_home" ]]; then
-    if [[ -d "${win_home}/.codex" ]]; then
-      printf '%s\n' "${win_home}/.codex/skills"
-      return
-    fi
     if [[ -d "${win_home}/.agents" ]]; then
       printf '%s\n' "${win_home}/.agents/skills"
       return
     fi
-  fi
-
-  if [[ -d "/mnt/c/Users/${USER}/.codex" ]]; then
-    printf '%s\n' "/mnt/c/Users/${USER}/.codex/skills"
-    return
+    if [[ -d "${win_home}/.codex" ]]; then
+      printf '%s\n' "${win_home}/.codex/skills"
+      return
+    fi
   fi
 
   if [[ -d "/mnt/c/Users/${USER}/.agents" ]]; then
@@ -140,7 +135,73 @@ resolve_codex_skills_dir() {
     return
   fi
 
-  printf '%s\n' "${HOME}/.codex/skills"
+  if [[ -d "/mnt/c/Users/${USER}/.codex" ]]; then
+    printf '%s\n' "/mnt/c/Users/${USER}/.codex/skills"
+    return
+  fi
+
+  printf '%s\n' "${HOME}/.agents/skills"
+}
+
+list_codex_skills_dir_candidates() {
+  local config_path=""
+  local parsed=""
+  local win_home=""
+  local candidate=""
+  declare -A seen=()
+
+  config_path="${SKILL_HOME_CONFIG:-${HOME}/.config/skill-home/config.yaml}"
+
+  for candidate in \
+    "${SKILL_HOME_CODEX_SKILLS_DIR:-}" \
+    "$(parse_codex_global_path_from_config "$config_path" || true)" \
+    "${CODEX_HOME:+$(expand_path "$CODEX_HOME")/skills}" \
+    "${HOME}/.agents/skills" \
+    "${HOME}/.codex/skills"
+  do
+    candidate="$(expand_path "$candidate")"
+    if [[ -n "$candidate" && -z "${seen[$candidate]:-}" ]]; then
+      seen["$candidate"]=1
+      printf '%s\n' "$candidate"
+    fi
+  done
+
+  win_home="$(resolve_windows_home || true)"
+  if [[ -n "$win_home" ]]; then
+    for candidate in \
+      "${win_home}/.agents/skills" \
+      "${win_home}/.codex/skills"
+    do
+      if [[ -z "${seen[$candidate]:-}" ]]; then
+        seen["$candidate"]=1
+        printf '%s\n' "$candidate"
+      fi
+    done
+  fi
+
+  for candidate in \
+    "/mnt/c/Users/${USER}/.agents/skills" \
+    "/mnt/c/Users/${USER}/.codex/skills"
+  do
+    if [[ -z "${seen[$candidate]:-}" ]]; then
+      seen["$candidate"]=1
+      printf '%s\n' "$candidate"
+    fi
+  done
+}
+
+resolve_installed_codex_skill_dir() {
+  local skill_name="$1"
+  local candidate=""
+
+  while IFS= read -r candidate; do
+    if [[ -f "${candidate%/}/${skill_name}/SKILL.md" ]]; then
+      printf '%s\n' "${candidate%/}/${skill_name}"
+      return 0
+    fi
+  done < <(list_codex_skills_dir_candidates)
+
+  return 1
 }
 
 is_skill_home_manager_root() {
@@ -176,8 +237,8 @@ resolve_skill_home_manager_root() {
   fi
 
   for candidate in \
-    "${HOME}/.codex/skills/skill-home-manager" \
-    "${HOME}/.agents/skills/skill-home-manager"
+    "${HOME}/.agents/skills/skill-home-manager" \
+    "${HOME}/.codex/skills/skill-home-manager"
   do
     if is_skill_home_manager_root "$candidate"; then
       printf '%s\n' "$candidate"
@@ -188,8 +249,8 @@ resolve_skill_home_manager_root() {
   win_home="$(resolve_windows_home || true)"
   if [[ -n "$win_home" ]]; then
     for candidate in \
-      "${win_home}/.codex/skills/skill-home-manager" \
-      "${win_home}/.agents/skills/skill-home-manager"
+      "${win_home}/.agents/skills/skill-home-manager" \
+      "${win_home}/.codex/skills/skill-home-manager"
     do
       if is_skill_home_manager_root "$candidate"; then
         printf '%s\n' "$candidate"
@@ -199,8 +260,8 @@ resolve_skill_home_manager_root() {
   fi
 
   for candidate in \
-    "/mnt/c/Users/${USER}/.codex/skills/skill-home-manager" \
-    "/mnt/c/Users/${USER}/.agents/skills/skill-home-manager"
+    "/mnt/c/Users/${USER}/.agents/skills/skill-home-manager" \
+    "/mnt/c/Users/${USER}/.codex/skills/skill-home-manager"
   do
     if is_skill_home_manager_root "$candidate"; then
       printf '%s\n' "$candidate"
@@ -217,6 +278,6 @@ resolve_skill_home_manager_root() {
     fi
   fi
 
-  echo "未找到已安装的 skill-home-manager 根目录，请先检查 \$CODEX_HOME/skills、~/.codex/skills 或 ~/.agents/skills" >&2
+  echo "未找到已安装的 skill-home-manager 根目录，请先检查 skill-home 配置、\$CODEX_HOME/skills、~/.agents/skills 或 ~/.codex/skills" >&2
   return 1
 }

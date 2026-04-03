@@ -30,7 +30,7 @@
 | `scripts/install-to-codex.sh` | 把本地 skill 安装到 Codex 全局目录 | `bash scripts/install-to-codex.sh ./skills/my-skill` |
 | `scripts/rebuild-cli.sh` | 重新安装最新已发布 CLI | `bash scripts/rebuild-cli.sh` |
 
-被调用时，不要把脚本路径写死成开发机仓库绝对路径。优先先解析 `skill_home_manager_root`，再通过 `bash "$skill_home_manager_root/scripts/<script>.sh"` 调用 bundled scripts。
+被调用时，不要把脚本路径、Codex 安装目录或打包输出目录写死成开发机绝对路径。优先先解析 `skill_home_manager_root`，再通过 `bash "$skill_home_manager_root/scripts/<script>.sh"` 调用 bundled scripts；涉及安装或打包时，再由 agent 根据配置、环境变量和当前目录判断真实目标路径。
 
 ## 常见工作流
 
@@ -49,6 +49,7 @@ bash scripts/create-local-skill.sh my-skill "我的 skill 描述"
 # 按 references/publish-taxonomy.md 补齐 category 和 official tags
 skill-home validate ./my-skill
 skill-home scan ./my-skill
+skill-home pack ./my-skill --output ./dist/my-skill.zip
 ```
 
 ### 3. 安装到 Codex
@@ -56,6 +57,8 @@ skill-home scan ./my-skill
 ```bash
 bash scripts/install-to-codex.sh ./my-skill
 ```
+
+安装校验不要假设固定目录。优先读取 `skill-home` 配置里的 `ide.codex.global_path`，其次看 `$CODEX_HOME/skills`，再回退到宿主环境里真实存在的 `~/.agents/skills` 或 `~/.codex/skills`。
 
 ### 4. 查看远程公开目录
 
@@ -74,7 +77,7 @@ skill-home delete @team/my-skill --yes
 skill-home delete-version @team/my-skill@1.0.0 --yes
 ```
 
-交互终端里的 `skill-home push` 会在缺少 `category/tags` 时尝试补齐，但这个 skill 的默认要求仍然是先整理好 `SKILL.md`，再进入 `validate -> pack -> push`。
+交互终端里的 `skill-home push` 会在缺少 `category/tags` 时尝试补齐，但这个 skill 的默认要求仍然是先整理好 `SKILL.md`，再进入 `validate -> pack -> push`。如果用户没有明确指定打包输出位置，agent 需要先判断当前工作目录和后续发布动作是否要求显式 `--output`，不要默认把产物丢到某个固定路径。
 
 ## 与 CLI / Registry 的关系
 

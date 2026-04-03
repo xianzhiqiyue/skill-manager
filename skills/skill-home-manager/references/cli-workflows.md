@@ -3,7 +3,7 @@
 ## 常用路径
 
 - 当前工作目录: `pwd`
-- Codex 全局 skills 目录: 优先使用 `$CODEX_HOME/skills`，常见值是 `~/.codex/skills`
+- Codex 全局 skills 目录: 不要写死，优先探测 `SKILL_HOME_CODEX_SKILLS_DIR`、`skill-home` 配置里的 `ide.codex.global_path`、`$CODEX_HOME/skills`，再回退到宿主环境里已存在的 `~/.agents/skills` 或 `~/.codex/skills`
 - skill-home 配置文件: `~/.config/skill-home/config.yaml`
 - 公共 CLI 安装脚本: `https://soulstore.ciqtek.com/skill-home/install.sh`
 - GitHub Releases: `https://github.com/xianzhiqiyue/skill-manager/releases`
@@ -14,8 +14,8 @@
 - `$SKILL_HOME_MANAGER_ROOT`
 - `skill-home` 配置文件里的 `ide.codex.global_path/skill-home-manager`
 - `$CODEX_HOME/skills/skill-home-manager`
-- `~/.codex/skills/skill-home-manager`
 - `~/.agents/skills/skill-home-manager`
+- `~/.codex/skills/skill-home-manager`
 
 不要把这个路径写死成某台开发机的仓库绝对路径。
 
@@ -104,8 +104,10 @@ skill-home scan ./my-skill
 ```bash
 skill-home preview ./my-skill -p codex
 skill-home export ./my-skill -p codex
-skill-home pack ./my-skill
+skill-home pack ./my-skill --output ./dist/my-skill.zip
 ```
+
+如果用户没有明确要求输出位置，先根据当前 skill 所在目录和后续用途决定是否显式传 `--output`；不要默认把压缩包落到固定路径。
 
 ### 5. 安装到 Codex
 
@@ -115,8 +117,10 @@ skill-home pack ./my-skill
 bash "$skill_home_manager_root/scripts/install-to-codex.sh" ./my-skill
 
 skill-home sync ./my-skill --ide codex --global --mode mirror
-find "${CODEX_HOME:-$HOME/.codex}/skills/my-skill" -maxdepth 2 -type f
+skill-home doctor
 ```
+
+安装后的校验路径也不要写死。优先查看 `skill-home doctor` 输出的 `codex 全局路径`，再到该目录下确认 `my-skill/SKILL.md` 是否存在。
 
 ## 刷新本地 CLI
 
@@ -139,7 +143,7 @@ skill-home --debug sync /path/to/skill --ide codex --global --mode mirror
 优先检查:
 
 - 配置文件是否是 `~/.config/skill-home/config.yaml`
-- Codex 全局路径是否与 `$CODEX_HOME/skills` 或 `~/.codex/skills` 一致
+- Codex 全局路径是否与 `skill-home doctor` 输出一致
 - 本地 skill 是否已经补齐 `category/tags` 并通过了 `validate`
 - 是否把“本地目录”误当成“远程 skill 引用”去执行 `install`
 

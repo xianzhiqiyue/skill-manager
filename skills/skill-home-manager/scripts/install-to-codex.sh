@@ -9,14 +9,12 @@ script_dir="$(
 # shellcheck source=/dev/null
 source "${script_dir}/common.sh"
 
-codex_skills_dir="$(resolve_codex_skills_dir)"
-
 usage() {
   cat <<'EOF'
 Usage: install-to-codex.sh <skill-path>
 
-Validate a local skill and install it into the Codex global skills directory
-using mirror mode, then verify that the installed SKILL.md exists.
+Validate a local skill, sync it into the resolved Codex global skills directory
+using mirror mode, then probe compatible candidate paths to verify the install.
 EOF
 }
 
@@ -47,13 +45,17 @@ if [[ -z "$skill_name" ]]; then
   exit 1
 fi
 
-install_dir="$codex_skills_dir/$skill_name"
-
 skill-home validate "$skill_path"
 skill-home sync "$skill_path" --ide codex --global --mode mirror
 
-if [[ ! -f "$install_dir/SKILL.md" ]]; then
-  echo "Install verification failed: $install_dir/SKILL.md was not created" >&2
+install_dir="$(resolve_installed_codex_skill_dir "$skill_name" || true)"
+
+if [[ -z "$install_dir" ]]; then
+  echo "Install verification failed: unable to locate ${skill_name}/SKILL.md in compatible Codex skill directories" >&2
+  echo "Checked:" >&2
+  while IFS= read -r candidate; do
+    echo "  - ${candidate%/}/$skill_name" >&2
+  done < <(list_codex_skills_dir_candidates)
   exit 1
 fi
 

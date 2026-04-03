@@ -7,6 +7,12 @@
 
 ## [Unreleased]
 
+### Fixed
+
+#### Skill (`skill-home-manager`)
+- 安装到 Codex 时改为按配置、环境变量和宿主目录兼容探测真实 skills 路径，不再依赖固定目录校验
+- 打包与安装工作流文档改为要求 agent 先判断正确路径，避免写死 `~/.codex/skills`、`~/.agents/skills` 或开发机绝对路径
+
 ## [1.0.0] - 2026-03-01
 
 ### Added

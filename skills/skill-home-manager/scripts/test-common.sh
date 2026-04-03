@@ -24,7 +24,8 @@ assert_eq() {
 run_with_env() {
   local home_dir="$1"
   local expected_root="$2"
-  shift 2
+  local expected_skills_dir="$3"
+  shift 3
 
   (
     export HOME="${home_dir}"
@@ -42,8 +43,11 @@ run_with_env() {
     # shellcheck source=/dev/null
     source "${TARGET_SCRIPT}"
     local resolved_root
+    local resolved_skills_dir
     resolved_root="$(resolve_skill_home_manager_root)"
+    resolved_skills_dir="$(resolve_codex_skills_dir)"
     assert_eq "${resolved_root}" "${expected_root}" "resolve_skill_home_manager_root"
+    assert_eq "${resolved_skills_dir}" "${expected_skills_dir}" "resolve_codex_skills_dir"
   )
 }
 
@@ -63,7 +67,7 @@ ide:
     global_path: ~/custom-codex
 EOF
 
-run_with_env "${CONFIG_HOME}" "${CONFIG_HOME}/custom-codex/skill-home-manager"
+run_with_env "${CONFIG_HOME}" "${CONFIG_HOME}/custom-codex/skill-home-manager" "${CONFIG_HOME}/custom-codex"
 
 CODEX_HOME_ROOT="${TMP_DIR}/codex-home"
 mkdir -p "${CODEX_HOME_ROOT}/skills/skill-home-manager"
@@ -72,7 +76,7 @@ cat > "${CODEX_HOME_ROOT}/skills/skill-home-manager/SKILL.md" <<'EOF'
 name: skill-home-manager
 ---
 EOF
-run_with_env "${TMP_DIR}/home-two" "${CODEX_HOME_ROOT}/skills/skill-home-manager" \
+run_with_env "${TMP_DIR}/home-two" "${CODEX_HOME_ROOT}/skills/skill-home-manager" "${CODEX_HOME_ROOT}/skills" \
   "CODEX_HOME=${CODEX_HOME_ROOT}"
 
 AGENTS_HOME="${TMP_DIR}/home-agents"
@@ -82,7 +86,7 @@ cat > "${AGENTS_HOME}/.agents/skills/skill-home-manager/SKILL.md" <<'EOF'
 name: skill-home-manager
 ---
 EOF
-run_with_env "${AGENTS_HOME}" "${AGENTS_HOME}/.agents/skills/skill-home-manager"
+run_with_env "${AGENTS_HOME}" "${AGENTS_HOME}/.agents/skills/skill-home-manager" "${AGENTS_HOME}/.agents/skills"
 
 OVERRIDE_ROOT="${TMP_DIR}/override-root"
 mkdir -p "${OVERRIDE_ROOT}"
@@ -91,7 +95,7 @@ cat > "${OVERRIDE_ROOT}/SKILL.md" <<'EOF'
 name: skill-home-manager
 ---
 EOF
-run_with_env "${TMP_DIR}/home-three" "${OVERRIDE_ROOT}" \
+run_with_env "${TMP_DIR}/home-three" "${OVERRIDE_ROOT}" "${TMP_DIR}/home-three/.agents/skills" \
   "SKILL_HOME_MANAGER_ROOT=${OVERRIDE_ROOT}"
 
 WINDOWS_HOME="${TMP_DIR}/windows-home"
@@ -116,7 +120,16 @@ printf 'C:\Users\WinTester\r\n'
 EOF
 chmod +x "${MOCK_WSL_BIN}/cmd.exe"
 
-run_with_env "${TMP_DIR}/home-wsl" "${WINDOWS_HOME}/.codex/skills/skill-home-manager" \
+run_with_env "${TMP_DIR}/home-wsl" "${WINDOWS_HOME}/.codex/skills/skill-home-manager" "${WINDOWS_HOME}/.codex/skills" \
   "PATH=${MOCK_WSL_BIN}:${PATH}"
+
+LEGACY_HOME="${TMP_DIR}/home-legacy"
+mkdir -p "${LEGACY_HOME}/.codex/skills/skill-home-manager"
+cat > "${LEGACY_HOME}/.codex/skills/skill-home-manager/SKILL.md" <<'EOF'
+---
+name: skill-home-manager
+---
+EOF
+run_with_env "${LEGACY_HOME}" "${LEGACY_HOME}/.codex/skills/skill-home-manager" "${LEGACY_HOME}/.codex/skills"
 
 echo "test-common: ok"
