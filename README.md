@@ -44,6 +44,17 @@ CLI 安装与自更新统一从当前 Skill Home 服务托管的 `/releases` 目
 
 对于公开 skill，CLI / Web 会优先使用服务端返回的 `download_url` 直连 OSS；`/api/v1/download/...` 仍作为兼容入口保留，便于旧客户端和平滑迁移。
 
+## 发布规范
+
+仓库内所有 `server / web / cli / skill` 的发布顺序、影响面判断和验收口径，统一以 [docs/release-process.md](docs/release-process.md) 为准。
+
+最小要求：
+
+- 先判断本次改动影响哪个交付物，不默认四个组件一起发布
+- 先完成版本变更、提交和 `git push origin main`，再发布对外制品
+- `skill` 默认递增版本号后发布，不覆盖已有版本
+- `server` 生产部署只面向 `soul正式服务器 121.40.85.95`
+
 ## 项目结构
 
 ```
@@ -220,6 +231,7 @@ systemctl start skill-home  # 启动 API 服务
 | 文档 | 说明 |
 |------|------|
 | [DEPLOYMENT.md](DEPLOYMENT.md) | 部署记录与配置 |
+| [docs/release-process.md](docs/release-process.md) | 统一发布流程与验收口径 |
 | [API.md](API.md) | API 详细文档 |
 | [技术规格文档.md](技术规格文档.md) | 技术设计文档 |
 | [需求梳理.md](需求梳理.md) | 需求分析 |

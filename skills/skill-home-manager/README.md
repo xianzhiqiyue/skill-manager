@@ -2,6 +2,8 @@
 
 `skill-home-manager` 是面向 Codex / OpenClaw 等 AI 助手的工作流 skill，用来把 `skill-home` CLI 的常用操作封装成一组可复用脚本和约束，让“创建、校验、发布、安装 skill”不需要每次从头拼命令。
 
+仓库级统一发布口径见 [../../docs/release-process.md](../../docs/release-process.md)。如果本文件与统一发布流程冲突，以统一发布流程为准。
+
 ## 能力概览
 
 | 能力域 | 说明 |
@@ -72,12 +74,15 @@ skill-home info @skill-home/skill-home-manager
 
 ```bash
 skill-home login
+skill-home validate ./my-skill
+skill-home scan ./my-skill
+skill-home pack ./my-skill --output ./dist/my-skill-<version>.zip
 skill-home push ./my-skill
 skill-home delete @team/my-skill --yes
 skill-home delete-version @team/my-skill@1.0.0 --yes
 ```
 
-交互终端里的 `skill-home push` 会在缺少 `category/tags` 时尝试补齐，但这个 skill 的默认要求仍然是先整理好 `SKILL.md`，再进入 `validate -> pack -> push`。如果用户没有明确指定打包输出位置，agent 需要先判断当前工作目录和后续发布动作是否要求显式 `--output`，不要默认把产物丢到某个固定路径。
+统一发布口径下，skill 的默认顺序是：先递增 `SKILL.md` 里的版本号，再执行 `validate -> scan -> pack -> push`。交互终端里的 `skill-home push` 会在缺少 `category/tags` 时尝试补齐，但这个 skill 的默认要求仍然是先整理好 `SKILL.md`，再进入发布动作。如果用户没有明确指定打包输出位置，agent 需要先判断当前工作目录和后续发布动作是否要求显式 `--output`，不要默认把产物丢到某个固定路径。
 
 ## 与 CLI / Registry 的关系
 

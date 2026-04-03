@@ -1,5 +1,7 @@
 # Skill Home 生产部署说明
 
+仓库级统一发布顺序、影响面判断和验收口径见 [docs/release-process.md](docs/release-process.md)。本文只描述 `server` 的生产部署事实与回滚方式。
+
 ## 当前生产入口
 
 | 项目 | 值 |

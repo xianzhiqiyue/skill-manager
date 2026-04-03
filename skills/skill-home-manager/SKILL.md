@@ -1,6 +1,6 @@
 ---
 name: skill-home-manager
-version: 0.2.8
+version: 0.2.10
 description: 当用户想用本地 skill-home CLI 创建、编辑、验证、打包、导出、同步、安装或排查 skill 时使用，尤其适合把 skill 交付到 Codex。
 category: productivity
 namespace: "@skill-home"
@@ -61,6 +61,7 @@ ide_config:
 10. 如果 CLI 版本过旧、缺子命令，或行为不像最新 release，先刷新已发布 CLI 再继续:
    `bash "$skill_home_manager_root/scripts/rebuild-cli.sh"`
 11. 如果问题和路径、配置、注册中心或 API Key 有关，先跑 `skill-home doctor`。
+12. 涉及仓库发布时，先遵循仓库统一发布口径：先判断影响面，再更新版本、提交、推远端，最后发布制品；如果仓库文档与当前 skill 约束冲突，以仓库里的 `docs/release-process.md` 为准。
 
 ## 命令选择规则
 
@@ -92,6 +93,7 @@ ide_config:
 - “帮我把 skill-home CLI 装上 / 补齐本机环境”: 先用 `scripts/bootstrap-cli.sh`
 - “帮我新建一个 skill 子项目”: 先用 `scripts/create-local-skill.sh`
 - “帮我发布一个 skill”: 先补齐 `category/tags`，再跑 `validate -> pack -> push`
+- “帮我统一发布流程 / 规范发布口径”: 优先更新仓库里的 `docs/release-process.md`，再同步 `README.md`、`DEPLOYMENT.md` 和相关 skill 文档
 - “帮我把这个 skill 装到 Codex”: 先用 `scripts/install-to-codex.sh`
 - “帮我把本地 skill-home 更新到最新发布版本”: 先用 `scripts/rebuild-cli.sh`
 - “帮我排查为什么没生效”: 先看 `skill-home doctor`，必要时再开 `--debug` 重跑相关命令
@@ -111,6 +113,7 @@ ide_config:
 - 涉及 registry 写操作时，先检查是否已登录；未登录时提示用户先执行 `skill-home login`。
 - 遇到 skill 发布时，默认要把“补齐官方分类元数据”视为发布前置步骤，而不是等 `push` 失败后再补救。
 - 如果可以明确推断 `category/tags`，直接写回 `SKILL.md`；如果存在歧义，只问一个短问题澄清主分类或核心场景。
+- skill 发布的默认顺序是：递增版本号 -> `validate` -> `scan` -> `pack` -> `push`，发布成功后再把版本变更提交到 Git。
 - registry 读操作默认可匿名；如果远程接口异常，或私有 skill 因未登录/无权限被拒绝，直接说明原因并给出下一步。
 - `list --remote` 与 `search` 的目录缓存是读优化层，不要把它表述成“下载量、评分一定最新”的强保证。
 
