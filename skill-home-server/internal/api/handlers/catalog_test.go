@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/skill-home/server/internal/models"
 	"github.com/skill-home/server/internal/storage"
 	"gorm.io/driver/sqlite"
@@ -29,6 +30,50 @@ func newCatalogTestDatabase(t *testing.T) *storage.Database {
 
 	if err := db.AutoMigrate(&models.CatalogState{}); err != nil {
 		t.Fatalf("auto migrate catalog state failed: %v", err)
+	}
+	if err := db.Exec(`CREATE TABLE skills (
+		id TEXT PRIMARY KEY,
+		namespace TEXT NOT NULL,
+		name TEXT NOT NULL,
+		owner_id TEXT NOT NULL,
+		description TEXT,
+		category TEXT,
+		description_zh TEXT,
+		author TEXT,
+		tags TEXT,
+		license TEXT,
+		homepage TEXT,
+		repository TEXT,
+		download_count INTEGER DEFAULT 0,
+		rating_sum INTEGER DEFAULT 0,
+		rating_count INTEGER DEFAULT 0,
+		is_public NUMERIC DEFAULT 1,
+		is_deprecated NUMERIC DEFAULT 0,
+		is_recommended NUMERIC DEFAULT 0,
+		latest_version TEXT,
+		created_at DATETIME,
+		updated_at DATETIME,
+		deleted_at DATETIME
+	)`).Error; err != nil {
+		t.Fatalf("create skills table failed: %v", err)
+	}
+	if err := db.Exec(`CREATE TABLE skill_versions (
+		id TEXT PRIMARY KEY,
+		skill_id TEXT NOT NULL,
+		version TEXT NOT NULL,
+		manifest TEXT,
+		dependencies TEXT,
+		storage_path TEXT,
+		size_bytes INTEGER,
+		checksum TEXT,
+		scan_status TEXT,
+		scan_result TEXT,
+		published_by TEXT NOT NULL,
+		published_at DATETIME,
+		created_at DATETIME,
+		deleted_at DATETIME
+	)`).Error; err != nil {
+		t.Fatalf("create skill_versions table failed: %v", err)
 	}
 
 	return &storage.Database{DB: db}
@@ -257,5 +302,105 @@ func TestGetCatalogVersionDoesNotWriteWhenStateExists(t *testing.T) {
 	}
 	if wrote {
 		t.Fatal("expected catalog version lookup to stay read-only when state exists")
+	}
+}
+
+func TestGetCatalogVersionReconcilesRecommendationMutation(t *testing.T) {
+	db := newTestDatabase(t)
+	user := &models.User{ID: uuid.New(), Username: "owner", Email: "owner@example.com"}
+	if err := db.Create(user).Error; err != nil {
+		t.Fatalf("create user failed: %v", err)
+	}
+
+	skill := &models.Skill{
+		ID:            uuid.New(),
+		Namespace:     "team",
+		Name:          "reviewer",
+		OwnerID:       user.ID,
+		Description:   "review skill",
+		IsPublic:      true,
+		IsRecommended: false,
+	}
+	if err := db.Create(skill).Error; err != nil {
+		t.Fatalf("create skill failed: %v", err)
+	}
+	if err := db.Model(&models.CatalogState{}).Where("id = ?", catalogStateSingletonID).Update("updated_at", time.Now()).Error; err != nil {
+		t.Fatalf("sync catalog state failed: %v", err)
+	}
+
+	time.Sleep(10 * time.Millisecond)
+	if err := db.Model(skill).Update("is_recommended", true).Error; err != nil {
+		t.Fatalf("update recommendation failed: %v", err)
+	}
+
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	router.GET("/api/v1/catalog/version", GetCatalogVersion(db))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/catalog/version", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d body=%s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	if got := currentCatalogVersion(t, db); got != 2 {
+		t.Fatalf("catalog_version = %d, want 2", got)
+	}
+}
+
+func TestGetCatalogVersionReconcilesPublishedVersionMutation(t *testing.T) {
+	db := newTestDatabase(t)
+	user := &models.User{ID: uuid.New(), Username: "owner", Email: "owner@example.com"}
+	if err := db.Create(user).Error; err != nil {
+		t.Fatalf("create user failed: %v", err)
+	}
+
+	skill := &models.Skill{
+		ID:            uuid.New(),
+		Namespace:     "team",
+		Name:          "builder",
+		OwnerID:       user.ID,
+		Description:   "build skill",
+		IsPublic:      true,
+		LatestVersion: "1.0.0",
+	}
+	if err := db.Create(skill).Error; err != nil {
+		t.Fatalf("create skill failed: %v", err)
+	}
+	if err := db.Model(&models.CatalogState{}).Where("id = ?", catalogStateSingletonID).Update("updated_at", time.Now()).Error; err != nil {
+		t.Fatalf("sync catalog state failed: %v", err)
+	}
+
+	time.Sleep(10 * time.Millisecond)
+	version := &models.SkillVersion{
+		ID:          uuid.New(),
+		SkillID:     skill.ID,
+		Version:     "1.1.0",
+		StoragePath: "skills/team/builder/1.1.0.zip",
+		PublishedBy: user.ID,
+		PublishedAt: time.Now(),
+		CreatedAt:   time.Now(),
+	}
+	if err := db.Create(version).Error; err != nil {
+		t.Fatalf("create version failed: %v", err)
+	}
+	if err := db.Model(skill).Update("latest_version", version.Version).Error; err != nil {
+		t.Fatalf("update latest_version failed: %v", err)
+	}
+
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	router.GET("/api/v1/catalog/version", GetCatalogVersion(db))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/catalog/version", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d body=%s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	if got := currentCatalogVersion(t, db); got != 2 {
+		t.Fatalf("catalog_version = %d, want 2", got)
 	}
 }
