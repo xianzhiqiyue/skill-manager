@@ -210,6 +210,10 @@ type UpdateSkillRequest struct {
 	IsDeprecated *bool    `json:"is_deprecated,omitempty"`
 }
 
+type UpdateSkillRecommendationRequest struct {
+	IsRecommended bool `json:"is_recommended"`
+}
+
 // CreateSkill 创建技能
 func CreateSkill(db *storage.Database, objStorage *storage.ObjectStorage, scanner *validator.Scanner) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -422,6 +426,11 @@ func UpdateSkill(db *storage.Database) gin.HandlerFunc {
 		if req.IsDeprecated != nil {
 			skill.IsDeprecated = *req.IsDeprecated
 		}
+		wasRecommended := skill.IsRecommended
+		if !skill.IsPublic {
+			skill.IsRecommended = false
+		}
+		hasEffectiveChange = hasEffectiveChange || wasRecommended != skill.IsRecommended
 
 		if err := db.Transaction(func(tx *gorm.DB) error {
 			if err := tx.Save(&skill).Error; err != nil {
@@ -433,10 +442,71 @@ func UpdateSkill(db *storage.Database) gin.HandlerFunc {
 				}
 			}
 			return writeAuditLogTx(tx, c, &user.ID, "skill.update", resourceTypeSkill, &skill.ID, models.JSON{
-				"namespace":     namespace,
-				"name":          name,
-				"is_public":     skill.IsPublic,
-				"is_deprecated": skill.IsDeprecated,
+				"namespace":      namespace,
+				"name":           name,
+				"is_public":      skill.IsPublic,
+				"is_deprecated":  skill.IsDeprecated,
+				"is_recommended": skill.IsRecommended,
+			})
+		}); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"code": "INTERNAL_ERROR", "message": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, skill)
+	}
+}
+
+// UpdateSkillRecommendation 更新 skill 推荐状态
+func UpdateSkillRecommendation(db *storage.Database) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		namespace := normalizeNamespace(c.Param("namespace"))
+		name := c.Param("name")
+		user := c.MustGet("user").(*models.User)
+
+		if !canManageCatalog(user) {
+			c.JSON(http.StatusForbidden, gin.H{"code": "FORBIDDEN", "message": "Admin privileges required"})
+			return
+		}
+
+		var skill models.Skill
+		if err := scopeNamespaceName(db.DB, namespace, name).First(&skill).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"code": "NOT_FOUND", "message": "Skill not found"})
+			return
+		}
+
+		if !skill.IsPublic && !canManageOwnedResource(user, skill.OwnerID) {
+			c.JSON(http.StatusForbidden, gin.H{"code": "FORBIDDEN", "message": "You don't have permission to update recommendation for this skill"})
+			return
+		}
+
+		var req UpdateSkillRecommendationRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"code": "INVALID_INPUT", "message": err.Error()})
+			return
+		}
+
+		if req.IsRecommended && !skill.IsPublic {
+			c.JSON(http.StatusBadRequest, gin.H{"code": "INVALID_INPUT", "message": "Only public skills can be recommended"})
+			return
+		}
+
+		hasEffectiveChange := skill.IsRecommended != req.IsRecommended
+		skill.IsRecommended = req.IsRecommended
+
+		if err := db.Transaction(func(tx *gorm.DB) error {
+			if err := tx.Save(&skill).Error; err != nil {
+				return err
+			}
+			if hasEffectiveChange && skill.IsPublic {
+				if err := bumpCatalogVersionTx(tx); err != nil {
+					return err
+				}
+			}
+			return writeAuditLogTx(tx, c, &user.ID, "skill.recommendation.update", resourceTypeSkill, &skill.ID, models.JSON{
+				"namespace":      namespace,
+				"name":           name,
+				"is_recommended": skill.IsRecommended,
 			})
 		}); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"code": "INTERNAL_ERROR", "message": err.Error()})

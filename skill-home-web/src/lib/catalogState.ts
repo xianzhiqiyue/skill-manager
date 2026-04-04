@@ -67,6 +67,11 @@ export function toCatalogSearch(filters: CatalogFilters) {
 }
 
 function compareCatalogSkills(left: SkillSummary, right: SkillSummary, sort: CatalogSort) {
+  const recommendationDelta = Number(Boolean(right.is_recommended)) - Number(Boolean(left.is_recommended));
+  if (recommendationDelta !== 0) {
+    return recommendationDelta;
+  }
+
   if (sort === 'updated') {
     return (
       new Date(right.updated_at || 0).getTime() - new Date(left.updated_at || 0).getTime() ||

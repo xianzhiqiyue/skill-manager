@@ -26,6 +26,15 @@ export function ProfileSettingsPage({ model, navigate }: ProfileSettingsPageProp
     );
   }
 
+  const canManageCatalog = Boolean(model.currentUser?.is_admin || model.currentUser?.is_super_admin);
+
+  function canEditSkillSettings(skill: (typeof model.mySkills)[number]) {
+    return Boolean(
+      model.currentUser &&
+        (model.currentUser.is_super_admin || (skill.owner_id && skill.owner_id === model.currentUser.id)),
+    );
+  }
+
   return (
     <SettingsLayout
       actions={(
@@ -79,8 +88,12 @@ export function ProfileSettingsPage({ model, navigate }: ProfileSettingsPageProp
         <section className="gh-settings-card">
           <div className="gh-settings-card__header">
             <div>
-              <h2>Your skills</h2>
-              <p>每个 skill 都进入独立的设置工作区，不再在这里堆叠整页表单。</p>
+              <h2>{canManageCatalog ? 'Managed skills' : 'Your skills'}</h2>
+              <p>
+                {canManageCatalog
+                  ? '管理角色视角会列出你可管理的技能，便于快速进入推荐设置。'
+                  : '每个 skill 都进入独立的设置工作区，不再在这里堆叠整页表单。'}
+              </p>
             </div>
           </div>
 
@@ -93,7 +106,15 @@ export function ProfileSettingsPage({ model, navigate }: ProfileSettingsPageProp
                   <button
                     className="gh-settings-list__row"
                     key={`${skill.namespace}/${skill.name}`}
-                    onClick={() => navigate(buildSkillSettingsPath(skill.namespace, skill.name, 'general'))}
+                    onClick={() =>
+                      navigate(
+                        buildSkillSettingsPath(
+                          skill.namespace,
+                          skill.name,
+                          canEditSkillSettings(skill) ? 'general' : 'access',
+                        ),
+                      )
+                    }
                     type="button"
                   >
                     <div className="gh-settings-list__main">
@@ -101,6 +122,9 @@ export function ProfileSettingsPage({ model, navigate }: ProfileSettingsPageProp
                       <span>@{skill.namespace}/{skill.name}</span>
                     </div>
                     <div className="gh-settings-list__meta">
+                      {skill.is_recommended ? (
+                        <span className="status-pill status-pill--success">Recommended</span>
+                      ) : null}
                       <span className={`status-pill status-pill--${skill.is_public === false ? 'neutral' : 'success'}`}>
                         {skill.is_public === false ? 'Private' : 'Public'}
                       </span>

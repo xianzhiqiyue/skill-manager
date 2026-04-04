@@ -18,6 +18,9 @@ export type AuthUser = {
   username: string;
   email: string;
   avatar_url?: string;
+  is_active?: boolean;
+  is_admin?: boolean;
+  is_super_admin?: boolean;
   created_at?: string;
 };
 
@@ -27,6 +30,8 @@ export type AuthResponse = {
     id: string;
     username: string;
     email: string;
+    is_admin?: boolean;
+    is_super_admin?: boolean;
   };
 };
 
@@ -47,6 +52,7 @@ export type SkillSummary = {
   id: string;
   namespace: string;
   name: string;
+  owner_id?: string;
   description?: string;
   category?: string;
   tags?: string[];
@@ -58,6 +64,7 @@ export type SkillSummary = {
   download_url?: string;
   is_public?: boolean;
   is_deprecated?: boolean;
+  is_recommended?: boolean;
   created_at?: string;
   updated_at?: string;
 };
@@ -143,6 +150,10 @@ export type UpdateSkillPayload = {
   license: string;
   isPublic: boolean;
   isDeprecated: boolean;
+};
+
+export type UpdateSkillRecommendationPayload = {
+  isRecommended: boolean;
 };
 
 export type SkillCategoryOption = {
@@ -491,6 +502,24 @@ export function updateSkill(
       license: payload.license,
       is_public: payload.isPublic,
       is_deprecated: payload.isDeprecated,
+    }),
+  });
+}
+
+export function updateSkillRecommendation(
+  token: string,
+  namespace: string,
+  name: string,
+  payload: UpdateSkillRecommendationPayload,
+) {
+  return request<SkillSummary>(`/api/v1/admin/skills/${namespace}/${name}/recommendation`, undefined, {
+    method: 'PATCH',
+    token,
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      is_recommended: payload.isRecommended,
     }),
   });
 }

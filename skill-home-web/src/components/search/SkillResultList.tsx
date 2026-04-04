@@ -44,7 +44,12 @@ function ResultCard({
           <strong>{skill.name}</strong>
           <span>{skillRef(skill)}</span>
         </div>
-        <span className="search-badge">{skill.latest_version || 'draft'}</span>
+        <div className="chip-row chip-row--start">
+          {skill.is_recommended ? (
+            <span className="status-pill status-pill--success">推荐</span>
+          ) : null}
+          <span className="search-badge">{skill.latest_version || 'draft'}</span>
+        </div>
       </div>
       <p>{skill.description || '暂无描述。'}</p>
       <div className="skill-result-card__meta">
@@ -82,6 +87,7 @@ function ResultRow({
       </div>
       <p>{skill.description || '暂无描述。'}</p>
       <div className="skill-result-row__meta">
+        {skill.is_recommended ? <span>推荐</span> : null}
         <span>{skill.license || '未填写 License'}</span>
         <span>{skill.latest_version || 'draft'}</span>
         <span>{skill.download_count} 下载</span>

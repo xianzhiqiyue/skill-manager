@@ -83,4 +83,39 @@ describe('catalog search params', () => {
     expect(visible).toHaveLength(1);
     expect(visible[0]?.name).toBe('openclaw-fmea-cocreator');
   });
+
+  it('keeps recommended skills ahead of other matches for the same sort mode', () => {
+    const visible = filterCatalogSkills(
+      [
+        {
+          id: '1',
+          namespace: 'team',
+          name: 'deploy-helper',
+          download_count: 20,
+          rating_count: 0,
+          is_recommended: false,
+          updated_at: '2026-04-01T00:00:00Z',
+        },
+        {
+          id: '2',
+          namespace: 'team',
+          name: 'review-helper',
+          download_count: 5,
+          rating_count: 0,
+          is_recommended: true,
+          updated_at: '2026-03-01T00:00:00Z',
+        },
+      ],
+      {
+        query: '',
+        namespace: 'all',
+        tag: 'all',
+        license: 'all',
+        sort: 'downloads',
+        view: 'list',
+      },
+    );
+
+    expect(visible.map((skill) => skill.name)).toEqual(['review-helper', 'deploy-helper']);
+  });
 });

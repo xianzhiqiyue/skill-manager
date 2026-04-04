@@ -10,6 +10,7 @@
 | 目录版本 | 提供 `catalog/version`，供 CLI 判断是否需要刷新远程目录缓存 |
 | 认证与权限 | 用户注册、密码登录、JWT 会话、API Key |
 | 技能治理 | 创建技能、更新元数据、发布版本、删除技能、删除版本 |
+| 管理员 | 可维护公开目录中的推荐 skill |
 | 超级管理员 | 可管理任意 skill/版本，并可修改其他用户的密码、启停状态和超管权限 |
 | 下载编排 | 公开 zip skill 优先返回 OSS 直链；兼容保留 `/api/v1/download/...` |
 | 运营能力 | 评分、审计日志、用户技能列表 |
@@ -62,12 +63,14 @@
 | POST | `/api/v1/skills/:namespace/:name/rating` | 为技能评分 |
 | GET | `/api/v1/admin/users` | 超级管理员查看用户列表 |
 | PUT | `/api/v1/admin/users/:id` | 超级管理员修改用户密码、权限、启停状态 |
+| PATCH | `/api/v1/admin/skills/:namespace/:name/recommendation` | 管理员或超级管理员更新推荐状态 |
 
 说明：
 
+- 管理员和超级管理员可以设置公开 skill 的推荐状态
 - 超级管理员可以发布、修改、删除任意用户名下的 skill 和版本
-- 超级管理员可以重置其他用户密码，调整 `is_super_admin` 与 `is_active`
-- 当前用户接口 `/api/v1/user`、登录响应、注册响应都会返回 `is_super_admin`
+- 超级管理员可以重置其他用户密码，调整 `is_admin`、`is_super_admin` 与 `is_active`
+- 当前用户接口 `/api/v1/user`、登录响应、注册响应都会返回 `is_admin` 与 `is_super_admin`
 
 ## 超级管理员引导
 
@@ -129,7 +132,7 @@ curl -fsS https://soulstore.ciqtek.com/skill-home/api/v1/skills/skill-home/skill
 - 顶层 `download_url`
 - 各版本 `versions[].download_url`
 - 顶层 `credentials`，它来自最新版本 `manifest.metadata.openclaw.credentials`
-- `is_public`、`download_count`、`rating`
+- `is_public`、`is_recommended`、`download_count`、`rating`
 
 示例片段：
 

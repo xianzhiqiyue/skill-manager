@@ -4,12 +4,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   addCommunityTag,
   deleteSkill,
+  fetchCurrentUser,
   fetchSkills,
   fetchSkillDetail,
   loginUser,
   publishSkill,
   removeCommunityTag,
   updateSkill,
+  updateSkillRecommendation,
 } from '../api';
 import { PublishNewPage } from '../pages/PublishNewPage';
 import { SkillOverviewPage } from '../pages/skill/SkillOverviewPage';
@@ -48,6 +50,8 @@ vi.mock('../api', async (importOriginal) => {
       id: 'user-1',
       username: 'testuser',
       email: 'test@example.com',
+      is_admin: false,
+      is_super_admin: false,
       created_at: '2026-03-20T10:00:00Z',
     }),
     fetchHealth: vi.fn().mockResolvedValue({
@@ -61,12 +65,15 @@ vi.mock('../api', async (importOriginal) => {
       id: 'skill-1',
       namespace: 'testuser',
       name: 'github',
+      owner_id: 'user-1',
       description: 'Interact with GitHub using gh.',
       category: 'integration',
       tags: ['api'],
       download_count: 18,
       rating_count: 0,
       latest_version: '1.0.0',
+      is_public: true,
+      is_recommended: false,
       versions: [],
     }),
     fetchSkills: vi.fn().mockResolvedValue({
@@ -81,6 +88,7 @@ vi.mock('../api', async (importOriginal) => {
     registerUser: vi.fn(),
     revokeAPIKey: vi.fn(),
     updateSkill: vi.fn(),
+    updateSkillRecommendation: vi.fn(),
   };
 });
 
@@ -194,19 +202,20 @@ describe('useRegistryApp catalog URL sync', () => {
 
   it('hydrates catalog filters immediately when routing from home into a filtered skills URL', () => {
     const navigate = vi.fn();
+    type CatalogRoute = { name: 'home' } | { name: 'skills' };
     const { result, rerender } = renderHook(
-      ({ route, search }: { route: { name: 'home' } | { name: 'skills' }; search: string }) =>
+      ({ route, search }: { route: CatalogRoute; search: string }) =>
         useRegistryApp(route, search, navigate),
       {
         initialProps: {
-          route: { name: 'home' } as const,
+          route: { name: 'home' } as CatalogRoute,
           search: '',
         },
       },
     );
 
     rerender({
-      route: { name: 'skills' } as const,
+      route: { name: 'skills' } as CatalogRoute,
       search: '?q=fmea',
     });
 
@@ -216,6 +225,7 @@ describe('useRegistryApp catalog URL sync', () => {
 
   it('uses the directory snapshot as a preview while a new committed catalog search is loading', async () => {
     const navigate = vi.fn();
+    type CatalogRoute = { name: 'home' } | { name: 'skills' };
     let resolveCatalogFetch:
       | ((value: { total: number; results: Array<Record<string, unknown>> }) => void)
       | null = null;
@@ -258,11 +268,11 @@ describe('useRegistryApp catalog URL sync', () => {
       .mockImplementationOnce(() => pendingCatalogFetch as never);
 
     const { result, rerender } = renderHook(
-      ({ route, search }: { route: { name: 'home' } | { name: 'skills' }; search: string }) =>
+      ({ route, search }: { route: CatalogRoute; search: string }) =>
         useRegistryApp(route, search, navigate),
       {
         initialProps: {
-          route: { name: 'home' } as const,
+          route: { name: 'home' } as CatalogRoute,
           search: '',
         },
       },
@@ -273,7 +283,7 @@ describe('useRegistryApp catalog URL sync', () => {
     });
 
     rerender({
-      route: { name: 'skills' } as const,
+      route: { name: 'skills' } as CatalogRoute,
       search: '?q=fmea',
     });
 
@@ -283,7 +293,7 @@ describe('useRegistryApp catalog URL sync', () => {
       'openclaw-fmea-cocreator',
     ]);
 
-    resolveCatalogFetch?.({
+    resolveCatalogFetch!({
       total: 1,
       results: [
         {
@@ -440,6 +450,77 @@ describe('useRegistryApp catalog URL sync', () => {
           license: 'Apache-2.0',
         }),
       );
+    });
+  });
+
+  it('submits recommendation changes through the admin recommendation endpoint', async () => {
+    window.localStorage.setItem('skill-home-web-token', 'token-1');
+    vi.mocked(fetchCurrentUser).mockResolvedValue({
+      id: 'admin-1',
+      username: 'catalog-admin',
+      email: 'admin@example.com',
+      is_admin: true,
+      is_super_admin: false,
+      created_at: '2026-03-20T10:00:00Z',
+    });
+    vi.mocked(fetchSkillDetail).mockResolvedValue({
+      id: 'skill-1',
+      namespace: 'testuser',
+      name: 'github',
+      owner_id: 'owner-1',
+      description: 'Interact with GitHub using gh.',
+      category: 'ops',
+      tags: ['deployment'],
+      download_count: 18,
+      rating_count: 0,
+      latest_version: '1.0.0',
+      is_public: true,
+      is_recommended: false,
+      versions: [],
+    });
+    vi.mocked(updateSkillRecommendation).mockResolvedValue({
+      id: 'skill-1',
+      namespace: 'testuser',
+      name: 'github',
+      owner_id: 'owner-1',
+      description: 'Interact with GitHub using gh.',
+      download_count: 18,
+      rating_count: 0,
+      latest_version: '1.0.0',
+      is_public: true,
+      is_recommended: true,
+      versions: [],
+    } as never);
+
+    const navigate = vi.fn();
+    const { result } = renderHook(() =>
+      useRegistryApp(
+        { name: 'skill-settings', namespace: 'testuser', skillName: 'github', section: 'access' },
+        '',
+        navigate,
+      ),
+    );
+
+    await waitFor(() => {
+      expect(result.current.managedSkill?.name).toBe('github');
+      expect(result.current.currentUser?.is_admin).toBe(true);
+    });
+
+    act(() => {
+      result.current.setManageForm((current) => ({
+        ...current,
+        isRecommended: true,
+      }));
+    });
+
+    await act(async () => {
+      await result.current.submitManageRecommendation();
+    });
+
+    await waitFor(() => {
+      expect(updateSkillRecommendation).toHaveBeenCalledWith('token-1', 'testuser', 'github', {
+        isRecommended: true,
+      });
     });
   });
 

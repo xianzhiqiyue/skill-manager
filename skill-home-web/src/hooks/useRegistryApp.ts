@@ -19,6 +19,7 @@ import {
   removeCommunityTag,
   revokeAPIKey,
   updateSkill,
+  updateSkillRecommendation,
   normalizeOfficialTags,
   type APIKeyCreateResponse,
   type APIKeySummary,
@@ -82,6 +83,15 @@ function toISOStringFromLocalDateTime(value: string) {
   }
 
   return date.toISOString();
+}
+
+function sortRecommendedFirst(left: SkillSummary, right: SkillSummary) {
+  return (
+    Number(Boolean(right.is_recommended)) - Number(Boolean(left.is_recommended)) ||
+    right.download_count - left.download_count ||
+    new Date(right.updated_at || 0).getTime() - new Date(left.updated_at || 0).getTime() ||
+    left.name.localeCompare(right.name)
+  );
 }
 
 export function useRegistryApp(
@@ -160,6 +170,7 @@ export function useRegistryApp(
   const [managedSkill, setManagedSkill] = useState<SkillDetail | null>(null);
   const [manageLoading, setManageLoading] = useState(false);
   const [manageSaving, setManageSaving] = useState(false);
+  const [manageRecommendationSaving, setManageRecommendationSaving] = useState(false);
   const [manageDeletingSkill, setManageDeletingSkill] = useState(false);
   const [manageDeletingVersion, setManageDeletingVersion] = useState<string | null>(null);
   const [manageError, setManageError] = useState<string | null>(null);
@@ -172,6 +183,7 @@ export function useRegistryApp(
     tags: [] as string[],
     isPublic: true,
     isDeprecated: false,
+    isRecommended: false,
   });
 
   const [publishLoading, setPublishLoading] = useState(false);
@@ -194,7 +206,7 @@ export function useRegistryApp(
   const licenseOptions = uniq(skills.map((skill) => skill.license || '')).sort();
 
   const featuredSkills = [...skills]
-    .sort((left, right) => right.download_count - left.download_count)
+    .sort(sortRecommendedFirst)
     .slice(0, 4);
   const latestSkills = [...skills]
     .sort(
@@ -382,6 +394,7 @@ export function useRegistryApp(
       setManagedSkill(null);
       setManageError(null);
       setManageSuccess(null);
+      setManageRecommendationSaving(false);
       return;
     }
 
@@ -502,6 +515,7 @@ export function useRegistryApp(
           tags: data.tags || [],
           isPublic: data.is_public ?? true,
           isDeprecated: data.is_deprecated ?? false,
+          isRecommended: data.is_recommended ?? false,
         });
         setManageLoading(false);
       })
@@ -586,6 +600,8 @@ export function useRegistryApp(
         id: response.user.id,
         username: response.user.username,
         email: response.user.email,
+        is_admin: response.user.is_admin,
+        is_super_admin: response.user.is_super_admin,
       });
       setAuthForm((current) => ({
         ...current,
@@ -610,6 +626,7 @@ export function useRegistryApp(
     setManagedSkill(null);
     setManageError(null);
     setManageSuccess(null);
+    setManageRecommendationSaving(false);
     setAPIKeysError(null);
     setAPIKeysSuccess(null);
     setRevealedAPIKey(null);
@@ -759,6 +776,37 @@ export function useRegistryApp(
       setManageError(error instanceof Error ? error.message : '更新失败');
     } finally {
       setManageSaving(false);
+    }
+  }
+
+  async function submitManageRecommendation() {
+    if (!token || !managedSkill) {
+      setManageError('请先登录并选择一个 skill。');
+      return;
+    }
+    if (!(currentUser?.is_admin || currentUser?.is_super_admin)) {
+      setManageError('只有管理员和超级管理员可以调整推荐状态。');
+      return;
+    }
+
+    setManageRecommendationSaving(true);
+    setManageError(null);
+    setManageSuccess(null);
+
+    try {
+      await updateSkillRecommendation(token, managedSkill.namespace, managedSkill.name, {
+        isRecommended: manageForm.isRecommended,
+      });
+
+      setManageSuccess(manageForm.isRecommended ? '技能已加入推荐列表。' : '技能已从推荐列表移除。');
+      setAccountNonce((value) => value + 1);
+      setCatalogNonce((value) => value + 1);
+      setDetailNonce((value) => value + 1);
+      setManageNonce((value) => value + 1);
+    } catch (error) {
+      setManageError(error instanceof Error ? error.message : '更新推荐状态失败');
+    } finally {
+      setManageRecommendationSaving(false);
     }
   }
 
@@ -1081,6 +1129,7 @@ export function useRegistryApp(
     managedSkill,
     manageLoading,
     manageSaving,
+    manageRecommendationSaving,
     manageDeletingSkill,
     manageDeletingVersion,
     manageError,
@@ -1088,6 +1137,7 @@ export function useRegistryApp(
     manageForm,
     setManageForm,
     submitManage,
+    submitManageRecommendation,
     removeManagedSkill,
     removeManagedVersion,
     publishLoading,

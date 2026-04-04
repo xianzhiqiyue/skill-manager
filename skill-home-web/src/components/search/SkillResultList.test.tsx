@@ -16,6 +16,7 @@ const model: SkillsSearchPageModel = {
       rating: 4.8,
       rating_count: 12,
       latest_version: '1.0.0',
+      is_recommended: true,
       updated_at: '2026-03-22T21:32:00Z',
     },
   ],
@@ -81,6 +82,12 @@ describe('SkillsSearchPage', () => {
     expect(screen.getAllByText('4.8 分').length).toBeGreaterThan(0);
     expect(screen.getAllByText('12 人评分').length).toBeGreaterThan(0);
     expect(screen.getAllByText('暂无评分').length).toBeGreaterThan(0);
+  });
+
+  it('marks recommended results explicitly in the search list', () => {
+    render(<SkillsSearchPage model={model} />);
+
+    expect(screen.getByText('推荐')).toBeInTheDocument();
   });
 
   it('renders the committed catalog result set from the model as-is', () => {

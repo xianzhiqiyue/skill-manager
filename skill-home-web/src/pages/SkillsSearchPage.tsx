@@ -25,10 +25,10 @@ export type SkillsSearchPageModel = {
 };
 
 const sortLabels = {
-  downloads: '热门优先',
-  updated: '最近更新',
-  rating: '高评分',
-  name: '按名称',
+  downloads: '推荐优先 · 热门',
+  updated: '推荐优先 · 最近更新',
+  rating: '推荐优先 · 高评分',
+  name: '推荐优先 · 按名称',
 } as const;
 
 function buildActiveFilterLabels(filters: CatalogFilters) {

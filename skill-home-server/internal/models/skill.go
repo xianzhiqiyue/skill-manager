@@ -32,6 +32,7 @@ type Skill struct {
 	Rating        float64                     `gorm:"-" json:"rating"`
 	IsPublic      bool                        `gorm:"default:true" json:"is_public"`
 	IsDeprecated  bool                        `gorm:"default:false" json:"is_deprecated"`
+	IsRecommended bool                        `gorm:"default:false;index" json:"is_recommended"`
 	LatestVersion string                      `gorm:"size:20" json:"latest_version,omitempty"`
 	CreatedAt     time.Time                   `json:"created_at"`
 	UpdatedAt     time.Time                   `json:"updated_at"`

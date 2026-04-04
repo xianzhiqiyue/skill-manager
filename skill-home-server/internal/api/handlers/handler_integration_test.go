@@ -45,6 +45,7 @@ func newTestDatabase(t *testing.T) *storage.Database {
 		password TEXT,
 		avatar_url TEXT,
 		is_active NUMERIC DEFAULT 1,
+		is_admin NUMERIC DEFAULT 0,
 		is_super_admin NUMERIC DEFAULT 0,
 		created_at DATETIME,
 		updated_at DATETIME,
@@ -68,6 +69,7 @@ func newTestDatabase(t *testing.T) *storage.Database {
 		rating_count INTEGER DEFAULT 0,
 		is_public NUMERIC DEFAULT 1,
 		is_deprecated NUMERIC DEFAULT 0,
+		is_recommended NUMERIC DEFAULT 0,
 		latest_version TEXT,
 		created_at DATETIME,
 		updated_at DATETIME,
@@ -1471,7 +1473,7 @@ func TestSuperAdminCanManageUsers(t *testing.T) {
 		t.Fatalf("list status: %d body=%s", listRec.Code, listRec.Body.String())
 	}
 
-	updateBody := bytes.NewBufferString(`{"is_super_admin":true,"is_active":false,"password":"new-password"}`)
+	updateBody := bytes.NewBufferString(`{"is_admin":true,"is_super_admin":true,"is_active":false,"password":"new-password"}`)
 	updateReq := httptest.NewRequest(http.MethodPut, "/api/v1/admin/users/"+target.ID.String(), updateBody)
 	updateReq.Header.Set("Content-Type", "application/json")
 	updateRec := httptest.NewRecorder()
@@ -1487,11 +1489,95 @@ func TestSuperAdminCanManageUsers(t *testing.T) {
 	if !updated.IsSuperAdmin {
 		t.Fatal("expected target to become super admin")
 	}
+	if !updated.IsAdmin {
+		t.Fatal("expected target to become admin")
+	}
 	if updated.IsActive {
 		t.Fatal("expected target to become inactive")
 	}
 	if err := bcrypt.CompareHashAndPassword([]byte(updated.Password), []byte("new-password")); err != nil {
 		t.Fatalf("expected password to be updated: %v", err)
+	}
+}
+
+func TestAdminCanUpdateSkillRecommendation(t *testing.T) {
+	db := newTestDatabase(t)
+	admin := &models.User{ID: uuid.New(), Username: "catalog-admin", Email: "admin@example.com", IsAdmin: true}
+	owner := &models.User{ID: uuid.New(), Username: "owner", Email: "owner@example.com"}
+	if err := db.Create(admin).Error; err != nil {
+		t.Fatalf("create admin failed: %v", err)
+	}
+	if err := db.Create(owner).Error; err != nil {
+		t.Fatalf("create owner failed: %v", err)
+	}
+
+	skill := &models.Skill{
+		ID:            uuid.New(),
+		Namespace:     "team",
+		Name:          "reviewer",
+		OwnerID:       owner.ID,
+		Description:   "review skill",
+		IsPublic:      true,
+		IsRecommended: false,
+	}
+	if err := db.Create(skill).Error; err != nil {
+		t.Fatalf("create skill failed: %v", err)
+	}
+
+	router := newAuthedRouter(admin)
+	router.PATCH("/api/v1/admin/skills/:namespace/:name/recommendation", UpdateSkillRecommendation(db))
+
+	body := bytes.NewBufferString(`{"is_recommended":true}`)
+	req := httptest.NewRequest(http.MethodPatch, "/api/v1/admin/skills/team/reviewer/recommendation", body)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("unexpected status: %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	var updated models.Skill
+	if err := db.First(&updated, "id = ?", skill.ID).Error; err != nil {
+		t.Fatalf("reload skill failed: %v", err)
+	}
+	if !updated.IsRecommended {
+		t.Fatal("expected skill to become recommended")
+	}
+	if got := currentCatalogVersion(t, db); got != 2 {
+		t.Fatalf("catalog_version = %d, want 2", got)
+	}
+}
+
+func TestNonAdminCannotUpdateSkillRecommendation(t *testing.T) {
+	db := newTestDatabase(t)
+	owner := &models.User{ID: uuid.New(), Username: "owner", Email: "owner@example.com"}
+	if err := db.Create(owner).Error; err != nil {
+		t.Fatalf("create owner failed: %v", err)
+	}
+	skill := &models.Skill{
+		ID:          uuid.New(),
+		Namespace:   "team",
+		Name:        "reviewer",
+		OwnerID:     owner.ID,
+		Description: "review skill",
+		IsPublic:    true,
+	}
+	if err := db.Create(skill).Error; err != nil {
+		t.Fatalf("create skill failed: %v", err)
+	}
+
+	router := newAuthedRouter(owner)
+	router.PATCH("/api/v1/admin/skills/:namespace/:name/recommendation", UpdateSkillRecommendation(db))
+
+	body := bytes.NewBufferString(`{"is_recommended":true}`)
+	req := httptest.NewRequest(http.MethodPatch, "/api/v1/admin/skills/team/reviewer/recommendation", body)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("unexpected status: %d body=%s", rec.Code, rec.Body.String())
 	}
 }
 
@@ -1574,12 +1660,13 @@ func TestPrivateSkillMutationsDoNotBumpCatalogVersion(t *testing.T) {
 			t.Fatalf("create user failed: %v", err)
 		}
 		skill := models.Skill{
-			ID:          uuid.New(),
-			Namespace:   "team",
-			Name:        "private-github",
-			OwnerID:     user.ID,
-			Description: "before",
-			IsPublic:    true,
+			ID:            uuid.New(),
+			Namespace:     "team",
+			Name:          "private-github",
+			OwnerID:       user.ID,
+			Description:   "before",
+			IsPublic:      true,
+			IsRecommended: true,
 		}
 		if err := db.Create(&skill).Error; err != nil {
 			t.Fatalf("create skill failed: %v", err)
@@ -1599,6 +1686,13 @@ func TestPrivateSkillMutationsDoNotBumpCatalogVersion(t *testing.T) {
 
 		if rec.Code != http.StatusOK {
 			t.Fatalf("unexpected status: %d body=%s", rec.Code, rec.Body.String())
+		}
+		var updated models.Skill
+		if err := db.First(&updated, "id = ?", skill.ID).Error; err != nil {
+			t.Fatalf("reload skill failed: %v", err)
+		}
+		if updated.IsRecommended {
+			t.Fatal("expected private skill update to clear recommendation")
 		}
 		if got := currentCatalogVersion(t, db); got != 1 {
 			t.Fatalf("catalog_version = %d, want 1", got)
@@ -3083,6 +3177,7 @@ func TestListSkillsSupportsLicenseFilterAndSort(t *testing.T) {
 			Description:   "review skill",
 			License:       "MIT",
 			DownloadCount: 3,
+			IsRecommended: true,
 			UpdatedAt:     now.Add(-time.Hour),
 			IsPublic:      true,
 		},
@@ -3133,7 +3228,7 @@ func TestListSkillsSupportsLicenseFilterAndSort(t *testing.T) {
 	if len(resp.Results) != 2 {
 		t.Fatalf("unexpected result count: %+v", resp.Results)
 	}
-	if resp.Results[0].Name != "fresh-reviewer" || resp.Results[1].Name != "stable-reviewer" {
+	if resp.Results[0].Name != "stable-reviewer" || resp.Results[1].Name != "fresh-reviewer" {
 		t.Fatalf("unexpected ordering: %+v", resp.Results)
 	}
 }
@@ -3242,15 +3337,16 @@ func TestSearchSkillsSupportsTagAndRatingSortSQLiteFallback(t *testing.T) {
 			IsPublic:    true,
 		},
 		{
-			ID:          uuid.New(),
-			Namespace:   "team",
-			Name:        "review-new",
-			OwnerID:     ownerID,
-			Description: "review changes quickly",
-			Tags:        models.StringArray{"review"},
-			RatingSum:   5,
-			RatingCount: 2,
-			IsPublic:    true,
+			ID:            uuid.New(),
+			Namespace:     "team",
+			Name:          "review-new",
+			OwnerID:       ownerID,
+			Description:   "review changes quickly",
+			Tags:          models.StringArray{"review"},
+			RatingSum:     5,
+			RatingCount:   2,
+			IsRecommended: true,
+			IsPublic:      true,
 		},
 		{
 			ID:          uuid.New(),
@@ -3288,8 +3384,8 @@ func TestSearchSkillsSupportsTagAndRatingSortSQLiteFallback(t *testing.T) {
 	if len(resp.Results) != 2 {
 		t.Fatalf("unexpected search results: %+v", resp.Results)
 	}
-	if resp.Results[0].Name != "review-gold" {
-		t.Fatalf("expected highest rated skill first, got %+v", resp.Results)
+	if resp.Results[0].Name != "review-new" {
+		t.Fatalf("expected recommended skill first, got %+v", resp.Results)
 	}
 }
 

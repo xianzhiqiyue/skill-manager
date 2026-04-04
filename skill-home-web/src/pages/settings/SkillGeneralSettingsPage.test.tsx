@@ -12,6 +12,7 @@ function SettingsHarness() {
     tags: [] as string[],
     isPublic: true,
     isDeprecated: false,
+    isRecommended: false,
   });
 
   return (

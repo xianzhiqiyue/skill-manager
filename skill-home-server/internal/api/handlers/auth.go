@@ -35,6 +35,7 @@ type AuthResponse struct {
 		ID           string `json:"id"`
 		Username     string `json:"username"`
 		Email        string `json:"email"`
+		IsAdmin      bool   `json:"is_admin"`
 		IsSuperAdmin bool   `json:"is_super_admin"`
 	} `json:"user"`
 }
@@ -106,6 +107,7 @@ func Register(db *storage.Database) gin.HandlerFunc {
 		resp.User.ID = user.ID.String()
 		resp.User.Username = user.Username
 		resp.User.Email = user.Email
+		resp.User.IsAdmin = user.IsAdmin
 		resp.User.IsSuperAdmin = user.IsSuperAdmin
 
 		c.JSON(http.StatusCreated, resp)
@@ -167,6 +169,7 @@ func Login(db *storage.Database) gin.HandlerFunc {
 		resp.User.ID = user.ID.String()
 		resp.User.Username = user.Username
 		resp.User.Email = user.Email
+		resp.User.IsAdmin = user.IsAdmin
 		resp.User.IsSuperAdmin = user.IsSuperAdmin
 
 		writeAuditLog(db, c, &user.ID, "auth.login", resourceTypeUser, &user.ID, models.JSON{

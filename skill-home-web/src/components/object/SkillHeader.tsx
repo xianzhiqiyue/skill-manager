@@ -30,6 +30,9 @@ export function SkillHeader({ onBack, skill }: SkillHeaderProps) {
             <span className={`status-pill status-pill--${latestScan.tone}`}>{latestScan.label}</span>
             <span className="catalog-chip">{latestVersion}</span>
             <span className="catalog-chip">{visibilityLabel}</span>
+            {skill.is_recommended ? (
+              <span className="status-pill status-pill--success">推荐</span>
+            ) : null}
             {skill.is_deprecated ? (
               <span className="status-pill status-pill--warning">已弃用</span>
             ) : null}

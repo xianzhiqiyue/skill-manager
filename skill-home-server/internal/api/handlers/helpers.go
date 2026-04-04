@@ -42,6 +42,14 @@ func isSuperAdmin(user *models.User) bool {
 	return user != nil && user.IsSuperAdmin
 }
 
+func isAdmin(user *models.User) bool {
+	return user != nil && user.IsAdmin
+}
+
+func canManageCatalog(user *models.User) bool {
+	return isAdmin(user) || isSuperAdmin(user)
+}
+
 func canManageOwnedResource(user *models.User, ownerID uuid.UUID) bool {
 	if user == nil {
 		return false
@@ -239,6 +247,14 @@ func applySkillOrdering(query *gorm.DB, sort string) *gorm.DB {
 		return query
 	}
 
+	return applySkillOrderingCore(query.Order("is_recommended DESC"), sort)
+}
+
+func applySkillOrderingCore(query *gorm.DB, sort string) *gorm.DB {
+	if query == nil {
+		return query
+	}
+
 	switch strings.ToLower(strings.TrimSpace(sort)) {
 	case "updated", "recent":
 		return query.Order("updated_at DESC").Order("download_count DESC")
@@ -275,14 +291,15 @@ func applySearchOrdering(query *gorm.DB, q, sort string) *gorm.DB {
 		return query
 	}
 
+	query = query.Order("is_recommended DESC")
 	sort = strings.ToLower(strings.TrimSpace(sort))
 	if sort != "" {
-		return applySkillOrdering(query, sort)
+		return applySkillOrderingCore(query, sort)
 	}
 
 	q = strings.TrimSpace(q)
 	if q == "" {
-		return applySkillOrdering(query, sort)
+		return applySkillOrderingCore(query, sort)
 	}
 
 	dialect := ""

@@ -30,7 +30,9 @@ Content-Type: application/json
   "user": {
     "id": "d30d52dd-d3ea-4761-ad9d-c18ecd4431bc",
     "username": "testuser",
-    "email": "test@example.com"
+    "email": "test@example.com",
+    "is_admin": false,
+    "is_super_admin": false
   }
 }
 ```
@@ -117,7 +119,7 @@ GET /api/v1/catalog/version
 
 - `catalog_version` 会随着公开目录结构发生有效变更而递增，客户端应仅以它判断目录结构缓存是否失效。
 - `updated_at` 仅用于观测和排障，表示最近一次目录版本变更时间，不应用作缓存对比键。
-- 成功的公开目录变更会触发版本递增，至少包括：创建公开 skill、公开 skill 更新、公开 skill 删除、公开 skill 发布版本、公开 skill 删除版本。
+- 成功的公开目录变更会触发版本递增，至少包括：创建公开 skill、公开 skill 更新、公开 skill 删除、公开 skill 发布版本、公开 skill 删除版本、推荐状态变更。
 - 私有 skill 的创建、更新、删除、发布版本、删除版本不会触发公开目录版本变化。
 - `download_count`、`rating`、`rating_count` 等动态统计字段不属于该版本号覆盖范围；如果客户端需要这些字段的最新值，应主动重新拉取列表或详情接口。
 
@@ -156,6 +158,7 @@ GET /api/v1/skills?page=1&per_page=20&q=keyword&tag=tag1&namespace=testuser
       "download_count": 42,
       "rating": 4.8,
       "rating_count": 5,
+      "is_recommended": true,
       "latest_version": "1.0.0",
       "download_url": "https://oss-example.aliyuncs.com/public-skills/testuser/my-skill/1.0.0.zip",
       "created_at": "2026-03-01T10:00:00Z",
@@ -189,6 +192,7 @@ Authorization: Bearer <token>  // 可选，访问私有技能或返回 user_rati
   "download_count": 42,
   "rating": 4.8,
   "rating_count": 5,
+  "is_recommended": true,
   "is_public": true,
   "latest_version": "1.0.0",
   "download_url": "https://oss-example.aliyuncs.com/public-skills/testuser/my-skill/1.0.0.zip",
@@ -267,6 +271,24 @@ Content-Type: application/json
   "is_public": false
 }
 ```
+
+#### 设置 skill 推荐状态
+
+```http
+PATCH /api/v1/admin/skills/:namespace/:name/recommendation
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "is_recommended": true
+}
+```
+
+说明：
+
+- 仅 `is_admin=true` 或 `is_super_admin=true` 的用户可调用。
+- 只有公开 skill 可以被设置为推荐。
+- 推荐 skill 会在技能中心和搜索结果中优先排序。
 
 #### 删除技能
 
@@ -499,6 +521,7 @@ Authorization: Bearer <token>
 | tags | []string | 官方标签，1-4 个 |
 | license | string | 许可证 |
 | is_public | bool | 是否公开 |
+| is_recommended | bool | 是否推荐 |
 | download_count | int | 下载次数 |
 | rating | float64 | 平均评分 |
 | rating_count | int | 评分次数 |
@@ -524,6 +547,8 @@ Authorization: Bearer <token>
 | username | string | 用户名 |
 | email | string | 邮箱 |
 | avatar_url | string | 头像 URL |
+| is_admin | bool | 是否管理员 |
+| is_super_admin | bool | 是否超级管理员 |
 | created_at | datetime | 创建时间 |
 
 ## 示例

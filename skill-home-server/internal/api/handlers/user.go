@@ -30,6 +30,7 @@ func GetCurrentUser(c *gin.Context) {
 		"email":          u.Email,
 		"avatar_url":     u.AvatarURL,
 		"is_active":      u.IsActive,
+		"is_admin":       u.IsAdmin,
 		"is_super_admin": u.IsSuperAdmin,
 		"created_at":     u.CreatedAt,
 	})
@@ -52,7 +53,15 @@ func GetUserSkills(db *storage.Database) gin.HandlerFunc {
 
 		var skills []models.Skill
 		query := db.Model(&models.Skill{})
-		if !user.IsSuperAdmin {
+		if user.IsSuperAdmin {
+			query = query.Order("is_recommended DESC").Order("updated_at DESC").Order("name ASC")
+		} else if user.IsAdmin {
+			query = query.
+				Where("is_public = ? OR owner_id = ?", true, user.ID).
+				Order("is_recommended DESC").
+				Order("updated_at DESC").
+				Order("name ASC")
+		} else {
 			query = query.Where("owner_id = ?", user.ID)
 		}
 		if err := query.Find(&skills).Error; err != nil {
@@ -215,6 +224,7 @@ type AdminUserResponse struct {
 	Email        string    `json:"email"`
 	AvatarURL    string    `json:"avatar_url,omitempty"`
 	IsActive     bool      `json:"is_active"`
+	IsAdmin      bool      `json:"is_admin"`
 	IsSuperAdmin bool      `json:"is_super_admin"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
@@ -223,6 +233,7 @@ type AdminUserResponse struct {
 type AdminUpdateUserRequest struct {
 	Password     *string `json:"password,omitempty"`
 	IsActive     *bool   `json:"is_active,omitempty"`
+	IsAdmin      *bool   `json:"is_admin,omitempty"`
 	IsSuperAdmin *bool   `json:"is_super_admin,omitempty"`
 }
 
@@ -248,6 +259,7 @@ func ListUsers(db *storage.Database) gin.HandlerFunc {
 				Email:        item.Email,
 				AvatarURL:    item.AvatarURL,
 				IsActive:     item.IsActive,
+				IsAdmin:      item.IsAdmin,
 				IsSuperAdmin: item.IsSuperAdmin,
 				CreatedAt:    item.CreatedAt,
 				UpdatedAt:    item.UpdatedAt,
@@ -281,6 +293,10 @@ func UpdateUserByAdmin(db *storage.Database) gin.HandlerFunc {
 		if req.IsActive != nil {
 			updates["is_active"] = *req.IsActive
 			target.IsActive = *req.IsActive
+		}
+		if req.IsAdmin != nil {
+			updates["is_admin"] = *req.IsAdmin
+			target.IsAdmin = *req.IsAdmin
 		}
 		if req.IsSuperAdmin != nil {
 			updates["is_super_admin"] = *req.IsSuperAdmin
@@ -316,6 +332,9 @@ func UpdateUserByAdmin(db *storage.Database) gin.HandlerFunc {
 			if req.IsActive != nil {
 				metadata["is_active"] = *req.IsActive
 			}
+			if req.IsAdmin != nil {
+				metadata["is_admin"] = *req.IsAdmin
+			}
 			if req.IsSuperAdmin != nil {
 				metadata["is_super_admin"] = *req.IsSuperAdmin
 			}
@@ -339,6 +358,7 @@ func UpdateUserByAdmin(db *storage.Database) gin.HandlerFunc {
 			Email:        target.Email,
 			AvatarURL:    target.AvatarURL,
 			IsActive:     target.IsActive,
+			IsAdmin:      target.IsAdmin,
 			IsSuperAdmin: target.IsSuperAdmin,
 			CreatedAt:    target.CreatedAt,
 			UpdatedAt:    target.UpdatedAt,

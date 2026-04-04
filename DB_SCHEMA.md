@@ -18,6 +18,8 @@
 | password | VARCHAR(255) | NOT NULL | 密码哈希 |
 | avatar_url | VARCHAR(500) | | 头像 URL |
 | is_active | BOOLEAN | DEFAULT: true | 是否激活 |
+| is_admin | BOOLEAN | DEFAULT: false | 是否为管理员 |
+| is_super_admin | BOOLEAN | DEFAULT: false | 是否为超级管理员 |
 | created_at | TIMESTAMP | NOT NULL | 创建时间 |
 | updated_at | TIMESTAMP | NOT NULL | 更新时间 |
 | deleted_at | TIMESTAMP | INDEX | 软删除 |
@@ -48,6 +50,7 @@
 | rating_count | BIGINT | DEFAULT: 0 | 评分次数 |
 | is_public | BOOLEAN | DEFAULT: true | 是否公开 |
 | is_deprecated | BOOLEAN | DEFAULT: false | 是否弃用 |
+| is_recommended | BOOLEAN | DEFAULT: false | 是否为推荐 skill |
 | latest_version | VARCHAR(20) | | 最新版本 |
 | created_at | TIMESTAMP | NOT NULL | 创建时间 |
 | updated_at | TIMESTAMP | NOT NULL | 更新时间 |
@@ -57,6 +60,7 @@
 - PRIMARY KEY (id)
 - UNIQUE INDEX idx_namespace_name (namespace, name)
 - INDEX (owner_id)
+- INDEX (is_recommended)
 - INDEX (deleted_at)
 
 ### skill_versions (技能版本表)
@@ -207,6 +211,8 @@ CREATE TABLE users (
     password VARCHAR(255) NOT NULL,
     avatar_url VARCHAR(500),
     is_active BOOLEAN DEFAULT true,
+    is_admin BOOLEAN DEFAULT false,
+    is_super_admin BOOLEAN DEFAULT false,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMP
@@ -232,6 +238,7 @@ CREATE TABLE skills (
     rating_count BIGINT DEFAULT 0,
     is_public BOOLEAN DEFAULT true,
     is_deprecated BOOLEAN DEFAULT false,
+    is_recommended BOOLEAN DEFAULT false,
     latest_version VARCHAR(20),
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
@@ -240,6 +247,7 @@ CREATE TABLE skills (
 );
 
 CREATE INDEX idx_skills_owner ON skills(owner_id);
+CREATE INDEX idx_skills_recommended ON skills(is_recommended);
 CREATE INDEX idx_skills_deleted_at ON skills(deleted_at);
 
 -- 版本表

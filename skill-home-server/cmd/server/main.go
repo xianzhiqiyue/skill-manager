@@ -143,6 +143,7 @@ func setupRouter(db *storage.Database, objStorage *storage.ObjectStorage, scanne
 			auth.DELETE("/user/api-keys/:id", handlers.RevokeAPIKey(db))
 			auth.GET("/admin/users", handlers.ListUsers(db))
 			auth.PUT("/admin/users/:id", handlers.UpdateUserByAdmin(db))
+			auth.PATCH("/admin/skills/:namespace/:name/recommendation", handlers.UpdateSkillRecommendation(db))
 		}
 	}
 

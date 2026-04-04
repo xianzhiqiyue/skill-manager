@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { SkillSummary } from '../../api';
 import { GlobalHeader } from './GlobalHeader';
 
 const noop = vi.fn();
@@ -16,13 +17,7 @@ function renderHeader({
   mobileNavOpen?: boolean;
   onSearchSubmit?: (query: string, event: React.FormEvent<HTMLFormElement>) => void;
   onSearchSuggestionSelect?: (query: string, namespace: string, name: string) => void;
-  skills?: Array<{
-    id: string;
-    namespace: string;
-    name: string;
-    description?: string;
-    latestVersion?: string;
-  }>;
+  skills?: SkillSummary[];
 } = {}) {
   return render(
     <GlobalHeader
@@ -95,7 +90,9 @@ describe('GlobalHeader', () => {
           namespace: 'testuser',
           name: 'github',
           description: 'Interact with GitHub using gh.',
-          latestVersion: '1.0.0',
+          download_count: 12,
+          rating_count: 0,
+          latest_version: '1.0.0',
         },
       ],
     });
@@ -121,12 +118,16 @@ describe('GlobalHeader', () => {
           namespace: 'testuser',
           name: 'github',
           description: 'Interact with GitHub using gh.',
+          download_count: 12,
+          rating_count: 0,
         },
         {
           id: '2',
           namespace: 'testuser',
           name: 'doc',
           description: 'Work with .docx files.',
+          download_count: 2,
+          rating_count: 0,
         },
       ],
     });
