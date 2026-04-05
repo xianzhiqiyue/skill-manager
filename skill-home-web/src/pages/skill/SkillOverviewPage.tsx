@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import { getDownloadUrl } from '../../api';
+import { getDownloadUrl, getSkillDescription } from '../../api';
 import {
   SkillObjectPage,
   type SkillObjectPageModel,
@@ -83,6 +83,7 @@ export function SkillOverviewPage({ model, navigate, search }: SkillOverviewPage
         const latestVersion = skill.latest_version || skill.versions?.[0]?.version || 'draft';
         const latestVersionRecord = skill.versions?.[0];
         const latestScan = summarizeScanStatus(latestVersionRecord?.scan_status);
+        const description = getSkillDescription(skill);
         const communityTags = skill.community_tags || [];
         const viewerTags = skill.viewer_tags || [];
         const officialTags = skill.tags || [];
@@ -228,7 +229,7 @@ export function SkillOverviewPage({ model, navigate, search }: SkillOverviewPage
               </OverviewCard>
 
               <OverviewCard eyebrow="Overview" title="What this skill does">
-                <p>{skill.description || '暂无描述。'}</p>
+                <p>{description || '暂无描述。'}</p>
                 <div className="detail-fact-list">
                   <OverviewStat label="Latest version" value={latestVersion} />
                   <OverviewStat label="Scan status" value={latestScan.label} />

@@ -318,15 +318,15 @@ func applySearchOrdering(query *gorm.DB, q, sort string) *gorm.DB {
 		}).Order("updated_at DESC").Order("created_at DESC").Order("download_count DESC")
 	}
 
-	vectorExpr := "to_tsvector('simple', coalesce(name, '') || ' ' || coalesce(description, ''))"
+	vectorExpr := "to_tsvector('simple', coalesce(name, '') || ' ' || coalesce(description, '') || ' ' || coalesce(description_zh, ''))"
 	return query.
 		Order(clause.Expr{
 			SQL: "CASE " +
 				"WHEN lower(name) = lower(?) THEN 0 " +
 				"WHEN name ILIKE ? THEN 1 " +
-				"WHEN description ILIKE ? THEN 2 " +
+				"WHEN description ILIKE ? OR description_zh ILIKE ? THEN 2 " +
 				"ELSE 3 END",
-			Vars: []interface{}{q, q + "%", "%" + q + "%"},
+			Vars: []interface{}{q, q + "%", "%" + q + "%", "%" + q + "%"},
 		}).
 		Order(clause.Expr{
 			SQL:  "ts_rank_cd(" + vectorExpr + ", plainto_tsquery('simple', ?)) DESC",
@@ -348,12 +348,23 @@ func applySearchFilter(query *gorm.DB, q string) *gorm.DB {
 		dialect = query.Dialector.Name()
 	}
 	if dialect != "postgres" {
-		return query.Where("name LIKE ? OR description LIKE ?", "%"+q+"%", "%"+q+"%")
+		return query.Where(
+			"name LIKE ? OR description LIKE ? OR description_zh LIKE ?",
+			"%"+q+"%",
+			"%"+q+"%",
+			"%"+q+"%",
+		)
 	}
 
-	vectorExpr := "to_tsvector('simple', coalesce(name, '') || ' ' || coalesce(description, ''))"
+	vectorExpr := "to_tsvector('simple', coalesce(name, '') || ' ' || coalesce(description, '') || ' ' || coalesce(description_zh, ''))"
 	return query.
-		Where(vectorExpr+" @@ plainto_tsquery('simple', ?) OR name ILIKE ? OR description ILIKE ?", q, "%"+q+"%", "%"+q+"%")
+		Where(
+			vectorExpr+" @@ plainto_tsquery('simple', ?) OR name ILIKE ? OR description ILIKE ? OR description_zh ILIKE ?",
+			q,
+			"%"+q+"%",
+			"%"+q+"%",
+			"%"+q+"%",
+		)
 }
 
 func populateSkillComputedFields(skill *models.Skill) {

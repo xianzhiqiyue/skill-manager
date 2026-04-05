@@ -322,6 +322,11 @@ func (c *Client) publishArchive(path, skillPath string, req *PublishRequest) (*P
 			return nil, err
 		}
 	}
+	if req.DescriptionZh != "" {
+		if err := writer.WriteField("description_zh", req.DescriptionZh); err != nil {
+			return nil, err
+		}
+	}
 	if req.Category != "" {
 		if err := writer.WriteField("category", req.Category); err != nil {
 			return nil, err
@@ -494,6 +499,36 @@ func (c *Client) DeleteVersion(namespace, name, version string) error {
 	defer resp.Body.Close()
 
 	return c.handleError(resp)
+}
+
+// UpdateSkill 更新技能元数据
+func (c *Client) UpdateSkill(namespace, name string, req *UpdateSkillRequest) (*Skill, error) {
+	body, err := json.Marshal(req)
+	if err != nil {
+		return nil, err
+	}
+
+	headers := map[string]string{
+		"Content-Type": "application/json",
+	}
+
+	path := fmt.Sprintf("/api/v1/skills/%s/%s", namespace, name)
+	resp, err := c.doRequest(http.MethodPut, path, bytes.NewReader(body), headers)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if err := c.handleError(resp); err != nil {
+		return nil, err
+	}
+
+	var skill Skill
+	if err := json.NewDecoder(resp.Body).Decode(&skill); err != nil {
+		return nil, err
+	}
+
+	return &skill, nil
 }
 
 // GetCurrentUser 获取当前用户信息

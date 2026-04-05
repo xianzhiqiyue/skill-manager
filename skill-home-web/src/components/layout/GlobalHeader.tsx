@@ -1,6 +1,6 @@
 import { useEffect, useId, useState } from 'react';
 
-import { type SkillSummary } from '../../api';
+import { getSkillDescription, type SkillSummary } from '../../api';
 
 type HeaderNav = 'home' | 'skills' | 'install' | 'publish' | 'settings' | null;
 
@@ -68,7 +68,10 @@ function buildHeaderSearchSuggestions(skills: SkillSummary[], query: string): He
     .map((skill) => {
       const reference = `${skill.namespace}/${skill.name}`.toLowerCase();
       const name = skill.name.toLowerCase();
-      const description = skill.description?.toLowerCase() || '';
+      const description = [skill.description, skill.description_zh, getSkillDescription(skill)]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
       const tags = (skill.tags || []).map((tag) => tag.toLowerCase());
 
       let score = Number.POSITIVE_INFINITY;
@@ -100,7 +103,7 @@ function buildHeaderSearchSuggestions(skills: SkillSummary[], query: string): He
       id: skill.id,
       namespace: skill.namespace,
       name: skill.name,
-      description: skill.description,
+      description: getSkillDescription(skill),
       latestVersion: skill.latest_version,
     }));
 }

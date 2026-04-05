@@ -89,6 +89,7 @@ Cursor、Codex 等多个 IDE，实现技能的"一次编写，到处同步"。
 	rootCmd.AddCommand(newUpdateCmd())
 	rootCmd.AddCommand(newSearchCmd())
 	rootCmd.AddCommand(newRateCmd())
+	rootCmd.AddCommand(newTranslateDescriptionsCmd())
 
 	// 技能创建和导入命令
 	rootCmd.AddCommand(newCreateCmd())

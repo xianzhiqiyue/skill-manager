@@ -1,4 +1,4 @@
-import type { SkillSummary } from '../../api';
+import { getSkillDescription, type SkillSummary } from '../../api';
 import { formatDate, skillRef } from '../../lib/format';
 
 type SkillResultListProps = {
@@ -36,6 +36,7 @@ function ResultCard({
   skill: SkillSummary;
 }) {
   const ratingLabel = formatRatingLabel(skill);
+  const description = getSkillDescription(skill);
 
   return (
     <article className="skill-result-card">
@@ -51,7 +52,7 @@ function ResultCard({
           <span className="search-badge">{skill.latest_version || 'draft'}</span>
         </div>
       </div>
-      <p>{skill.description || '暂无描述。'}</p>
+      <p>{description || '暂无描述。'}</p>
       <div className="skill-result-card__meta">
         <span>{skill.license || '未填写 License'}</span>
         <span>{skill.download_count} 下载</span>
@@ -76,6 +77,7 @@ function ResultRow({
   skill: SkillSummary;
 }) {
   const ratingLabel = formatRatingLabel(skill);
+  const description = getSkillDescription(skill);
 
   return (
     <article className="skill-result-row">
@@ -85,7 +87,7 @@ function ResultRow({
         </button>
         <span>{skillRef(skill)}</span>
       </div>
-      <p>{skill.description || '暂无描述。'}</p>
+      <p>{description || '暂无描述。'}</p>
       <div className="skill-result-row__meta">
         {skill.is_recommended ? <span>推荐</span> : null}
         <span>{skill.license || '未填写 License'}</span>

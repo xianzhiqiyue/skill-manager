@@ -79,6 +79,8 @@ func PublishVersion(db *storage.Database, objStorage *storage.ObjectStorage, sca
 			return
 		}
 		manifest := parseSkillArchiveManifest(content, archiveFormat)
+		description := manifestStringValue(manifest, "description")
+		descriptionZh := manifestStringValue(manifest, "description_zh")
 
 		// 安全扫描
 		scanResult := scanner.ScanContent(string(content))
@@ -125,7 +127,16 @@ func PublishVersion(db *storage.Database, objStorage *storage.ObjectStorage, sca
 			if result.RowsAffected == 0 {
 				return errSkillVersionExists
 			}
-			if err := tx.Model(&skill).Update("latest_version", version.Version).Error; err != nil {
+			updates := map[string]interface{}{
+				"latest_version": version.Version,
+			}
+			if description != "" {
+				updates["description"] = description
+			}
+			if descriptionZh != "" {
+				updates["description_zh"] = descriptionZh
+			}
+			if err := tx.Model(&skill).Updates(updates).Error; err != nil {
 				return err
 			}
 			if skill.IsPublic {

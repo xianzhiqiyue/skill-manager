@@ -54,8 +54,8 @@ func runInfo(skillRef string, opts *infoOptions) error {
 
 	fullName := fmt.Sprintf("@%s/%s", strings.TrimPrefix(skill.Namespace, "@"), skill.Name)
 	fmt.Printf("%s\n", color.CyanString(fullName))
-	if skill.Description != "" {
-		fmt.Printf("%s\n", skill.Description)
+	if description := preferredSkillDescription(skill.DescriptionZh, skill.Description); description != "" {
+		fmt.Printf("%s\n", description)
 	}
 	fmt.Println()
 	fmt.Printf("最新版本: %s\n", color.YellowString(skill.LatestVersion))

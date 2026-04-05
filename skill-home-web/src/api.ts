@@ -54,6 +54,7 @@ export type SkillSummary = {
   name: string;
   owner_id?: string;
   description?: string;
+  description_zh?: string;
   category?: string;
   tags?: string[];
   license?: string;
@@ -127,6 +128,7 @@ export type PublishPayload = {
   namespace: string;
   name: string;
   description: string;
+  descriptionZh: string;
   category: string;
   version: string;
   license: string;
@@ -145,6 +147,7 @@ export type PublishResponse = {
 
 export type UpdateSkillPayload = {
   description: string;
+  descriptionZh: string;
   category: string;
   tags: string[];
   license: string;
@@ -350,6 +353,12 @@ export function resolveDownloadUrl(downloadUrl?: string) {
   return `${API_BASE}${downloadUrl}`;
 }
 
+export function getSkillDescription(
+  skill?: Pick<SkillSummary, 'description' | 'description_zh'> | null,
+) {
+  return skill?.description_zh?.trim() || skill?.description?.trim() || '';
+}
+
 export function getDownloadUrl(skill: SkillLike) {
   const downloadUrl = resolveDownloadUrl(skill.download_url);
   if (downloadUrl) {
@@ -469,6 +478,7 @@ export function publishSkill(token: string, payload: PublishPayload) {
   form.append('namespace', payload.namespace);
   form.append('name', payload.name);
   form.append('description', payload.description);
+  form.append('description_zh', payload.descriptionZh);
   form.append('category', payload.category);
   form.append('version', payload.version);
   form.append('license', payload.license);
@@ -497,6 +507,7 @@ export function updateSkill(
     },
     body: JSON.stringify({
       description: payload.description,
+      description_zh: payload.descriptionZh,
       category: payload.category,
       tags: payload.tags,
       license: payload.license,

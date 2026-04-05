@@ -9,6 +9,7 @@ function PublishHarness() {
     namespace: 'testuser',
     name: 'deploy-buddy',
     description: 'Ship releases safely.',
+    descriptionZh: '安全发布版本。',
     category: '',
     version: '1.0.0',
     license: 'MIT',

@@ -51,6 +51,10 @@ type fakeRegistryClient struct {
 	publishResp *registry.PublishResponse
 	publishErr  error
 
+	updateSkillCalls []updateSkillCall
+	updateSkillResp  *registry.Skill
+	updateSkillErr   error
+
 	healthCheckErr error
 }
 
@@ -63,6 +67,12 @@ type deleteVersionCall struct {
 	namespace string
 	name      string
 	version   string
+}
+
+type updateSkillCall struct {
+	namespace string
+	name      string
+	req       *registry.UpdateSkillRequest
 }
 
 func swapRegistryClientFactory(factory func() registryClient) func() {
@@ -193,6 +203,19 @@ func (f *fakeRegistryClient) Publish(skillPath string, req *registry.PublishRequ
 		f.publishReq = &copyReq
 	}
 	return f.publishResp, f.publishErr
+}
+
+func (f *fakeRegistryClient) UpdateSkill(namespace, name string, req *registry.UpdateSkillRequest) (*registry.Skill, error) {
+	call := updateSkillCall{namespace: namespace, name: name}
+	if req != nil {
+		copyReq := *req
+		if req.Tags != nil {
+			copyReq.Tags = append([]string{}, req.Tags...)
+		}
+		call.req = &copyReq
+	}
+	f.updateSkillCalls = append(f.updateSkillCalls, call)
+	return f.updateSkillResp, f.updateSkillErr
 }
 
 func (f *fakeRegistryClient) HealthCheck() error {

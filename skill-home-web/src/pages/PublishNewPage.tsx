@@ -187,6 +187,21 @@ export function PublishNewPage({ model, navigate }: PublishNewPageProps) {
                   </label>
 
                   <label className="field">
+                    <span>中文描述</span>
+                    <textarea
+                      placeholder="可选。填写后目录和详情页会优先展示中文描述"
+                      rows={4}
+                      value={model.publishForm.descriptionZh}
+                      onChange={(event) =>
+                        model.setPublishForm((current) => ({
+                          ...current,
+                          descriptionZh: event.target.value,
+                        }))
+                      }
+                    />
+                  </label>
+
+                  <label className="field">
                     <span>Category</span>
                     <select
                       aria-label="Category"

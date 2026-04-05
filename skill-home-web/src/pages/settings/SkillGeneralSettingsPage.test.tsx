@@ -7,6 +7,7 @@ import { SkillGeneralSettingsPage } from './SkillGeneralSettingsPage';
 function SettingsHarness() {
   const [manageForm, setManageForm] = useState({
     description: 'Keep release workflows tidy.',
+    descriptionZh: '让发布流程保持整洁。',
     category: '',
     license: 'MIT',
     tags: [] as string[],
@@ -25,6 +26,7 @@ function SettingsHarness() {
           namespace: 'testuser',
           name: 'deploy-buddy',
           description: 'Keep release workflows tidy.',
+          description_zh: '让发布流程保持整洁。',
           category: 'ops',
           tags: ['deployment'],
           download_count: 12,

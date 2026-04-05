@@ -192,22 +192,24 @@ func ListVersions(db *storage.Database, objStorages ...*storage.ObjectStorage) g
 
 // CreateSkillRequest 创建技能请求
 type CreateSkillRequest struct {
-	Namespace   string   `json:"namespace"`
-	Name        string   `json:"name" binding:"required"`
-	Description string   `json:"description"`
-	Category    string   `json:"category"`
-	Tags        []string `json:"tags"`
-	License     string   `json:"license"`
-	IsPublic    bool     `json:"is_public"`
+	Namespace     string   `json:"namespace"`
+	Name          string   `json:"name" binding:"required"`
+	Description   string   `json:"description"`
+	DescriptionZh string   `json:"description_zh"`
+	Category      string   `json:"category"`
+	Tags          []string `json:"tags"`
+	License       string   `json:"license"`
+	IsPublic      bool     `json:"is_public"`
 }
 
 type UpdateSkillRequest struct {
-	Description  string   `json:"description"`
-	Category     string   `json:"category"`
-	Tags         []string `json:"tags"`
-	License      string   `json:"license"`
-	IsPublic     bool     `json:"is_public"`
-	IsDeprecated *bool    `json:"is_deprecated,omitempty"`
+	Description   string   `json:"description"`
+	DescriptionZh string   `json:"description_zh"`
+	Category      string   `json:"category"`
+	Tags          []string `json:"tags"`
+	License       string   `json:"license"`
+	IsPublic      bool     `json:"is_public"`
+	IsDeprecated  *bool    `json:"is_deprecated,omitempty"`
 }
 
 type UpdateSkillRecommendationRequest struct {
@@ -278,6 +280,11 @@ func CreateSkill(db *storage.Database, objStorage *storage.ObjectStorage, scanne
 			return
 		}
 		manifest := parseSkillArchiveManifest(content, archiveFormat)
+		description, descriptionZh := resolveSkillDescriptions(
+			c.PostForm("description"),
+			c.PostForm("description_zh"),
+			manifest,
+		)
 
 		// 安全扫描
 		scanResult := scanner.ScanContent(string(content))
@@ -307,14 +314,15 @@ func CreateSkill(db *storage.Database, objStorage *storage.ObjectStorage, scanne
 
 		// 创建技能记录
 		skill := models.Skill{
-			Namespace:   namespace,
-			Name:        name,
-			OwnerID:     user.ID,
-			Description: c.PostForm("description"),
-			Category:    category,
-			Tags:        models.StringArray(normalizedTags),
-			License:     c.PostForm("license"),
-			IsPublic:    isPublic,
+			Namespace:     namespace,
+			Name:          name,
+			OwnerID:       user.ID,
+			Description:   description,
+			DescriptionZh: descriptionZh,
+			Category:      category,
+			Tags:          models.StringArray(normalizedTags),
+			License:       c.PostForm("license"),
+			IsPublic:      isPublic,
 		}
 
 		versionModel := models.SkillVersion{
@@ -405,12 +413,18 @@ func UpdateSkill(db *storage.Database) gin.HandlerFunc {
 			return
 		}
 		wasPublic := skill.IsPublic
-		normalizedCategory, normalizedTags, err := validateOfficialMetadata(req.Category, req.Tags)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"code": "INVALID_INPUT", "message": err.Error()})
-			return
+		normalizedCategory := skill.Category
+		normalizedTags := append([]string{}, []string(skill.Tags)...)
+		if req.Category != skill.Category || !stringSlicesEqual(req.Tags, []string(skill.Tags)) {
+			var err error
+			normalizedCategory, normalizedTags, err = validateOfficialMetadata(req.Category, req.Tags)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"code": "INVALID_INPUT", "message": err.Error()})
+				return
+			}
 		}
 		hasEffectiveChange := skill.Description != req.Description ||
+			skill.DescriptionZh != req.DescriptionZh ||
 			skill.Category != normalizedCategory ||
 			!stringSlicesEqual([]string(skill.Tags), normalizedTags) ||
 			skill.License != req.License ||
@@ -419,6 +433,7 @@ func UpdateSkill(db *storage.Database) gin.HandlerFunc {
 
 		// 更新字段
 		skill.Description = req.Description
+		skill.DescriptionZh = req.DescriptionZh
 		skill.Category = normalizedCategory
 		skill.Tags = models.StringArray(normalizedTags)
 		skill.License = req.License

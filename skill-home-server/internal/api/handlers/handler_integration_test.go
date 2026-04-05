@@ -3124,6 +3124,49 @@ func TestUpdateSkillDoesNotBumpCatalogVersionForNoOpPublicUpdate(t *testing.T) {
 	}
 }
 
+func TestUpdateSkillAllowsDescriptionOnlyUpdateForLegacySkillWithoutTaxonomy(t *testing.T) {
+	db := newTestDatabase(t)
+	user := &models.User{ID: uuid.New(), Username: "owner", Email: "owner@example.com"}
+	if err := db.Create(user).Error; err != nil {
+		t.Fatalf("create user failed: %v", err)
+	}
+
+	skill := models.Skill{
+		ID:            uuid.New(),
+		Namespace:     "team",
+		Name:          "legacy-reviewer",
+		OwnerID:       user.ID,
+		Description:   "Review code quickly.",
+		DescriptionZh: "",
+		License:       "MIT",
+		IsPublic:      true,
+	}
+	if err := db.Create(&skill).Error; err != nil {
+		t.Fatalf("create skill failed: %v", err)
+	}
+
+	router := newAuthedRouter(user)
+	router.PUT("/api/v1/skills/:namespace/:name", UpdateSkill(db))
+
+	body := bytes.NewBufferString(`{"description":"Review code quickly.","description_zh":"快速审查代码。","category":"","tags":[],"license":"MIT","is_public":true,"is_deprecated":false}`)
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/skills/team/legacy-reviewer", body)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("unexpected status: %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	var updated models.Skill
+	if err := db.First(&updated, "id = ?", skill.ID).Error; err != nil {
+		t.Fatalf("reload skill failed: %v", err)
+	}
+	if updated.DescriptionZh != "快速审查代码。" {
+		t.Fatalf("unexpected description zh: %+v", updated.DescriptionZh)
+	}
+}
+
 func TestUpdateSkillRejectsInvalidCategory(t *testing.T) {
 	db := newTestDatabase(t)
 	user := &models.User{ID: uuid.New(), Username: "owner", Email: "owner@example.com"}

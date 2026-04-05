@@ -1,4 +1,4 @@
-import { getDownloadUrl, type SkillDetail } from '../../api';
+import { getDownloadUrl, getSkillDescription, type SkillDetail } from '../../api';
 import { formatDateTime, skillRef, summarizeScanStatus } from '../../lib/format';
 import { CopyActionButton } from './CopyActionButton';
 
@@ -11,6 +11,7 @@ export function SkillHeader({ onBack, skill }: SkillHeaderProps) {
   const latestVersion = skill.latest_version || skill.versions?.[0]?.version || 'draft';
   const latestScan = summarizeScanStatus(skill.versions?.[0]?.scan_status);
   const visibilityLabel = skill.is_public === false ? '私有' : '公开';
+  const description = getSkillDescription(skill);
 
   return (
     <div className="gh-object-header">
@@ -39,7 +40,7 @@ export function SkillHeader({ onBack, skill }: SkillHeaderProps) {
           </div>
         </div>
 
-        <p className="gh-object-header__description">{skill.description || '暂无描述。'}</p>
+        <p className="gh-object-header__description">{description || '暂无描述。'}</p>
 
         <div className="gh-object-header__meta">
           <code>{skillRef(skill)}</code>

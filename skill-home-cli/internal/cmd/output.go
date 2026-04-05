@@ -36,8 +36,8 @@ func printSkillResults(result *registry.SearchResult) {
 func printSkillSummary(skill registry.Skill) {
 	fullName := fmt.Sprintf("@%s/%s", strings.TrimPrefix(skill.Namespace, "@"), skill.Name)
 	fmt.Printf("%s %s\n", color.GreenString("•"), color.CyanString(fullName))
-	if skill.Description != "" {
-		fmt.Printf("  %s\n", skill.Description)
+	if description := preferredSkillDescription(skill.DescriptionZh, skill.Description); description != "" {
+		fmt.Printf("  %s\n", description)
 	}
 
 	meta := []string{}

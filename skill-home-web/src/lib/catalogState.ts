@@ -1,4 +1,4 @@
-import type { SkillSummary } from '../api';
+import { getSkillDescription, type SkillSummary } from '../api';
 
 export type CatalogSort = 'downloads' | 'updated' | 'rating' | 'name';
 export type CatalogView = 'cards' | 'list';
@@ -123,7 +123,10 @@ export function filterCatalogSkills(skills: SkillSummary[], filters: CatalogFilt
       }
 
       const reference = `${skill.namespace}/${skill.name}`.toLowerCase();
-      const description = (skill.description || '').toLowerCase();
+      const description = [skill.description, skill.description_zh, getSkillDescription(skill)]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
       const tags = (skill.tags || []).map((tag) => tag.toLowerCase());
 
       return (

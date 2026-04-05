@@ -65,6 +65,48 @@ describe('SkillOverviewPage', () => {
     expect(navigate).toHaveBeenCalledWith('/skills/testuser/github/versions?q=github&tag=automation');
   });
 
+  it('prefers Chinese descriptions when description_zh is available', () => {
+    render(
+      <SkillOverviewPage
+        model={{
+          detailError: null,
+          detailLoading: false,
+          detailSkill: {
+            id: 'skill-1',
+            namespace: 'testuser',
+            name: 'github',
+            description: 'Interact with GitHub using gh.',
+            description_zh: '使用 gh 与 GitHub 交互。',
+            license: 'MIT',
+            download_count: 18,
+            rating_count: 0,
+            latest_version: '1.0.0',
+            updated_at: '2026-03-22T21:32:00Z',
+            is_public: true,
+            is_deprecated: false,
+            tags: ['automation', 'github'],
+            versions: [
+              {
+                id: 'v1',
+                version: '1.0.0',
+                size_bytes: 4096,
+                scan_status: 'passed',
+                created_at: '2026-03-22T21:32:00Z',
+              },
+            ],
+            owner: {
+              username: 'testuser',
+            },
+          },
+        }}
+        navigate={vi.fn()}
+      />,
+    );
+
+    expect(screen.getAllByText('使用 gh 与 GitHub 交互。').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Interact with GitHub using gh.')).not.toBeInTheDocument();
+  });
+
   it('keeps scan status separate from the deprecated lifecycle flag in metadata', () => {
     render(
       <SkillOverviewPage

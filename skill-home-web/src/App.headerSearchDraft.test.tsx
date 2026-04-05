@@ -88,6 +88,7 @@ const baseModel = {
   manageSuccess: null,
   manageForm: {
     description: '',
+    descriptionZh: '',
     category: '',
     license: 'MIT',
     tags: [],
@@ -107,6 +108,7 @@ const baseModel = {
     namespace: 'testuser',
     name: '',
     description: '',
+    descriptionZh: '',
     category: '',
     version: '0.1.0',
     license: 'MIT',

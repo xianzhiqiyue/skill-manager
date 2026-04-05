@@ -178,6 +178,7 @@ export function useRegistryApp(
   const [manageNonce, setManageNonce] = useState(0);
   const [manageForm, setManageForm] = useState({
     description: '',
+    descriptionZh: '',
     category: '',
     license: 'MIT',
     tags: [] as string[],
@@ -193,6 +194,7 @@ export function useRegistryApp(
     namespace: '',
     name: '',
     description: '',
+    descriptionZh: '',
     category: '',
     version: '0.1.0',
     license: 'MIT',
@@ -510,6 +512,7 @@ export function useRegistryApp(
         setManagedSkill(data);
         setManageForm({
           description: data.description || '',
+          descriptionZh: data.description_zh || '',
           category: data.category || '',
           license: data.license || 'MIT',
           tags: data.tags || [],
@@ -713,6 +716,7 @@ export function useRegistryApp(
         namespace: publishForm.namespace.trim(),
         name: publishForm.name.trim(),
         description: publishForm.description.trim(),
+        descriptionZh: publishForm.descriptionZh.trim(),
         category: publishForm.category.trim(),
         version: publishForm.version.trim(),
         license: publishForm.license.trim(),
@@ -726,6 +730,7 @@ export function useRegistryApp(
         ...current,
         name: '',
         description: '',
+        descriptionZh: '',
         category: '',
         version: '0.1.0',
         tags: [],
@@ -760,6 +765,7 @@ export function useRegistryApp(
     try {
       await updateSkill(token, managedSkill.namespace, managedSkill.name, {
         description: manageForm.description.trim(),
+        descriptionZh: manageForm.descriptionZh.trim(),
         category: manageForm.category.trim(),
         tags: normalizeOfficialTags(manageForm.tags),
         license: manageForm.license.trim(),

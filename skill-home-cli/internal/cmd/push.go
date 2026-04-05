@@ -118,14 +118,15 @@ func runPush(path string, opts *pushOptions) error {
 	// 推送
 	fmt.Println("正在推送到注册中心...")
 	req := &registry.PublishRequest{
-		Namespace:   namespace,
-		Name:        strings.TrimSpace(s.Manifest.Name),
-		Version:     version,
-		Description: strings.TrimSpace(s.Manifest.Description),
-		Category:    category,
-		Tags:        tags,
-		License:     strings.TrimSpace(s.Manifest.License),
-		Force:       opts.force,
+		Namespace:     namespace,
+		Name:          strings.TrimSpace(s.Manifest.Name),
+		Version:       version,
+		Description:   strings.TrimSpace(s.Manifest.Description),
+		DescriptionZh: strings.TrimSpace(s.Manifest.DescriptionZh),
+		Category:      category,
+		Tags:          tags,
+		License:       strings.TrimSpace(s.Manifest.License),
+		Force:         opts.force,
 	}
 	if req.Name == "" {
 		return fmt.Errorf("技能名不能为空，请在 SKILL.md 中设置 name")
