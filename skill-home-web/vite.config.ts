@@ -10,17 +10,21 @@ function normalizeViteBasePath(value?: string | null) {
   return `/${trimmed.replace(/^\/+|\/+$/g, '')}/`;
 }
 
-export default defineConfig({
-  base: normalizeViteBasePath(
-    (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env?.VITE_APP_BASE_PATH,
-  ),
-  plugins: [react()],
-  server: {
-    host: '0.0.0.0',
-    port: 4173,
-  },
-  test: {
-    environment: 'jsdom',
-    setupFiles: './src/test/setup.ts',
-  },
+export default defineConfig(({ command }) => {
+  const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
+  const explicitBasePath = env?.VITE_APP_BASE_PATH;
+  const defaultBasePath = command === 'build' ? '/skill-home/' : '/';
+
+  return {
+    base: normalizeViteBasePath(explicitBasePath || defaultBasePath),
+    plugins: [react()],
+    server: {
+      host: '0.0.0.0',
+      port: 4173,
+    },
+    test: {
+      environment: 'jsdom',
+      setupFiles: './src/test/setup.ts',
+    },
+  };
 });
