@@ -33,11 +33,12 @@ func TestRunPushPublishesCategoryAndTags(t *testing.T) {
 	}
 
 	client := &fakeRegistryClient{
+		getCurrentUserResp: &registry.User{Username: "tester"},
 		publishResp: &registry.PublishResponse{
-			Namespace:   "team",
+			Namespace:   "tester",
 			Name:        "deploy-buddy",
 			Version:     "1.2.3",
-			DownloadURL: "/api/v1/download/team/deploy-buddy/1.2.3",
+			DownloadURL: "/api/v1/download/tester/deploy-buddy/1.2.3",
 			PublishedAt: "2026-04-01T12:00:00Z",
 		},
 	}
@@ -68,6 +69,9 @@ body
 
 	if client.publishReq == nil {
 		t.Fatal("expected publish request to be captured")
+	}
+	if client.publishReq.Namespace != "tester" {
+		t.Fatalf("unexpected namespace: %#v", client.publishReq)
 	}
 	if client.publishReq.Category != "ops" {
 		t.Fatalf("unexpected category: %#v", client.publishReq)
@@ -131,11 +135,12 @@ func TestRunPushPromptsForMissingMetadataInInteractiveMode(t *testing.T) {
 	}
 
 	client := &fakeRegistryClient{
+		getCurrentUserResp: &registry.User{Username: "tester"},
 		publishResp: &registry.PublishResponse{
-			Namespace:   "team",
+			Namespace:   "tester",
 			Name:        "deploy-buddy",
 			Version:     "1.2.3",
-			DownloadURL: "/api/v1/download/team/deploy-buddy/1.2.3",
+			DownloadURL: "/api/v1/download/tester/deploy-buddy/1.2.3",
 			PublishedAt: "2026-04-01T12:00:00Z",
 		},
 	}
@@ -183,6 +188,9 @@ body
 	if client.publishReq == nil {
 		t.Fatal("expected publish request to be captured")
 	}
+	if client.publishReq.Namespace != "tester" {
+		t.Fatalf("unexpected namespace: %#v", client.publishReq)
+	}
 	if client.publishReq.Category != "ops" {
 		t.Fatalf("unexpected category: %#v", client.publishReq)
 	}
@@ -199,6 +207,34 @@ body
 	}
 	if !strings.Contains(string(content), "- deployment") || !strings.Contains(string(content), "- ci-cd") {
 		t.Fatalf("expected persisted normalized tags, got:\n%s", string(content))
+	}
+}
+
+func TestResolvePublishNamespacePrefersCurrentUser(t *testing.T) {
+	client := &fakeRegistryClient{
+		getCurrentUserResp: &registry.User{Username: "tester"},
+	}
+
+	namespace, err := resolvePublishNamespace(&pushOptions{}, client)
+	if err != nil {
+		t.Fatalf("resolvePublishNamespace returned error: %v", err)
+	}
+	if namespace != "tester" {
+		t.Fatalf("namespace = %q, want tester", namespace)
+	}
+}
+
+func TestResolvePublishNamespaceAllowsExplicitOverride(t *testing.T) {
+	client := &fakeRegistryClient{
+		getCurrentUserResp: &registry.User{Username: "tester"},
+	}
+
+	namespace, err := resolvePublishNamespace(&pushOptions{namespace: "@team"}, client)
+	if err != nil {
+		t.Fatalf("resolvePublishNamespace returned error: %v", err)
+	}
+	if namespace != "team" {
+		t.Fatalf("namespace = %q, want team", namespace)
 	}
 }
 

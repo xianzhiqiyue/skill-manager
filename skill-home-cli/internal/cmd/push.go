@@ -49,7 +49,7 @@ func newPushCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVarP(&opts.namespace, "namespace", "n", "", "命名空间 (默认使用配置中的 default_namespace)")
+	cmd.Flags().StringVarP(&opts.namespace, "namespace", "n", "", "命名空间 (默认使用当前登录用户的用户名)")
 	cmd.Flags().StringVar(&opts.version, "version", "", "指定版本号 (默认使用 SKILL.md 中的 version)")
 	cmd.Flags().BoolVarP(&opts.force, "force", "f", false, "强制推送，忽略安全警告")
 	cmd.Flags().StringVarP(&opts.message, "message", "m", "", "版本说明")
@@ -75,7 +75,15 @@ func runPush(path string, opts *pushOptions) error {
 		return err
 	}
 
-	fmt.Printf("推送技能: %s\n", color.CyanString(s.GetFullName()))
+	// 创建客户端，并确定发布命名空间。默认使用当前登录用户的用户名，
+	// 避免本地 SKILL.md 或 default_namespace 中的占位/历史命名空间误导发布。
+	client := newRegistryClient()
+	namespace, err := resolvePublishNamespace(opts, client)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("推送技能: %s/%s\n", color.CyanString("@"+namespace), s.Manifest.Name)
 	version := strings.TrimSpace(s.Manifest.Version)
 	if opts.version != "" {
 		version = strings.TrimSpace(opts.version)
@@ -85,19 +93,6 @@ func runPush(path string, opts *pushOptions) error {
 	}
 	fmt.Printf("版本: %s\n", color.CyanString(version))
 	fmt.Println()
-
-	// 确定命名空间
-	namespace := opts.namespace
-	if namespace == "" {
-		namespace = s.Manifest.Namespace
-	}
-	if namespace == "" {
-		namespace = config.C.Local.DefaultNamespace
-	}
-	namespace = strings.TrimPrefix(namespace, "@")
-	if namespace == "" {
-		return fmt.Errorf("命名空间不能为空，请使用 --namespace 或在配置中设置 default_namespace")
-	}
 
 	// 构建临时包路径
 	tmpDir := os.TempDir()
@@ -111,9 +106,6 @@ func runPush(path string, opts *pushOptions) error {
 		return fmt.Errorf("打包失败: %w", err)
 	}
 	fmt.Println(color.GreenString("✓"), "打包完成")
-
-	// 创建客户端
-	client := newRegistryClient()
 
 	// 推送
 	fmt.Println("正在推送到注册中心...")
@@ -166,6 +158,33 @@ func runPush(path string, opts *pushOptions) error {
 	}
 
 	return nil
+}
+
+func resolvePublishNamespace(opts *pushOptions, client registryClient) (string, error) {
+	if opts != nil && strings.TrimSpace(opts.namespace) != "" {
+		namespace := strings.TrimPrefix(strings.TrimSpace(opts.namespace), "@")
+		if namespace == "" {
+			return "", fmt.Errorf("命名空间不能为空")
+		}
+		return namespace, nil
+	}
+
+	if client == nil {
+		return "", fmt.Errorf("无法确定当前用户命名空间")
+	}
+	user, err := client.GetCurrentUser()
+	if err != nil {
+		return "", fmt.Errorf("获取当前用户失败，无法确定发布命名空间: %w", err)
+	}
+	if user == nil || strings.TrimSpace(user.Username) == "" {
+		return "", fmt.Errorf("当前用户用户名为空，无法确定发布命名空间")
+	}
+	namespace := strings.TrimPrefix(strings.TrimSpace(user.Username), "@")
+	if namespace == "" {
+		return "", fmt.Errorf("当前用户用户名为空，无法确定发布命名空间")
+	}
+
+	return namespace, nil
 }
 
 // packSkill 打包技能到指定路径

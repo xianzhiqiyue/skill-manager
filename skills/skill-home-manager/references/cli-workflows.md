@@ -81,6 +81,7 @@ skill-home create my-skill
 
 无论是 `init`、`create` 还是导入后的 skill，都要在 `validate` 前确认 `SKILL.md` 里有：
 
+- 发布命名空间使用当前 `skill-home` 登录用户的用户名（`skill-home whoami` 输出里的“用户名”，引用形态为 `@<用户名>/<skill-name>`）
 - 1 个合法的 `category`
 - 1 到 4 个合法的 `official tags`
 
@@ -165,6 +166,7 @@ skill-home delete-version @namespace/name@1.2.3 --yes
 规则:
 
 - `push`、`delete`、`delete-version` 必须先 `skill-home login`
+- `push` 默认发布到当前登录用户的用户名命名空间；不要默认使用 `@user`、示例命名空间、历史 manifest 命名空间或 `default_namespace`
 - `push` 在交互终端里会尝试补齐缺失的 `category/tags`，但代理默认仍应先整理好 `SKILL.md`
 - `pull`、`install`、`update`、`search`、`info`、`list --remote` 对公开 skill 不要求登录
 - 匿名读取私有 skill 时，如果看到“该 skill 可能是私有的”，先登录再重试

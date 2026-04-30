@@ -10,7 +10,7 @@
 |--------|------|
 | CLI 补齐 | 检查本机是否已有 `skill-home`，必要时自动安装或刷新到已发布版本 |
 | 本地 skill 工作流 | 新建、校验、安全扫描、打包、预览、导出 |
-| 发布前元数据整理 | 在 `validate/pack/push` 前补齐 `category + official tags` |
+| 发布前元数据整理 | 在 `validate/pack/push` 前补齐发布命名空间、`category + official tags` |
 | Codex 安装 | 将本地 skill 镜像安装到 Codex 全局目录 |
 | 远程 registry 工作流 | 查看公开目录、搜索、拉取、安装、发布、删除版本 |
 | 环境排障 | 通过 `doctor`、`--debug`、路径检查定位配置问题 |
@@ -77,18 +77,19 @@ skill-home login
 skill-home validate ./my-skill
 skill-home scan ./my-skill
 skill-home pack ./my-skill --output ./dist/my-skill-<version>.zip
-skill-home push ./my-skill
-skill-home delete @team/my-skill --yes
-skill-home delete-version @team/my-skill@1.0.0 --yes
+skill-home push ./my-skill  # 默认发布到当前登录用户的用户名命名空间
+skill-home delete @<用户名>/my-skill --yes
+skill-home delete-version @<用户名>/my-skill@1.0.0 --yes
 ```
 
-统一发布口径下，skill 的默认顺序是：先递增 `SKILL.md` 里的版本号，再执行 `validate -> scan -> pack -> push`。交互终端里的 `skill-home push` 会在缺少 `category/tags` 时尝试补齐，但这个 skill 的默认要求仍然是先整理好 `SKILL.md`，再进入发布动作。如果用户没有明确指定打包输出位置，agent 需要先判断当前工作目录和后续发布动作是否要求显式 `--output`，不要默认把产物丢到某个固定路径。
+统一发布口径下，skill 的默认顺序是：先递增 `SKILL.md` 里的版本号，再执行 `validate -> scan -> pack -> push`。发布命名空间默认使用当前 `skill-home` 登录用户的用户名；不要沿用 `@user`、示例命名空间、历史 manifest 命名空间或 `default_namespace`。交互终端里的 `skill-home push` 会在缺少 `category/tags` 时尝试补齐，但这个 skill 的默认要求仍然是先整理好 `SKILL.md`，再进入发布动作。如果用户没有明确指定打包输出位置，agent 需要先判断当前工作目录和后续发布动作是否要求显式 `--output`，不要默认把产物丢到某个固定路径。
 
 ## 与 CLI / Registry 的关系
 
 - 这个 skill 不是替代 `skill-home` CLI，而是把常用 CLI 工作流整理成可直接复用的 Codex 能力层
 - 公开 skill 的读取命令默认可匿名执行，例如 `list --remote`、`search`、`pull`、`install`
 - 写操作如 `push`、`delete`、`delete-version` 需要先 `skill-home login`
+- `push` 默认使用当前登录用户的用户名作为发布命名空间；旧版 CLI 需要刷新或显式传 `--namespace @<用户名>`
 - `list --remote` 与 `search` 已接入目录版本缓存；目录版本未变化时会优先复用本地缓存
 - 发布前的 `category + official tags` 词表来自同一个 taxonomy 参考，不应由代理或用户自由发明新官方标签
 

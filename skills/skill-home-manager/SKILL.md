@@ -1,6 +1,6 @@
 ---
 name: skill-home-manager
-version: 0.2.10
+version: 0.2.11
 description: 当用户想用本地 skill-home CLI 创建、编辑、验证、打包、导出、同步、安装或排查 skill 时使用，尤其适合把 skill 交付到 Codex。
 category: productivity
 namespace: "@skill-home"
@@ -51,17 +51,18 @@ ide_config:
    `bash "$skill_home_manager_root/scripts/bootstrap-cli.sh"`
 3. 对高频动作，优先跑 bundled scripts，而不是手写一长串命令。
 4. 只要涉及 `validate`、`pack`、`push` 或更新远程 skill，先检查 `SKILL.md` 里的 `category` 和 `tags` 是否齐全且属于官方 taxonomy。
-5. 如果缺失或不合法，优先根据 skill 名称、描述和正文内容推断推荐值，并参考 `references/publish-taxonomy.md` 补齐后写回 `SKILL.md`。
-6. 如果分类存在歧义，只问一个短问题澄清主分类或核心场景；不要把一串 taxonomy 问题丢给用户。
-7. 任何涉及“安装到 Codex”或“打包输出位置”的动作，都先让 agent 根据配置、环境变量、现有目录和当前工作目录判断真实路径；不要把 `~/.codex/skills`、`~/.agents/skills` 或开发机仓库绝对路径当成默认真值。
-8. 新建本地 skill:
+5. 只要涉及 `push` 发布，默认命名空间必须使用当前 `skill-home` 登录用户的用户名（即 `skill-home whoami` 里的“用户名”，发布引用为 `@<用户名>/<skill-name>`）；不要沿用 `@user`、示例命名空间、历史 manifest 命名空间或 `default_namespace` 作为默认发布命名空间。
+6. 如果缺失或不合法，优先根据 skill 名称、描述和正文内容推断推荐值，并参考 `references/publish-taxonomy.md` 补齐后写回 `SKILL.md`。
+7. 如果分类存在歧义，只问一个短问题澄清主分类或核心场景；不要把一串 taxonomy 问题丢给用户。
+8. 任何涉及“安装到 Codex”或“打包输出位置”的动作，都先让 agent 根据配置、环境变量、现有目录和当前工作目录判断真实路径；不要把 `~/.codex/skills`、`~/.agents/skills` 或开发机仓库绝对路径当成默认真值。
+9. 新建本地 skill:
    `bash "$skill_home_manager_root/scripts/create-local-skill.sh" <name> [description] [output-dir]`
-9. 把本地 skill 安装到 Codex:
+10. 把本地 skill 安装到 Codex:
    `bash "$skill_home_manager_root/scripts/install-to-codex.sh" <skill-path>`
-10. 如果 CLI 版本过旧、缺子命令，或行为不像最新 release，先刷新已发布 CLI 再继续:
+11. 如果 CLI 版本过旧、缺子命令，或行为不像最新 release，先刷新已发布 CLI 再继续:
    `bash "$skill_home_manager_root/scripts/rebuild-cli.sh"`
-11. 如果问题和路径、配置、注册中心或 API Key 有关，先跑 `skill-home doctor`。
-12. 涉及仓库发布时，先遵循仓库统一发布口径：先判断影响面，再更新版本、提交、推远端，最后发布制品；如果仓库文档与当前 skill 约束冲突，以仓库里的 `docs/release-process.md` 为准。
+12. 如果问题和路径、配置、注册中心或 API Key 有关，先跑 `skill-home doctor`。
+13. 涉及仓库发布时，先遵循仓库统一发布口径：先判断影响面，再更新版本、提交、推远端，最后发布制品；如果仓库文档与当前 skill 约束冲突，以仓库里的 `docs/release-process.md` 为准。
 
 ## 命令选择规则
 
@@ -92,7 +93,7 @@ ide_config:
 
 - “帮我把 skill-home CLI 装上 / 补齐本机环境”: 先用 `scripts/bootstrap-cli.sh`
 - “帮我新建一个 skill 子项目”: 先用 `scripts/create-local-skill.sh`
-- “帮我发布一个 skill”: 先补齐 `category/tags`，再跑 `validate -> pack -> push`
+- “帮我发布一个 skill”: 先确认当前登录用户名并用它作为命名空间，再补齐 `category/tags`，最后跑 `validate -> scan -> pack -> push`
 - “帮我统一发布流程 / 规范发布口径”: 优先更新仓库里的 `docs/release-process.md`，再同步 `README.md`、`DEPLOYMENT.md` 和相关 skill 文档
 - “帮我把这个 skill 装到 Codex”: 先用 `scripts/install-to-codex.sh`
 - “帮我把本地 skill-home 更新到最新发布版本”: 先用 `scripts/rebuild-cli.sh`
@@ -111,6 +112,7 @@ ide_config:
 - `bash "$skill_home_manager_root/scripts/rebuild-cli.sh"` 在这个公共 skill 里表示“重新安装最新发布版 CLI”，不是从源码重建。
 - 不要默认要求本机存在任何 `skill-home` 源码仓库；只有当用户明确在维护该仓库时，才允许走源码工作流。
 - 涉及 registry 写操作时，先检查是否已登录；未登录时提示用户先执行 `skill-home login`。
+- 涉及 `push` 发布时，命名空间默认使用当前登录用户的用户名；新版 CLI 会自动用当前用户作为默认命名空间，旧版 CLI 则必须先刷新或显式传 `--namespace @<用户名>`。
 - 遇到 skill 发布时，默认要把“补齐官方分类元数据”视为发布前置步骤，而不是等 `push` 失败后再补救。
 - 如果可以明确推断 `category/tags`，直接写回 `SKILL.md`；如果存在歧义，只问一个短问题澄清主分类或核心场景。
 - skill 发布的默认顺序是：递增版本号 -> `validate` -> `scan` -> `pack` -> `push`，发布成功后再把版本变更提交到 Git。
