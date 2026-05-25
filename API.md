@@ -17,6 +17,7 @@ Content-Type: application/json
 
 {
   "username": "testuser",
+  "display_name_zh": "测试用户",
   "email": "test@example.com",
   "password": "testpass123"
 }
@@ -30,6 +31,7 @@ Content-Type: application/json
   "user": {
     "id": "d30d52dd-d3ea-4761-ad9d-c18ecd4431bc",
     "username": "testuser",
+    "display_name_zh": "测试用户",
     "email": "test@example.com",
     "is_admin": false,
     "is_super_admin": false
@@ -57,6 +59,25 @@ Content-Type: application/json
 GET /api/v1/user
 Authorization: Bearer <token>
 ```
+
+## 权限模型
+
+当前第一阶段沿用 `is_admin` / `is_super_admin` 两个角色标记，并在管理接口中返回派生 `role` 字段：
+
+| 身份 | 核心权限 |
+|------|----------|
+| 匿名用户 | 浏览公开 skill、搜索、下载公开版本、记录匿名安装/分享事件 |
+| 注册用户 | 发布 skill、管理自己的 skill/版本、评分、点赞、管理自己的 API Key、查看自己的统计和审计日志、修改个人资料和密码 |
+| Skill owner | 更新、公开/私有切换、弃用、删除自己拥有的 skill，发布/删除自己的版本 |
+| Admin | 管理公开目录推荐状态 |
+| Super admin | 管理任意 skill/版本，查看和管理用户，查看全局审计日志 |
+
+安全护栏：
+
+- 停用用户后，该用户的 JWT 与 API Key 都不能继续访问认证接口。
+- Super admin 不能停用当前登录账号。
+- 系统拒绝移除或停用最后一个有效 super admin。
+- 用户权限变更写入 `admin.user.update` 审计日志。
 
 ## 错误处理
 
@@ -121,7 +142,7 @@ GET /api/v1/catalog/version
 - `updated_at` 仅用于观测和排障，表示最近一次目录版本变更时间，不应用作缓存对比键。
 - 成功的公开目录变更会触发版本递增，至少包括：创建公开 skill、公开 skill 更新、公开 skill 删除、公开 skill 发布版本、公开 skill 删除版本、推荐状态变更。
 - 私有 skill 的创建、更新、删除、发布版本、删除版本不会触发公开目录版本变化。
-- `download_count`、`rating`、`rating_count` 等动态统计字段不属于该版本号覆盖范围；如果客户端需要这些字段的最新值，应主动重新拉取列表或详情接口。
+- `download_count`、`like_count`、`install_count`、`rating`、`rating_count` 等动态统计字段不属于该版本号覆盖范围；如果客户端需要这些字段的最新值，应主动重新拉取列表或详情接口。
 
 #### 列出技能
 
@@ -151,11 +172,15 @@ GET /api/v1/skills?page=1&per_page=20&q=keyword&tag=tag1&namespace=testuser
       "id": "...",
       "namespace": "testuser",
       "name": "my-skill",
+      "owner_username": "testuser",
+      "owner_display_name_zh": "测试用户",
       "description": "技能描述",
       "category": "automation",
       "author": "testuser",
       "tags": ["workflow", "automation"],
       "download_count": 42,
+      "like_count": 8,
+      "install_count": 13,
       "rating": 4.8,
       "rating_count": 5,
       "is_recommended": true,
@@ -185,13 +210,18 @@ Authorization: Bearer <token>  // 可选，访问私有技能或返回 user_rati
   "namespace": "testuser",
   "name": "my-skill",
   "owner_id": "...",
+  "owner_username": "testuser",
+  "owner_display_name_zh": "测试用户",
   "description": "技能描述",
   "category": "automation",
   "tags": ["workflow"],
   "license": "MIT",
   "download_count": 42,
+  "like_count": 8,
+  "install_count": 13,
   "rating": 4.8,
   "rating_count": 5,
+  "viewer_liked": true,
   "is_recommended": true,
   "is_public": true,
   "latest_version": "1.0.0",
@@ -201,6 +231,7 @@ Authorization: Bearer <token>  // 可选，访问私有技能或返回 user_rati
   "owner": {
     "id": "...",
     "username": "testuser",
+    "display_name_zh": "测试用户",
     "email": "test@example.com"
   },
   "user_rating": {
@@ -331,6 +362,66 @@ Content-Type: application/json
 }
 ```
 
+#### 点赞 / 取消点赞
+
+```http
+POST /api/v1/skills/:namespace/:name/like
+Authorization: Bearer <token>
+
+DELETE /api/v1/skills/:namespace/:name/like
+Authorization: Bearer <token>
+```
+
+**响应**: 更新后的 skill 详情，包含 `like_count` 和当前用户视角的 `viewer_liked`。
+
+#### 记录安装事件
+
+```http
+POST /api/v1/skills/:namespace/:name/install-events
+Authorization: Bearer <token>  // 可选
+Content-Type: application/json
+
+{
+  "version": "1.0.0",
+  "target": "codex",
+  "install_mode": "mirror",
+  "client_version": "0.1.0"
+}
+```
+
+**响应**:
+
+```json
+{
+  "install_count": 14,
+  "skill": {
+    "namespace": "testuser",
+    "name": "my-skill",
+    "install_count": 14
+  }
+}
+```
+
+#### 记录分享事件
+
+```http
+POST /api/v1/skills/:namespace/:name/share-events
+Authorization: Bearer <token>  // 可选
+Content-Type: application/json
+
+{
+  "channel": "copy-link"
+}
+```
+
+**响应**:
+
+```json
+{
+  "message": "Share event recorded"
+}
+```
+
 ### 版本管理
 
 #### 列出版本
@@ -424,6 +515,7 @@ Authorization: Bearer <token>
 {
   "id": "...",
   "username": "testuser",
+  "display_name_zh": "测试用户",
   "email": "test@example.com",
   "avatar_url": "",
   "created_at": "2026-03-01T10:00:00Z"
@@ -435,6 +527,82 @@ Authorization: Bearer <token>
 ```http
 GET /api/v1/user/skills
 Authorization: Bearer <token>
+```
+
+#### 获取当前用户统计
+
+```http
+GET /api/v1/user/stats
+Authorization: Bearer <token>
+```
+
+#### 获取公开用户统计
+
+```http
+GET /api/v1/users/:username/stats
+```
+
+**响应**:
+
+```json
+{
+  "user_id": "...",
+  "username": "testuser",
+  "display_name_zh": "测试用户",
+  "skill_count": 3,
+  "public_skill_count": 2,
+  "total_like_count": 11,
+  "total_install_count": 7,
+  "total_download_count": 19,
+  "average_rating": 4.5,
+  "total_rating_count": 4
+}
+```
+
+#### 更新当前用户资料
+
+```http
+PUT /api/v1/user/profile
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "display_name_zh": "测试用户",
+  "avatar_url": "https://example.com/avatar.png"
+}
+```
+
+说明：
+
+- `display_name_zh` 必填，注册后仍可由本人修改。
+- `avatar_url` 可选。
+
+**响应**：更新后的当前用户对象。
+
+#### 修改当前用户密码
+
+```http
+PUT /api/v1/user/password
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "current_password": "old-password",
+  "new_password": "new-password"
+}
+```
+
+说明：
+
+- 必须校验当前密码。
+- `new_password` 至少 6 个字符。
+
+**响应**:
+
+```json
+{
+  "message": "Password updated"
+}
 ```
 
 #### 获取最近活动
@@ -464,6 +632,108 @@ Authorization: Bearer <token>
       },
       "ip_address": "127.0.0.1",
       "user_agent": "skill-home-cli",
+      "created_at": "2026-03-09T12:00:00Z"
+    }
+  ]
+}
+```
+
+### 用户权限管理
+
+以下接口仅 super admin 可访问。
+
+#### 用户列表
+
+```http
+GET /api/v1/admin/users?page=1&per_page=20&q=zhang&role=admin&status=active
+Authorization: Bearer <token>
+```
+
+**参数**:
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| page | int | 页码，默认 1 |
+| per_page | int | 每页数量，默认 20 |
+| q | string | 搜索用户名、邮箱或中文名 |
+| role | string | `all`、`member`、`admin`、`super_admin` |
+| status | string | `all`、`active`、`inactive` |
+
+**响应**:
+
+```json
+{
+  "total": 2,
+  "page": 1,
+  "per_page": 20,
+  "results": [
+    {
+      "id": "...",
+      "username": "testuser",
+      "display_name_zh": "测试用户",
+      "email": "test@example.com",
+      "avatar_url": "",
+      "role": "member",
+      "is_active": true,
+      "is_admin": false,
+      "is_super_admin": false,
+      "created_at": "2026-03-01T10:00:00Z",
+      "updated_at": "2026-03-01T10:00:00Z"
+    }
+  ]
+}
+```
+
+#### 更新用户权限
+
+```http
+PUT /api/v1/admin/users/:id
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "is_active": true,
+  "is_admin": false,
+  "is_super_admin": false,
+  "password": "new-password"
+}
+```
+
+说明：
+
+- 字段均可选，但至少提供一个字段。
+- `password` 至少 6 个字符，用于 super admin 重置用户密码。
+- 禁止停用当前登录账号。
+- 禁止移除或停用最后一个有效 super admin。
+
+**响应**：更新后的用户对象，包含派生 `role` 字段。
+
+#### 全局审计日志
+
+```http
+GET /api/v1/admin/audit-logs?page=1&per_page=20&action=admin.user.update&user_id=:id
+Authorization: Bearer <token>
+```
+
+**响应**:
+
+```json
+{
+  "total": 1,
+  "page": 1,
+  "per_page": 20,
+  "results": [
+    {
+      "id": "...",
+      "user_id": "...",
+      "action": "admin.user.update",
+      "resource_type": "user",
+      "resource_id": "...",
+      "metadata": {
+        "target_user_id": "...",
+        "username": "testuser",
+        "is_admin": true
+      },
       "created_at": "2026-03-09T12:00:00Z"
     }
   ]
@@ -516,6 +786,8 @@ Authorization: Bearer <token>
 | id | UUID | 唯一标识 |
 | namespace | string | 命名空间 |
 | name | string | 技能名称 |
+| owner_username | string | 所有者用户名 |
+| owner_display_name_zh | string | 所有者中文名 |
 | description | string | 描述 |
 | category | string | 官方一级分类 |
 | tags | []string | 官方标签，1-4 个 |
@@ -523,6 +795,9 @@ Authorization: Bearer <token>
 | is_public | bool | 是否公开 |
 | is_recommended | bool | 是否推荐 |
 | download_count | int | 下载次数 |
+| like_count | int | 点赞数 |
+| install_count | int | 安装事件数 |
+| viewer_liked | bool | 当前用户是否已点赞，详情接口返回 |
 | rating | float64 | 平均评分 |
 | rating_count | int | 评分次数 |
 | latest_version | string | 最新版本 |
@@ -545,8 +820,11 @@ Authorization: Bearer <token>
 |------|------|------|
 | id | UUID | 唯一标识 |
 | username | string | 用户名 |
+| display_name_zh | string | 中文名 |
 | email | string | 邮箱 |
 | avatar_url | string | 头像 URL |
+| role | string | 管理接口返回的派生角色：member/admin/super_admin |
+| is_active | bool | 是否启用 |
 | is_admin | bool | 是否管理员 |
 | is_super_admin | bool | 是否超级管理员 |
 | created_at | datetime | 创建时间 |

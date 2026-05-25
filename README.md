@@ -27,7 +27,7 @@ skill-home self-update
 # 2. 注册账号
 curl -X POST https://soulstore.ciqtek.com/skill-home/api/v1/auth/register \
   -H "Content-Type: application/json" \
-  -d '{"username":"yourname","email":"you@example.com","password":"yourpass"}'
+  -d '{"username":"yourname","display_name_zh":"你的中文名","email":"you@example.com","password":"yourpass"}'
 
 # 3. 创建技能
 skill-home init my-first-skill
@@ -95,11 +95,15 @@ skillManage/
 | 功能 | 状态 | 说明 |
 |------|------|------|
 | 用户认证 | ✅ | JWT + 密码登录 |
+| 用户资料 | ✅ | 注册必填中文名，Skill 元信息返回用户名和中文名 |
 | API Key | ✅ | 命令行工具认证 |
 | 技能管理 | ✅ | CRUD + 版本控制 |
 | 对象存储 | ✅ | Skill Home 管理元数据，公开 skill 包由 OSS/对象存储承载 |
 | 安全扫描 | ✅ | 基础规则检测 |
 | 技能评分 | ✅ | 1-5 星评分与评论 |
+| 社交互动 | ✅ | 点赞、分享事件、安装事件统计 |
+| 用户统计 | ✅ | 产出 skill、点赞数、安装数、下载数、评分聚合 |
+| 权限管理 | ✅ | Super admin 用户管理、角色筛选、启停、密码重置、权限审计 |
 | 搜索排序 | ✅ | PostgreSQL 全文搜索 + 下载量排序 |
 
 ### 客户端 (skill-home-cli)
@@ -128,6 +132,9 @@ GET    /api/v1/skills/:ns/:name         技能详情
 GET    /api/v1/skills/:ns/:name/versions 版本列表
 GET    /api/v1/search?q=keyword         搜索技能
 GET    /api/v1/download/:ns/:name/:ver  下载技能
+POST   /api/v1/skills/:ns/:name/install-events 记录安装事件
+POST   /api/v1/skills/:ns/:name/share-events   记录分享事件
+GET    /api/v1/users/:username/stats    用户公开统计
 ```
 
 ### 认证接口
@@ -135,6 +142,9 @@ GET    /api/v1/download/:ns/:name/:ver  下载技能
 ```
 GET    /api/v1/user                     当前用户
 GET    /api/v1/user/skills              我的技能
+GET    /api/v1/user/stats               我的统计
+PUT    /api/v1/user/profile             更新个人资料
+PUT    /api/v1/user/password            修改密码
 GET    /api/v1/user/audit-logs          最近活动
 POST   /api/v1/user/api-keys            创建 API Key
 DELETE /api/v1/user/api-keys/:id        撤销 API Key
@@ -143,9 +153,25 @@ POST   /api/v1/skills/:ns/:name/versions 发布版本
 DELETE /api/v1/skills/:ns/:name         删除技能
 DELETE /api/v1/skills/:ns/:name/versions/:version 删除版本
 POST   /api/v1/skills/:ns/:name/rating  为技能评分
+POST   /api/v1/skills/:ns/:name/like    点赞 skill
+DELETE /api/v1/skills/:ns/:name/like    取消点赞
+GET    /api/v1/admin/users              用户列表（super admin）
+PUT    /api/v1/admin/users/:id          用户权限/状态/密码管理（super admin）
+GET    /api/v1/admin/audit-logs         全局审计日志（super admin）
 ```
 
 完整 API 文档见 [API.md](API.md)
+
+## 权限矩阵
+
+| 身份 | 权限范围 |
+|------|----------|
+| 匿名用户 | 浏览公开 skill、搜索、下载公开版本、记录匿名安装/分享事件 |
+| 注册用户 | 发布 skill、管理自己的 skill/版本、评分、点赞、API Key、个人资料/密码 |
+| Admin | 管理公开目录推荐状态 |
+| Super admin | 管理任意 skill/版本，管理用户启停/角色/密码，查看全局审计日志 |
+
+当前阶段沿用 `is_admin` / `is_super_admin`，用户管理接口会返回派生 `role`。系统会拒绝停用自己、移除最后一个 super admin，以及停用最后一个有效 super admin。
 
 ## 部署架构
 

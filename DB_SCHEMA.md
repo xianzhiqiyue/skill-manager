@@ -14,6 +14,7 @@
 |------|------|------|------|
 | id | UUID | PK, default: gen_random_uuid() | 用户 ID |
 | username | VARCHAR(32) | NOT NULL, UNIQUE | 用户名 |
+| display_name_zh | VARCHAR(64) | | 中文名，注册必填 |
 | email | VARCHAR(255) | NOT NULL, UNIQUE | 邮箱 |
 | password | VARCHAR(255) | NOT NULL | 密码哈希 |
 | avatar_url | VARCHAR(500) | | 头像 URL |
@@ -46,6 +47,8 @@
 | homepage | VARCHAR(500) | | 主页 |
 | repository | VARCHAR(500) | | 仓库地址 |
 | download_count | BIGINT | DEFAULT: 0 | 下载次数 |
+| like_count | BIGINT | DEFAULT: 0 | 点赞数 |
+| install_count | BIGINT | DEFAULT: 0 | 安装事件数 |
 | rating_sum | BIGINT | DEFAULT: 0 | 评分总和 |
 | rating_count | BIGINT | DEFAULT: 0 | 评分次数 |
 | is_public | BOOLEAN | DEFAULT: true | 是否公开 |
@@ -145,6 +148,56 @@
 - INDEX (skill_id)
 - INDEX (user_id)
 
+### skill_likes (技能点赞表)
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| id | UUID | PK, default: gen_random_uuid() | 点赞 ID |
+| skill_id | UUID | NOT NULL, FK -> skills.id | 技能 ID |
+| user_id | UUID | NOT NULL, FK -> users.id | 用户 ID |
+| created_at | TIMESTAMP | NOT NULL | 创建时间 |
+
+**索引**:
+- PRIMARY KEY (id)
+- UNIQUE INDEX (skill_id, user_id)
+- INDEX (skill_id)
+- INDEX (user_id)
+
+### skill_install_events (技能安装事件表)
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| id | UUID | PK, default: gen_random_uuid() | 事件 ID |
+| skill_id | UUID | NOT NULL, FK -> skills.id | 技能 ID |
+| user_id | UUID | NULLABLE, FK -> users.id | 安装用户，匿名安装为空 |
+| version | VARCHAR(20) | | 安装版本 |
+| target | VARCHAR(32) | | 安装目标，例如 codex/claude/cursor |
+| install_mode | VARCHAR(32) | | 安装模式 |
+| client_version | VARCHAR(64) | | CLI 版本 |
+| created_at | TIMESTAMP | NOT NULL | 创建时间 |
+
+**索引**:
+- PRIMARY KEY (id)
+- INDEX (skill_id)
+- INDEX (user_id)
+- INDEX (created_at)
+
+### skill_share_events (技能分享事件表)
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| id | UUID | PK, default: gen_random_uuid() | 事件 ID |
+| skill_id | UUID | NOT NULL, FK -> skills.id | 技能 ID |
+| user_id | UUID | NULLABLE, FK -> users.id | 分享用户，匿名分享为空 |
+| channel | VARCHAR(32) | | 渠道，例如 copy-link/web-share |
+| created_at | TIMESTAMP | NOT NULL | 创建时间 |
+
+**索引**:
+- PRIMARY KEY (id)
+- INDEX (skill_id)
+- INDEX (user_id)
+- INDEX (created_at)
+
 ## 关系图
 
 ```
@@ -153,9 +206,10 @@
 ├─────────────┤       ├─────────────┤       ├─────────────────┤
 │ id (PK)     │◄──────┤ owner_id    │◄──────┤ skill_id        │
 │ username    │       │ id (PK)     │       │ id (PK)         │
-│ email       │       │ namespace   │       │ version         │
-│ password    │       │ name        │       │ storage_path    │
-└─────────────┘       │ latest_ver  │       │ published_by    │
+│ display_zh  │       │ like_count  │       │ version         │
+│ email       │       │ install_cnt │       │ storage_path    │
+│ password    │       │ namespace   │       │ published_by    │
+└─────────────┘       │ latest_ver  │       │ created_at      │
          │            └─────────────┘       └─────────────────┘
          │                   │                      │
          │                   │                      │
@@ -167,6 +221,14 @@
 │ user_id     │       │ skill_id    │       │ user_id         │
 │ key_hash    │       │ user_id     │       │ action          │
 └─────────────┘       └─────────────┘       └─────────────────┘
+         │                   │
+         ▼                   ▼
+┌─────────────┐       ┌──────────────────────┐
+│skill_likes  │       │skill_install/share   │
+├─────────────┤       ├──────────────────────┤
+│ skill_id    │       │ skill_id             │
+│ user_id     │       │ user_id              │
+└─────────────┘       └──────────────────────┘
 ```
 
 ## 自定义类型
@@ -207,6 +269,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     username VARCHAR(32) NOT NULL UNIQUE,
+    display_name_zh VARCHAR(64),
     email VARCHAR(255) NOT NULL UNIQUE,
     password VARCHAR(255) NOT NULL,
     avatar_url VARCHAR(500),
@@ -234,6 +297,8 @@ CREATE TABLE skills (
     homepage VARCHAR(500),
     repository VARCHAR(500),
     download_count BIGINT DEFAULT 0,
+    like_count BIGINT DEFAULT 0,
+    install_count BIGINT DEFAULT 0,
     rating_sum BIGINT DEFAULT 0,
     rating_count BIGINT DEFAULT 0,
     is_public BOOLEAN DEFAULT true,
@@ -271,6 +336,47 @@ CREATE TABLE skill_versions (
 
 CREATE INDEX idx_versions_skill ON skill_versions(skill_id);
 CREATE INDEX idx_versions_deleted_at ON skill_versions(deleted_at);
+
+-- 点赞表
+CREATE TABLE skill_likes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    skill_id UUID NOT NULL REFERENCES skills(id),
+    user_id UUID NOT NULL REFERENCES users(id),
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    UNIQUE(skill_id, user_id)
+);
+
+CREATE INDEX idx_skill_likes_skill ON skill_likes(skill_id);
+CREATE INDEX idx_skill_likes_user ON skill_likes(user_id);
+
+-- 安装事件表
+CREATE TABLE skill_install_events (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    skill_id UUID NOT NULL REFERENCES skills(id),
+    user_id UUID REFERENCES users(id),
+    version VARCHAR(20),
+    target VARCHAR(32),
+    install_mode VARCHAR(32),
+    client_version VARCHAR(64),
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_install_events_skill ON skill_install_events(skill_id);
+CREATE INDEX idx_install_events_user ON skill_install_events(user_id);
+CREATE INDEX idx_install_events_created_at ON skill_install_events(created_at);
+
+-- 分享事件表
+CREATE TABLE skill_share_events (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    skill_id UUID NOT NULL REFERENCES skills(id),
+    user_id UUID REFERENCES users(id),
+    channel VARCHAR(32),
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_share_events_skill ON skill_share_events(skill_id);
+CREATE INDEX idx_share_events_user ON skill_share_events(user_id);
+CREATE INDEX idx_share_events_created_at ON skill_share_events(created_at);
 
 -- API Key 表
 CREATE TABLE api_keys (

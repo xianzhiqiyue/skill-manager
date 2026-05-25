@@ -11,9 +11,9 @@
 | 认证与权限 | 用户注册、密码登录、JWT 会话、API Key |
 | 技能治理 | 创建技能、更新元数据、发布版本、删除技能、删除版本 |
 | 管理员 | 可维护公开目录中的推荐 skill |
-| 超级管理员 | 可管理任意 skill/版本，并可修改其他用户的密码、启停状态和超管权限 |
+| 超级管理员 | 可管理任意 skill/版本，并可搜索/筛选用户、修改密码、启停状态、管理员和超管权限 |
 | 下载编排 | 公开 zip skill 优先返回 OSS 直链；兼容保留 `/api/v1/download/...` |
-| 运营能力 | 评分、审计日志、用户技能列表 |
+| 运营能力 | 评分、点赞、分享事件、安装事件、用户统计、审计日志、用户技能列表 |
 | 安装页托管 | `install.sh` 与 `/releases/*` 由服务端统一挂载 |
 
 ## 当前入口
@@ -35,6 +35,9 @@
 | GET | `/api/v1/skills/:namespace/:name/versions` | 获取版本列表 |
 | GET | `/api/v1/search` | 搜索公开 skill |
 | GET | `/api/v1/download/:namespace/:name/:version` | 兼容下载入口 |
+| POST | `/api/v1/skills/:namespace/:name/install-events` | 记录安装事件，认证可选 |
+| POST | `/api/v1/skills/:namespace/:name/share-events` | 记录分享事件，认证可选 |
+| GET | `/api/v1/users/:username/stats` | 获取用户公开统计 |
 | GET | `/install.sh` | CLI 安装脚本 |
 | GET | `/releases/*assetPath` | CLI 发布产物托管 |
 
@@ -51,6 +54,9 @@
 |------|------|------|
 | GET | `/api/v1/user` | 当前用户 |
 | GET | `/api/v1/user/skills` | 当前用户的 skill 列表 |
+| GET | `/api/v1/user/stats` | 当前用户统计 |
+| PUT | `/api/v1/user/profile` | 当前用户修改中文名和头像 |
+| PUT | `/api/v1/user/password` | 当前用户修改密码 |
 | GET | `/api/v1/user/audit-logs` | 最近审计日志 |
 | GET | `/api/v1/user/api-keys` | API Key 列表 |
 | POST | `/api/v1/user/api-keys` | 创建 API Key |
@@ -61,16 +67,30 @@
 | POST | `/api/v1/skills/:namespace/:name/versions` | 发布新版本 |
 | DELETE | `/api/v1/skills/:namespace/:name/versions/:version` | 删除版本 |
 | POST | `/api/v1/skills/:namespace/:name/rating` | 为技能评分 |
-| GET | `/api/v1/admin/users` | 超级管理员查看用户列表 |
+| POST | `/api/v1/skills/:namespace/:name/like` | 点赞 skill |
+| DELETE | `/api/v1/skills/:namespace/:name/like` | 取消点赞 |
+| GET | `/api/v1/admin/users` | 超级管理员查看用户列表，支持分页、搜索、角色/状态筛选 |
 | PUT | `/api/v1/admin/users/:id` | 超级管理员修改用户密码、权限、启停状态 |
+| GET | `/api/v1/admin/audit-logs` | 超级管理员查看全局审计日志 |
 | PATCH | `/api/v1/admin/skills/:namespace/:name/recommendation` | 管理员或超级管理员更新推荐状态 |
 
 说明：
 
 - 管理员和超级管理员可以设置公开 skill 的推荐状态
 - 超级管理员可以发布、修改、删除任意用户名下的 skill 和版本
-- 超级管理员可以重置其他用户密码，调整 `is_admin`、`is_super_admin` 与 `is_active`
-- 当前用户接口 `/api/v1/user`、登录响应、注册响应都会返回 `is_admin` 与 `is_super_admin`
+- 超级管理员可以重置用户密码，调整 `is_admin`、`is_super_admin` 与 `is_active`
+- 用户管理接口返回派生 `role`：`member`、`admin`、`super_admin`
+- 系统拒绝停用当前登录账号，拒绝移除或停用最后一个有效 super admin
+- 当前用户接口 `/api/v1/user`、登录响应、注册响应都会返回 `display_name_zh`、`is_admin` 与 `is_super_admin`
+
+## 权限矩阵
+
+| 身份 | 权限范围 |
+|------|----------|
+| 匿名用户 | 浏览公开 skill、搜索、下载公开版本、记录匿名安装/分享事件 |
+| 注册用户 | 发布 skill、管理自己的 skill/版本、评分、点赞、API Key、个人资料/密码 |
+| Admin | 管理公开目录推荐状态 |
+| Super admin | 管理任意 skill/版本，管理用户启停/角色/密码，查看全局审计日志 |
 
 ## 超级管理员引导
 
@@ -196,7 +216,7 @@ curl -fL "https://soulstore.ciqtek.com/skill-home/api/v1/download/skill-home/ski
 ```bash
 curl -X POST https://soulstore.ciqtek.com/skill-home/api/v1/auth/register \
   -H "Content-Type: application/json" \
-  -d '{"username":"yourname","email":"you@example.com","password":"yourpass"}'
+  -d '{"username":"yourname","display_name_zh":"你的中文名","email":"you@example.com","password":"yourpass"}'
 
 curl -X POST https://soulstore.ciqtek.com/skill-home/api/v1/auth/login \
   -H "Content-Type: application/json" \
@@ -212,7 +232,33 @@ curl -fsS https://soulstore.ciqtek.com/skill-home/api/v1/user \
   -H "Authorization: Bearer ${TOKEN}"
 ```
 
-### 9. 创建 API Key
+### 9. 获取用户统计
+
+```bash
+curl -fsS https://soulstore.ciqtek.com/skill-home/api/v1/user/stats \
+  -H "Authorization: Bearer ${TOKEN}"
+
+curl -fsS https://soulstore.ciqtek.com/skill-home/api/v1/users/yourname/stats
+```
+
+统计包含产出 skill 数、公开 skill 数、累计点赞、安装、下载、评分数量和平均评分。
+
+### 10. 点赞、记录安装和分享
+
+```bash
+curl -X POST https://soulstore.ciqtek.com/skill-home/api/v1/skills/team/demo-skill/like \
+  -H "Authorization: Bearer ${TOKEN}"
+
+curl -X POST https://soulstore.ciqtek.com/skill-home/api/v1/skills/team/demo-skill/install-events \
+  -H "Content-Type: application/json" \
+  -d '{"version":"1.0.0","target":"codex","install_mode":"mirror","client_version":"0.1.0"}'
+
+curl -X POST https://soulstore.ciqtek.com/skill-home/api/v1/skills/team/demo-skill/share-events \
+  -H "Content-Type: application/json" \
+  -d '{"channel":"copy-link"}'
+```
+
+### 11. 创建 API Key
 
 ```bash
 curl -X POST https://soulstore.ciqtek.com/skill-home/api/v1/user/api-keys \
@@ -221,7 +267,7 @@ curl -X POST https://soulstore.ciqtek.com/skill-home/api/v1/user/api-keys \
   -d '{"name":"cli"}'
 ```
 
-### 10. 通过 multipart 创建 skill
+### 12. 通过 multipart 创建 skill
 
 ```bash
 curl -X POST https://soulstore.ciqtek.com/skill-home/api/v1/skills \
@@ -233,7 +279,7 @@ curl -X POST https://soulstore.ciqtek.com/skill-home/api/v1/skills \
   -F "skill=@./demo-skill.zip;type=application/zip"
 ```
 
-### 11. 发布 skill 新版本
+### 13. 发布 skill 新版本
 
 ```bash
 curl -X POST https://soulstore.ciqtek.com/skill-home/api/v1/skills/team/demo-skill/versions \
