@@ -76,20 +76,37 @@ export function AuthPage({ locationSearch, model, mode, navigate }: AuthPageProp
                 }}
               >
                 {mode === 'register' ? (
-                  <label className="field">
-                    <span>用户名</span>
-                    <input
-                      placeholder="例如 testuser"
-                      required
-                      value={model.authForm.username}
-                      onChange={(event) =>
-                        model.setAuthForm((current) => ({
-                          ...current,
-                          username: event.target.value,
-                        }))
-                      }
-                    />
-                  </label>
+                  <>
+                    <label className="field">
+                      <span>中文名</span>
+                      <input
+                        maxLength={64}
+                        placeholder="例如 张三"
+                        required
+                        value={model.authForm.displayNameZh}
+                        onChange={(event) =>
+                          model.setAuthForm((current) => ({
+                            ...current,
+                            displayNameZh: event.target.value,
+                          }))
+                        }
+                      />
+                    </label>
+                    <label className="field">
+                      <span>用户名</span>
+                      <input
+                        placeholder="例如 testuser"
+                        required
+                        value={model.authForm.username}
+                        onChange={(event) =>
+                          model.setAuthForm((current) => ({
+                            ...current,
+                            username: event.target.value,
+                          }))
+                        }
+                      />
+                    </label>
+                  </>
                 ) : null}
 
                 <label className="field">

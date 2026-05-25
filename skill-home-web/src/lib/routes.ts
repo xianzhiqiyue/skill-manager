@@ -1,6 +1,6 @@
 export type ConsoleSection = 'skills' | 'api-keys';
 export type SkillTab = 'overview' | 'versions' | 'install' | 'activity';
-export type SettingsSection = 'profile' | 'api-keys';
+export type SettingsSection = 'profile' | 'api-keys' | 'users';
 export type SkillSettingsSection = 'general' | 'versions' | 'access' | 'danger';
 
 export type AppRoute =
@@ -90,7 +90,12 @@ export function parseRoute(pathname: string): AppRoute {
 
     return {
       name: 'settings',
-      section: segments[1] === 'api-keys' ? 'api-keys' : 'profile',
+      section:
+        segments[1] === 'api-keys'
+          ? 'api-keys'
+          : segments[1] === 'users'
+            ? 'users'
+            : 'profile',
     };
   }
 

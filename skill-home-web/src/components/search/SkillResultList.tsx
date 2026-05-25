@@ -28,6 +28,10 @@ function formatRatingLabel(skill: SkillSummary) {
   };
 }
 
+function formatOwnerLabel(skill: SkillSummary) {
+  return skill.owner_display_name_zh || skill.owner_username || skill.namespace;
+}
+
 function ResultCard({
   onOpen,
   skill,
@@ -54,7 +58,10 @@ function ResultCard({
       </div>
       <p>{description || '暂无描述。'}</p>
       <div className="skill-result-card__meta">
+        <span>{formatOwnerLabel(skill)}</span>
         <span>{skill.license || '未填写 License'}</span>
+        <span>{skill.like_count || 0} 点赞</span>
+        <span>{skill.install_count || 0} 安装</span>
         <span>{skill.download_count} 下载</span>
         <span>{formatDate(skill.updated_at)} 更新</span>
       </div>
@@ -90,8 +97,11 @@ function ResultRow({
       <p>{description || '暂无描述。'}</p>
       <div className="skill-result-row__meta">
         {skill.is_recommended ? <span>推荐</span> : null}
+        <span>{formatOwnerLabel(skill)}</span>
         <span>{skill.license || '未填写 License'}</span>
         <span>{skill.latest_version || 'draft'}</span>
+        <span>{skill.like_count || 0} 点赞</span>
+        <span>{skill.install_count || 0} 安装</span>
         <span>{skill.download_count} 下载</span>
         <span>{formatDate(skill.updated_at)} 更新</span>
         <span>{ratingLabel.score}</span>

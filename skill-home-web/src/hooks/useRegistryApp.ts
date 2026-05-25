@@ -6,23 +6,38 @@ import {
   createAPIKey,
   deleteSkill,
   deleteSkillVersion,
+  fetchAdminAuditLogs,
+  fetchAdminUsers,
   fetchCurrentUser,
+  fetchCurrentUserStats,
   fetchHealth,
   fetchMyAPIKeys,
   fetchMySkills,
   fetchSkillDetail,
   fetchSkills,
+  getSkillDescription,
+  likeSkill,
   loginUser,
   publishSkill,
   rateSkill,
+  recordShareEvent,
   registerUser,
   removeCommunityTag,
   revokeAPIKey,
+  unlikeSkill,
+  updateAdminUser,
+  updateCurrentUserPassword,
+  updateCurrentUserProfile,
   updateSkill,
   updateSkillRecommendation,
   normalizeOfficialTags,
+  type AdminUpdateUserPayload,
+  type AdminUser,
+  type AdminUserRoleFilter,
+  type AdminUserStatusFilter,
   type APIKeyCreateResponse,
   type APIKeySummary,
+  type AuditLog,
   type AuthResponse,
   type AuthUser,
   type FetchSkillsParams,
@@ -30,6 +45,7 @@ import {
   type PublishResponse,
   type SkillDetail,
   type SkillSummary,
+  type UserStats,
   validateOfficialMetadataInput,
 } from '../api';
 import {
@@ -41,7 +57,7 @@ import {
   type CatalogSort,
   type CatalogView,
 } from '../lib/catalogState';
-import { parseTags, skillKey } from '../lib/format';
+import { copyText, parseTags, skillKey } from '../lib/format';
 import { buildAuthPath, buildSkillPath, parseAuthRedirect, type AppRoute } from '../lib/routes';
 
 const TOKEN_STORAGE_KEY = 'skill-home-web-token';
@@ -136,6 +152,9 @@ export function useRegistryApp(
   const [skillRatingSaving, setSkillRatingSaving] = useState(false);
   const [skillRatingError, setSkillRatingError] = useState<string | null>(null);
   const [skillRatingSuccess, setSkillRatingSuccess] = useState<string | null>(null);
+  const [skillLikeSaving, setSkillLikeSaving] = useState(false);
+  const [skillLikeError, setSkillLikeError] = useState<string | null>(null);
+  const [skillShareStatus, setSkillShareStatus] = useState<string | null>(null);
 
   const [token, setToken] = useState(loadStoredToken);
   const [authLoading, setAuthLoading] = useState(false);
@@ -143,6 +162,7 @@ export function useRegistryApp(
   const [authSuccess, setAuthSuccess] = useState<string | null>(null);
   const [authForm, setAuthForm] = useState({
     username: '',
+    displayNameZh: '',
     email: '',
     password: '',
   });
@@ -151,6 +171,40 @@ export function useRegistryApp(
   const [accountLoading, setAccountLoading] = useState(false);
   const [accountError, setAccountError] = useState<string | null>(null);
   const [accountNonce, setAccountNonce] = useState(0);
+  const [userStats, setUserStats] = useState<UserStats | null>(null);
+  const [profileForm, setProfileForm] = useState({
+    displayNameZh: '',
+    avatarUrl: '',
+  });
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [profileSuccess, setProfileSuccess] = useState<string | null>(null);
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
+  const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
+  const [adminUsersTotal, setAdminUsersTotal] = useState(0);
+  const [adminUsersLoading, setAdminUsersLoading] = useState(false);
+  const [adminUsersError, setAdminUsersError] = useState<string | null>(null);
+  const [adminUsersSuccess, setAdminUsersSuccess] = useState<string | null>(null);
+  const [adminUsersSaving, setAdminUsersSaving] = useState<string | null>(null);
+  const [adminUsersNonce, setAdminUsersNonce] = useState(0);
+  const [adminUserFilters, setAdminUserFilters] = useState({
+    query: '',
+    role: 'all' as AdminUserRoleFilter,
+    status: 'all' as AdminUserStatusFilter,
+    page: 1,
+    perPage: 20,
+  });
+  const [adminUserPasswordDrafts, setAdminUserPasswordDrafts] = useState<Record<string, string>>({});
+  const [adminAuditLogs, setAdminAuditLogs] = useState<AuditLog[]>([]);
+  const [adminAuditLogsLoading, setAdminAuditLogsLoading] = useState(false);
+  const [adminAuditLogsError, setAdminAuditLogsError] = useState<string | null>(null);
 
   const [mySkills, setMySkills] = useState<SkillSummary[]>([]);
   const [apiKeys, setAPIKeys] = useState<APIKeySummary[]>([]);
@@ -206,6 +260,7 @@ export function useRegistryApp(
   const namespaceOptions = uniq(skills.map((skill) => skill.namespace)).sort();
   const tagOptions = uniq(skills.flatMap((skill) => skill.tags || [])).sort();
   const licenseOptions = uniq(skills.map((skill) => skill.license || '')).sort();
+  const settingsSection = route.name === 'settings' ? route.section : null;
 
   const featuredSkills = [...skills]
     .sort(sortRecommendedFirst)
@@ -345,6 +400,9 @@ export function useRegistryApp(
       setSkillRatingError(null);
       setSkillRatingSuccess(null);
       setSkillRatingSaving(false);
+      setSkillLikeSaving(false);
+      setSkillLikeError(null);
+      setSkillShareStatus(null);
       return;
     }
 
@@ -354,6 +412,8 @@ export function useRegistryApp(
     setDetailError(null);
     setSkillRatingError(null);
     setSkillRatingSuccess(null);
+    setSkillLikeError(null);
+    setSkillShareStatus(null);
 
     fetchSkillDetail(namespace, name, token || undefined)
       .then((data) => {
@@ -391,12 +451,29 @@ export function useRegistryApp(
       setCurrentUser(null);
       setMySkills([]);
       setAPIKeys([]);
+      setUserStats(null);
       setAccountError(null);
       setManagedSkillKey(null);
       setManagedSkill(null);
       setManageError(null);
       setManageSuccess(null);
       setManageRecommendationSaving(false);
+      setProfileForm({ displayNameZh: '', avatarUrl: '' });
+      setProfileError(null);
+      setProfileSuccess(null);
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      setPasswordError(null);
+      setPasswordSuccess(null);
+      setAdminUsers([]);
+      setAdminUsersTotal(0);
+      setAdminUsersLoading(false);
+      setAdminUsersError(null);
+      setAdminUsersSuccess(null);
+      setAdminUsersSaving(null);
+      setAdminUserPasswordDrafts({});
+      setAdminAuditLogs([]);
+      setAdminAuditLogsLoading(false);
+      setAdminAuditLogsError(null);
       return;
     }
 
@@ -404,14 +481,19 @@ export function useRegistryApp(
     setAccountLoading(true);
     setAccountError(null);
 
-    Promise.all([fetchCurrentUser(token), fetchMySkills(token)])
-      .then(([user, ownedSkills]) => {
+    Promise.all([fetchCurrentUser(token), fetchMySkills(token), fetchCurrentUserStats(token).catch(() => null)])
+      .then(([user, ownedSkills, stats]) => {
         if (cancelled) {
           return;
         }
 
         setCurrentUser(user);
+        setProfileForm({
+          displayNameZh: user.display_name_zh || '',
+          avatarUrl: user.avatar_url || '',
+        });
         setMySkills(ownedSkills);
+        setUserStats(stats);
         setAccountLoading(false);
         setPublishForm((current) => ({
           ...current,
@@ -434,6 +516,81 @@ export function useRegistryApp(
       cancelled = true;
     };
   }, [accountNonce, token]);
+
+  useEffect(() => {
+    if (!token || !currentUser?.is_super_admin || settingsSection !== 'users') {
+      setAdminUsersLoading(false);
+      setAdminAuditLogsLoading(false);
+      if (settingsSection !== 'users') {
+        setAdminUsersError(null);
+        setAdminAuditLogsError(null);
+      }
+      return;
+    }
+
+    let cancelled = false;
+    setAdminUsersLoading(true);
+    setAdminUsersError(null);
+
+    fetchAdminUsers(token, {
+      page: adminUserFilters.page,
+      perPage: adminUserFilters.perPage,
+      query: adminUserFilters.query,
+      role: adminUserFilters.role,
+      status: adminUserFilters.status,
+    })
+      .then((data) => {
+        if (cancelled) {
+          return;
+        }
+
+        setAdminUsers(data.results);
+        setAdminUsersTotal(data.total);
+        setAdminUsersLoading(false);
+      })
+      .catch((error: Error) => {
+        if (cancelled) {
+          return;
+        }
+
+        setAdminUsersError(error.message);
+        setAdminUsersLoading(false);
+      });
+
+    setAdminAuditLogsLoading(true);
+    setAdminAuditLogsError(null);
+    fetchAdminAuditLogs(token, { page: 1, perPage: 8 })
+      .then((data) => {
+        if (cancelled) {
+          return;
+        }
+
+        setAdminAuditLogs(data.results);
+        setAdminAuditLogsLoading(false);
+      })
+      .catch((error: Error) => {
+        if (cancelled) {
+          return;
+        }
+
+        setAdminAuditLogsError(error.message);
+        setAdminAuditLogsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    adminUserFilters.page,
+    adminUserFilters.perPage,
+    adminUserFilters.query,
+    adminUserFilters.role,
+    adminUserFilters.status,
+    adminUsersNonce,
+    currentUser?.is_super_admin,
+    settingsSection,
+    token,
+  ]);
 
   useEffect(() => {
     if (!token) {
@@ -590,6 +747,7 @@ export function useRegistryApp(
         mode === 'register'
           ? await registerUser({
               username: authForm.username.trim(),
+              displayNameZh: authForm.displayNameZh.trim(),
               email: authForm.email.trim(),
               password: authForm.password,
             })
@@ -602,9 +760,14 @@ export function useRegistryApp(
       setCurrentUser({
         id: response.user.id,
         username: response.user.username,
+        display_name_zh: response.user.display_name_zh,
         email: response.user.email,
         is_admin: response.user.is_admin,
         is_super_admin: response.user.is_super_admin,
+      });
+      setProfileForm({
+        displayNameZh: response.user.display_name_zh || '',
+        avatarUrl: '',
       });
       setAuthForm((current) => ({
         ...current,
@@ -633,10 +796,144 @@ export function useRegistryApp(
     setAPIKeysError(null);
     setAPIKeysSuccess(null);
     setRevealedAPIKey(null);
+    setProfileForm({ displayNameZh: '', avatarUrl: '' });
+    setProfileError(null);
+    setProfileSuccess(null);
+    setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    setPasswordError(null);
+    setPasswordSuccess(null);
+    setAdminUsers([]);
+    setAdminUsersTotal(0);
+    setAdminUsersError(null);
+    setAdminUsersSuccess(null);
+    setAdminUsersSaving(null);
+    setAdminUserPasswordDrafts({});
+    setAdminAuditLogs([]);
+    setAdminAuditLogsError(null);
     setAuthSuccess('已退出登录。');
     setPublishSuccess(null);
     setPublishError(null);
     navigate('/');
+  }
+
+  async function submitProfileUpdate() {
+    if (!token) {
+      setProfileError('请先登录，再更新个人资料。');
+      navigate(buildAuthPath('login', getCurrentPath()));
+      return;
+    }
+
+    const displayNameZh = profileForm.displayNameZh.trim();
+    const avatarUrl = profileForm.avatarUrl.trim();
+    if (!displayNameZh) {
+      setProfileError('中文名不能为空。');
+      return;
+    }
+
+    setProfileSaving(true);
+    setProfileError(null);
+    setProfileSuccess(null);
+
+    try {
+      const user = await updateCurrentUserProfile(token, {
+        displayNameZh,
+        avatarUrl: avatarUrl || undefined,
+      });
+      setCurrentUser(user);
+      setProfileForm({
+        displayNameZh: user.display_name_zh || '',
+        avatarUrl: user.avatar_url || '',
+      });
+      setProfileSuccess('个人资料已更新。');
+    } catch (error) {
+      setProfileError(error instanceof Error ? error.message : '更新个人资料失败');
+    } finally {
+      setProfileSaving(false);
+    }
+  }
+
+  async function submitPasswordUpdate() {
+    if (!token) {
+      setPasswordError('请先登录，再修改密码。');
+      navigate(buildAuthPath('login', getCurrentPath()));
+      return;
+    }
+
+    if (!passwordForm.currentPassword) {
+      setPasswordError('请填写当前密码。');
+      return;
+    }
+    if (passwordForm.newPassword.length < 6) {
+      setPasswordError('新密码至少 6 个字符。');
+      return;
+    }
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setPasswordError('两次输入的新密码不一致。');
+      return;
+    }
+
+    setPasswordSaving(true);
+    setPasswordError(null);
+    setPasswordSuccess(null);
+
+    try {
+      await updateCurrentUserPassword(token, {
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword,
+      });
+      setPasswordForm({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: '',
+      });
+      setPasswordSuccess('密码已更新。');
+    } catch (error) {
+      setPasswordError(error instanceof Error ? error.message : '修改密码失败');
+    } finally {
+      setPasswordSaving(false);
+    }
+  }
+
+  async function updateAdminUserAccess(userID: string, payload: AdminUpdateUserPayload) {
+    if (!token || !currentUser?.is_super_admin) {
+      setAdminUsersError('只有超级管理员可以管理用户。');
+      return false;
+    }
+
+    setAdminUsersSaving(userID);
+    setAdminUsersError(null);
+    setAdminUsersSuccess(null);
+
+    try {
+      const updated = await updateAdminUser(token, userID, payload);
+      setAdminUsers((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+      setAdminUsersSuccess('用户权限已更新。');
+      if (updated.id === currentUser.id) {
+        setCurrentUser(updated);
+      }
+      return true;
+    } catch (error) {
+      setAdminUsersError(error instanceof Error ? error.message : '更新用户权限失败');
+      return false;
+    } finally {
+      setAdminUsersSaving(null);
+    }
+  }
+
+  async function resetAdminUserPassword(userID: string) {
+    const password = (adminUserPasswordDrafts[userID] || '').trim();
+    if (password.length < 6) {
+      setAdminUsersError('新密码至少 6 个字符。');
+      return;
+    }
+
+    const updated = await updateAdminUserAccess(userID, { password });
+    if (updated) {
+      setAdminUserPasswordDrafts((current) => ({
+        ...current,
+        [userID]: '',
+      }));
+    }
   }
 
   async function submitAPIKeyCreate() {
@@ -998,6 +1295,74 @@ export function useRegistryApp(
     }
   }
 
+  async function toggleSkillLike() {
+    if (!routeSkillKey || !detailSkill) {
+      return;
+    }
+    if (!token) {
+      setSkillLikeError('请先登录，再点赞 skill。');
+      navigate(buildAuthPath('login', getCurrentPath()));
+      return;
+    }
+
+    setSkillLikeSaving(true);
+    setSkillLikeError(null);
+
+    try {
+      const [namespace, name] = routeSkillKey.split('/');
+      const response = detailSkill.viewer_liked
+        ? await unlikeSkill(token, namespace, name)
+        : await likeSkill(token, namespace, name);
+      setDetailSkill(response);
+      setSkills((current) =>
+        current.map((skill) => (skillKey(skill) === skillKey(response) ? { ...skill, ...response } : skill)),
+      );
+      setCatalogSkills((current) =>
+        current.map((skill) => (skillKey(skill) === skillKey(response) ? { ...skill, ...response } : skill)),
+      );
+      setAccountNonce((value) => value + 1);
+    } catch (error) {
+      setSkillLikeError(error instanceof Error ? error.message : '点赞操作失败');
+    } finally {
+      setSkillLikeSaving(false);
+    }
+  }
+
+  async function shareDetailSkill() {
+    if (!detailSkill) {
+      return;
+    }
+
+    const title = `${detailSkill.namespace}/${detailSkill.name}`;
+    const path = buildSkillPath(detailSkill.namespace, detailSkill.name);
+    const url =
+      typeof window === 'undefined'
+        ? path
+        : `${window.location.origin}${APP_BASE_PATH === '/' ? '' : APP_BASE_PATH}${path}`;
+
+    try {
+      if (typeof navigator !== 'undefined' && navigator.share) {
+        await navigator.share({
+          title,
+          text: getSkillDescription(detailSkill),
+          url,
+        });
+        setSkillShareStatus('分享面板已打开。');
+        void recordShareEvent(token || undefined, detailSkill.namespace, detailSkill.name, 'web-share');
+        return;
+      }
+
+      await copyText(url);
+      setSkillShareStatus('详情链接已复制。');
+      void recordShareEvent(token || undefined, detailSkill.namespace, detailSkill.name, 'copy-link');
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        return;
+      }
+      setSkillShareStatus(error instanceof Error ? error.message : '分享失败');
+    }
+  }
+
   async function removeCommunitySkillTag(tag: string) {
     if (!routeSkillKey || !detailSkill || !token) {
       return;
@@ -1032,9 +1397,19 @@ export function useRegistryApp(
           .slice(0, 4);
 
   const accountStats = {
-    total: mySkills.length,
-    publicCount: mySkills.filter((skill) => skill.is_public !== false).length,
-    privateCount: mySkills.filter((skill) => skill.is_public === false).length,
+    total: userStats?.skill_count ?? mySkills.length,
+    publicCount: userStats?.public_skill_count ?? mySkills.filter((skill) => skill.is_public !== false).length,
+    privateCount:
+      userStats != null
+        ? Math.max(userStats.skill_count - userStats.public_skill_count, 0)
+        : mySkills.filter((skill) => skill.is_public === false).length,
+    totalLikes: userStats?.total_like_count ?? mySkills.reduce((sum, skill) => sum + (skill.like_count || 0), 0),
+    totalDownloads:
+      userStats?.total_download_count ?? mySkills.reduce((sum, skill) => sum + (skill.download_count || 0), 0),
+    totalInstalls:
+      userStats?.total_install_count ?? mySkills.reduce((sum, skill) => sum + (skill.install_count || 0), 0),
+    averageRating: userStats?.average_rating ?? 0,
+    totalRatings: userStats?.total_rating_count ?? mySkills.reduce((sum, skill) => sum + (skill.rating_count || 0), 0),
   };
 
   const apiKeyStats = {
@@ -1108,12 +1483,45 @@ export function useRegistryApp(
     skillRatingSaving,
     skillRatingError,
     skillRatingSuccess,
+    skillLikeSaving,
+    skillLikeError,
+    skillShareStatus,
     submitCommunityTag,
     submitSkillRating,
+    toggleSkillLike,
+    shareDetailSkill,
     removeCommunityTag: removeCommunitySkillTag,
     refreshDetail: () => setDetailNonce((value) => value + 1),
     accountLoading,
     accountError,
+    profileForm,
+    setProfileForm,
+    profileSaving,
+    profileError,
+    profileSuccess,
+    submitProfileUpdate,
+    passwordForm,
+    setPasswordForm,
+    passwordSaving,
+    passwordError,
+    passwordSuccess,
+    submitPasswordUpdate,
+    adminUsers,
+    adminUsersTotal,
+    adminUsersLoading,
+    adminUsersError,
+    adminUsersSuccess,
+    adminUsersSaving,
+    adminUserFilters,
+    setAdminUserFilters,
+    adminUserPasswordDrafts,
+    setAdminUserPasswordDrafts,
+    adminAuditLogs,
+    adminAuditLogsLoading,
+    adminAuditLogsError,
+    updateAdminUserAccess,
+    resetAdminUserPassword,
+    refreshAdminUsers: () => setAdminUsersNonce((value) => value + 1),
     mySkills,
     apiKeys,
     apiKeysLoading,

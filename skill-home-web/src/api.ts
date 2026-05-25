@@ -16,6 +16,7 @@ export type HealthResponse = {
 export type AuthUser = {
   id: string;
   username: string;
+  display_name_zh?: string;
   email: string;
   avatar_url?: string;
   is_active?: boolean;
@@ -29,6 +30,7 @@ export type AuthResponse = {
   user: {
     id: string;
     username: string;
+    display_name_zh?: string;
     email: string;
     is_admin?: boolean;
     is_super_admin?: boolean;
@@ -53,12 +55,16 @@ export type SkillSummary = {
   namespace: string;
   name: string;
   owner_id?: string;
+  owner_username?: string;
+  owner_display_name_zh?: string;
   description?: string;
   description_zh?: string;
   category?: string;
   tags?: string[];
   license?: string;
   download_count: number;
+  like_count?: number;
+  install_count?: number;
   rating_count: number;
   rating?: number;
   latest_version?: string;
@@ -99,8 +105,10 @@ export type SkillDetail = SkillSummary & {
   community_tags?: CommunityTagSummary[];
   viewer_tags?: string[];
   user_rating?: SkillRating;
+  viewer_liked?: boolean;
   owner?: {
     username?: string;
+    display_name_zh?: string;
     email?: string;
   };
   versions?: SkillVersion[];
@@ -241,6 +249,83 @@ export type RateSkillResponse = {
   user_rating: SkillRating;
 };
 
+export type UserStats = {
+  user_id?: string;
+  username: string;
+  display_name_zh?: string;
+  skill_count: number;
+  public_skill_count: number;
+  total_like_count: number;
+  total_rating_count: number;
+  average_rating: number;
+  total_download_count: number;
+  total_install_count: number;
+};
+
+export type AdminUserRole = 'super_admin' | 'admin' | 'member';
+
+export type AdminUser = AuthUser & {
+  role: AdminUserRole;
+  is_active: boolean;
+  is_admin: boolean;
+  is_super_admin: boolean;
+  updated_at?: string;
+};
+
+export type AdminUserRoleFilter = 'all' | AdminUserRole;
+export type AdminUserStatusFilter = 'all' | 'active' | 'inactive';
+
+export type AdminUserListResponse = {
+  total: number;
+  page: number;
+  per_page: number;
+  results: AdminUser[];
+};
+
+export type FetchAdminUsersParams = {
+  page?: number;
+  perPage?: number;
+  query?: string;
+  role?: AdminUserRoleFilter;
+  status?: AdminUserStatusFilter;
+};
+
+export type AdminUpdateUserPayload = {
+  password?: string;
+  isActive?: boolean;
+  isAdmin?: boolean;
+  isSuperAdmin?: boolean;
+};
+
+export type AuditLog = {
+  id: string;
+  user_id?: string;
+  action: string;
+  resource_type: string;
+  resource_id?: string;
+  metadata?: Record<string, unknown>;
+  ip_address?: string;
+  user_agent?: string;
+  created_at: string;
+};
+
+export type AuditLogListResponse = {
+  total: number;
+  page: number;
+  per_page: number;
+  results: AuditLog[];
+};
+
+export type UpdateCurrentUserProfilePayload = {
+  displayNameZh: string;
+  avatarUrl?: string;
+};
+
+export type UpdateCurrentUserPasswordPayload = {
+  currentPassword: string;
+  newPassword: string;
+};
+
 type RequestOptions = {
   method?: string;
   headers?: HeadersInit;
@@ -374,6 +459,7 @@ export function getDownloadUrl(skill: SkillLike) {
 
 export function registerUser(payload: {
   username: string;
+  displayNameZh: string;
   email: string;
   password: string;
 }) {
@@ -382,7 +468,12 @@ export function registerUser(payload: {
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({
+      username: payload.username,
+      display_name_zh: payload.displayNameZh,
+      email: payload.email,
+      password: payload.password,
+    }),
   });
 }
 
@@ -399,6 +490,40 @@ export function loginUser(payload: { email: string; password: string }) {
 export function fetchCurrentUser(token: string) {
   return request<AuthUser>('/api/v1/user', undefined, {
     token,
+  });
+}
+
+export function fetchCurrentUserStats(token: string) {
+  return request<UserStats>('/api/v1/user/stats', undefined, {
+    token,
+  });
+}
+
+export function updateCurrentUserProfile(token: string, payload: UpdateCurrentUserProfilePayload) {
+  return request<AuthUser>('/api/v1/user/profile', undefined, {
+    method: 'PUT',
+    token,
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      display_name_zh: payload.displayNameZh,
+      avatar_url: payload.avatarUrl,
+    }),
+  });
+}
+
+export function updateCurrentUserPassword(token: string, payload: UpdateCurrentUserPasswordPayload) {
+  return request<MessageResponse>('/api/v1/user/password', undefined, {
+    method: 'PUT',
+    token,
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      current_password: payload.currentPassword,
+      new_password: payload.newPassword,
+    }),
   });
 }
 
@@ -473,6 +598,31 @@ export function rateSkill(token: string, namespace: string, name: string, payloa
   });
 }
 
+export function likeSkill(token: string, namespace: string, name: string) {
+  return request<SkillDetail>(`/api/v1/skills/${namespace}/${name}/like`, undefined, {
+    method: 'POST',
+    token,
+  });
+}
+
+export function unlikeSkill(token: string, namespace: string, name: string) {
+  return request<SkillDetail>(`/api/v1/skills/${namespace}/${name}/like`, undefined, {
+    method: 'DELETE',
+    token,
+  });
+}
+
+export function recordShareEvent(token: string | undefined, namespace: string, name: string, channel: string) {
+  return request<MessageResponse>(`/api/v1/skills/${namespace}/${name}/share-events`, undefined, {
+    method: 'POST',
+    token,
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ channel }),
+  });
+}
+
 export function publishSkill(token: string, payload: PublishPayload) {
   const form = new FormData();
   form.append('namespace', payload.namespace);
@@ -532,6 +682,54 @@ export function updateSkillRecommendation(
     body: JSON.stringify({
       is_recommended: payload.isRecommended,
     }),
+  });
+}
+
+export function fetchAdminUsers(token: string, filters: FetchAdminUsersParams = {}) {
+  const params = new URLSearchParams({
+    page: String(filters.page || 1),
+    per_page: String(filters.perPage || 20),
+  });
+
+  if (filters.query?.trim()) {
+    params.set('q', filters.query.trim());
+  }
+  if (filters.role && filters.role !== 'all') {
+    params.set('role', filters.role);
+  }
+  if (filters.status && filters.status !== 'all') {
+    params.set('status', filters.status);
+  }
+
+  return request<AdminUserListResponse>('/api/v1/admin/users', params, {
+    token,
+  });
+}
+
+export function updateAdminUser(token: string, id: string, payload: AdminUpdateUserPayload) {
+  return request<AdminUser>(`/api/v1/admin/users/${id}`, undefined, {
+    method: 'PUT',
+    token,
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      password: payload.password,
+      is_active: payload.isActive,
+      is_admin: payload.isAdmin,
+      is_super_admin: payload.isSuperAdmin,
+    }),
+  });
+}
+
+export function fetchAdminAuditLogs(token: string, filters: { page?: number; perPage?: number } = {}) {
+  const params = new URLSearchParams({
+    page: String(filters.page || 1),
+    per_page: String(filters.perPage || 10),
+  });
+
+  return request<AuditLogListResponse>('/api/v1/admin/audit-logs', params, {
+    token,
   });
 }
 

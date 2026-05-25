@@ -30,6 +30,8 @@ export function SkillObjectMetadata({ skill }: SkillObjectMetadataProps) {
           <MetadataRow label="Latest version" value={latestVersion} />
           <MetadataRow label="Versions" value={String(skill.versions?.length || 0)} />
           <MetadataRow label="License" value={skill.license || '未填写'} />
+          <MetadataRow label="Likes" value={String(skill.like_count || 0)} />
+          <MetadataRow label="Installs" value={String(skill.install_count || 0)} />
           <MetadataRow label="Downloads" value={String(skill.download_count)} />
           <MetadataRow label="Updated" value={formatDateTime(skill.updated_at)} />
           <MetadataRow
@@ -41,7 +43,18 @@ export function SkillObjectMetadata({ skill }: SkillObjectMetadataProps) {
             value={latestScan.label}
           />
           <MetadataRow label="Latest size" value={formatBytes(skill.versions?.[0]?.size_bytes)} />
-          {skill.owner?.username ? <MetadataRow label="Owner" value={skill.owner.username} /> : null}
+          {skill.owner?.username || skill.owner_username ? (
+            <MetadataRow
+              label="Owner"
+              value={
+                skill.owner?.display_name_zh ||
+                skill.owner_display_name_zh ||
+                skill.owner?.username ||
+                skill.owner_username ||
+                ''
+              }
+            />
+          ) : null}
         </dl>
       </div>
     </section>

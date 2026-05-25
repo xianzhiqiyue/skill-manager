@@ -80,6 +80,7 @@ export function APIKeysSettingsPage({
   const revealedEnvCommand = model.revealedAPIKey
     ? `export SKILL_HOME_API_KEY="${model.revealedAPIKey.key}"`
     : '';
+  const canManageUsers = Boolean(model.currentUser?.is_super_admin);
 
   return (
     <SettingsLayout
@@ -90,7 +91,7 @@ export function APIKeysSettingsPage({
       )}
       description="管理用于脚本和集成的长期凭证。完整密钥只会在创建成功后展示一次。"
       navAriaLabel="Settings"
-      navItems={getAccountSettingsNav('api-keys')}
+      navItems={getAccountSettingsNav('api-keys', canManageUsers)}
       onNavigate={navigate}
       sidebarHeader={model.currentUser ? (
         <div className="gh-settings-sidebar__scope">

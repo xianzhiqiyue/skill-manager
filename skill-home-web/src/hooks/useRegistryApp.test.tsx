@@ -4,12 +4,22 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   addCommunityTag,
   deleteSkill,
+  fetchAdminAuditLogs,
+  fetchAdminUsers,
   fetchCurrentUser,
+  fetchCurrentUserStats,
   fetchSkills,
   fetchSkillDetail,
+  likeSkill,
   loginUser,
   publishSkill,
+  recordShareEvent,
   removeCommunityTag,
+  registerUser,
+  unlikeSkill,
+  updateAdminUser,
+  updateCurrentUserPassword,
+  updateCurrentUserProfile,
   updateSkill,
   updateSkillRecommendation,
 } from '../api';
@@ -46,13 +56,38 @@ vi.mock('../api', async (importOriginal) => {
     createAPIKey: vi.fn(),
     deleteSkill: vi.fn(),
     deleteSkillVersion: vi.fn(),
+    fetchAdminAuditLogs: vi.fn().mockResolvedValue({
+      total: 0,
+      page: 1,
+      per_page: 8,
+      results: [],
+    }),
+    fetchAdminUsers: vi.fn().mockResolvedValue({
+      total: 0,
+      page: 1,
+      per_page: 20,
+      results: [],
+    }),
     fetchCurrentUser: vi.fn().mockResolvedValue({
       id: 'user-1',
       username: 'testuser',
+      display_name_zh: '测试用户',
       email: 'test@example.com',
       is_admin: false,
       is_super_admin: false,
       created_at: '2026-03-20T10:00:00Z',
+    }),
+    fetchCurrentUserStats: vi.fn().mockResolvedValue({
+      user_id: 'user-1',
+      username: 'testuser',
+      display_name_zh: '测试用户',
+      skill_count: 0,
+      public_skill_count: 0,
+      total_like_count: 0,
+      total_install_count: 0,
+      total_download_count: 0,
+      average_rating: 0,
+      total_rating_count: 0,
     }),
     fetchHealth: vi.fn().mockResolvedValue({
       service: 'skill-home',
@@ -81,12 +116,18 @@ vi.mock('../api', async (importOriginal) => {
       results: [],
     }),
     loginUser: vi.fn(),
+    likeSkill: vi.fn(),
     publishSkill: vi.fn(),
     rateSkill: mockedRateSkill,
+    recordShareEvent: vi.fn().mockResolvedValue({ message: 'recorded' }),
     addCommunityTag: vi.fn(),
     removeCommunityTag: vi.fn(),
     registerUser: vi.fn(),
     revokeAPIKey: vi.fn(),
+    unlikeSkill: vi.fn(),
+    updateAdminUser: vi.fn(),
+    updateCurrentUserPassword: vi.fn(),
+    updateCurrentUserProfile: vi.fn(),
     updateSkill: vi.fn(),
     updateSkillRecommendation: vi.fn(),
   };
@@ -338,6 +379,7 @@ describe('useRegistryApp catalog URL sync', () => {
     act(() => {
       result.current.setAuthForm({
         username: '',
+        displayNameZh: '',
         email: 'test@example.com',
         password: 'secret123',
       });
@@ -349,6 +391,337 @@ describe('useRegistryApp catalog URL sync', () => {
 
     await waitFor(() => {
       expect(navigate).toHaveBeenCalledWith('/settings/api-keys');
+    });
+  });
+
+  it('submits the required Chinese display name when registering', async () => {
+    vi.mocked(fetchCurrentUser).mockResolvedValueOnce({
+      id: 'user-2',
+      username: 'newuser',
+      display_name_zh: '新用户',
+      email: 'new@example.com',
+      is_admin: false,
+      is_super_admin: false,
+      created_at: '2026-03-20T10:00:00Z',
+    });
+    vi.mocked(registerUser).mockResolvedValue({
+      token: 'token-2',
+      user: {
+        id: 'user-2',
+        username: 'newuser',
+        display_name_zh: '新用户',
+        email: 'new@example.com',
+      },
+    });
+
+    const navigate = vi.fn();
+    const { result } = renderHook(() =>
+      useRegistryApp({ name: 'auth', mode: 'register' }, '', navigate),
+    );
+
+    act(() => {
+      result.current.setAuthForm({
+        username: 'newuser',
+        displayNameZh: '新用户',
+        email: 'new@example.com',
+        password: 'secret123',
+      });
+    });
+
+    await act(async () => {
+      await result.current.submitAuth('register');
+    });
+
+    await waitFor(() => {
+      expect(registerUser).toHaveBeenCalledWith({
+        username: 'newuser',
+        displayNameZh: '新用户',
+        email: 'new@example.com',
+        password: 'secret123',
+      });
+      expect(result.current.currentUser?.display_name_zh).toBe('新用户');
+    });
+  });
+
+  it('uses server-side user stats in the account summary', async () => {
+    window.localStorage.setItem('skill-home-web-token', 'token-1');
+    vi.mocked(fetchCurrentUserStats).mockResolvedValueOnce({
+      user_id: 'user-1',
+      username: 'testuser',
+      display_name_zh: '测试用户',
+      skill_count: 3,
+      public_skill_count: 2,
+      total_like_count: 11,
+      total_install_count: 7,
+      total_download_count: 19,
+      average_rating: 4.5,
+      total_rating_count: 4,
+    });
+
+    const navigate = vi.fn();
+    const { result } = renderHook(() =>
+      useRegistryApp({ name: 'settings', section: 'profile' }, '', navigate),
+    );
+
+    await waitFor(() => {
+      expect(result.current.accountStats.total).toBe(3);
+      expect(result.current.accountStats.privateCount).toBe(1);
+      expect(result.current.accountStats.totalLikes).toBe(11);
+      expect(result.current.accountStats.totalInstalls).toBe(7);
+    });
+  });
+
+  it('updates the current user profile through the account settings action', async () => {
+    window.localStorage.setItem('skill-home-web-token', 'token-1');
+    vi.mocked(updateCurrentUserProfile).mockResolvedValueOnce({
+      id: 'user-1',
+      username: 'testuser',
+      display_name_zh: '新中文名',
+      email: 'test@example.com',
+      avatar_url: 'https://example.com/avatar.png',
+      is_admin: false,
+      is_super_admin: false,
+    });
+
+    const navigate = vi.fn();
+    const { result } = renderHook(() =>
+      useRegistryApp({ name: 'settings', section: 'profile' }, '', navigate),
+    );
+
+    await waitFor(() => {
+      expect(result.current.currentUser?.username).toBe('testuser');
+    });
+
+    act(() => {
+      result.current.setProfileForm({
+        displayNameZh: '新中文名',
+        avatarUrl: 'https://example.com/avatar.png',
+      });
+    });
+
+    await act(async () => {
+      await result.current.submitProfileUpdate();
+    });
+
+    expect(updateCurrentUserProfile).toHaveBeenCalledWith('token-1', {
+      displayNameZh: '新中文名',
+      avatarUrl: 'https://example.com/avatar.png',
+    });
+    expect(result.current.currentUser?.display_name_zh).toBe('新中文名');
+    expect(result.current.profileSuccess).toBe('个人资料已更新。');
+  });
+
+  it('updates the current user password through the account settings action', async () => {
+    window.localStorage.setItem('skill-home-web-token', 'token-1');
+    vi.mocked(updateCurrentUserPassword).mockResolvedValueOnce({ message: 'Password updated' });
+
+    const navigate = vi.fn();
+    const { result } = renderHook(() =>
+      useRegistryApp({ name: 'settings', section: 'profile' }, '', navigate),
+    );
+
+    await waitFor(() => {
+      expect(result.current.currentUser?.username).toBe('testuser');
+    });
+
+    act(() => {
+      result.current.setPasswordForm({
+        currentPassword: 'old-password',
+        newPassword: 'new-password',
+        confirmPassword: 'new-password',
+      });
+    });
+
+    await act(async () => {
+      await result.current.submitPasswordUpdate();
+    });
+
+    expect(updateCurrentUserPassword).toHaveBeenCalledWith('token-1', {
+      currentPassword: 'old-password',
+      newPassword: 'new-password',
+    });
+    expect(result.current.passwordForm.newPassword).toBe('');
+    expect(result.current.passwordSuccess).toBe('密码已更新。');
+  });
+
+  it('loads and updates admin users for super admins', async () => {
+    window.localStorage.setItem('skill-home-web-token', 'token-1');
+    vi.mocked(fetchCurrentUser).mockResolvedValueOnce({
+      id: 'admin-1',
+      username: 'root',
+      display_name_zh: '平台超管',
+      email: 'root@example.com',
+      is_admin: true,
+      is_super_admin: true,
+      created_at: '2026-03-20T10:00:00Z',
+    });
+    vi.mocked(fetchAdminUsers).mockResolvedValueOnce({
+      total: 1,
+      page: 1,
+      per_page: 20,
+      results: [
+        {
+          id: 'user-1',
+          username: 'member',
+          display_name_zh: '成员',
+          email: 'member@example.com',
+          role: 'member',
+          is_active: true,
+          is_admin: false,
+          is_super_admin: false,
+          created_at: '2026-03-20T10:00:00Z',
+        },
+      ],
+    });
+    vi.mocked(fetchAdminAuditLogs).mockResolvedValueOnce({
+      total: 0,
+      page: 1,
+      per_page: 8,
+      results: [],
+    });
+    vi.mocked(updateAdminUser).mockResolvedValueOnce({
+      id: 'user-1',
+      username: 'member',
+      display_name_zh: '成员',
+      email: 'member@example.com',
+      role: 'admin',
+      is_active: true,
+      is_admin: true,
+      is_super_admin: false,
+      created_at: '2026-03-20T10:00:00Z',
+    });
+
+    const navigate = vi.fn();
+    const { result } = renderHook(() =>
+      useRegistryApp({ name: 'settings', section: 'users' }, '', navigate),
+    );
+
+    await waitFor(() => {
+      expect(fetchAdminUsers).toHaveBeenCalledWith('token-1', expect.objectContaining({
+        page: 1,
+        role: 'all',
+        status: 'all',
+      }));
+      expect(result.current.adminUsers[0]?.username).toBe('member');
+    });
+
+    await act(async () => {
+      await result.current.updateAdminUserAccess('user-1', { isAdmin: true });
+    });
+
+    expect(updateAdminUser).toHaveBeenCalledWith('token-1', 'user-1', { isAdmin: true });
+    expect(result.current.adminUsers[0]?.role).toBe('admin');
+  });
+
+  it('toggles skill likes from the detail page', async () => {
+    window.localStorage.setItem('skill-home-web-token', 'token-1');
+    vi.mocked(fetchSkillDetail).mockResolvedValue({
+      id: 'skill-1',
+      namespace: 'testuser',
+      name: 'github',
+      description: 'Interact with GitHub using gh.',
+      download_count: 18,
+      like_count: 0,
+      install_count: 0,
+      rating_count: 0,
+      latest_version: '1.0.0',
+      viewer_liked: false,
+      versions: [],
+    });
+    vi.mocked(likeSkill).mockResolvedValue({
+      id: 'skill-1',
+      namespace: 'testuser',
+      name: 'github',
+      description: 'Interact with GitHub using gh.',
+      download_count: 18,
+      like_count: 1,
+      install_count: 0,
+      rating_count: 0,
+      latest_version: '1.0.0',
+      viewer_liked: true,
+      versions: [],
+    });
+    vi.mocked(unlikeSkill).mockResolvedValue({
+      id: 'skill-1',
+      namespace: 'testuser',
+      name: 'github',
+      description: 'Interact with GitHub using gh.',
+      download_count: 18,
+      like_count: 0,
+      install_count: 0,
+      rating_count: 0,
+      latest_version: '1.0.0',
+      viewer_liked: false,
+      versions: [],
+    });
+
+    const navigate = vi.fn();
+    const { result } = renderHook(() =>
+      useRegistryApp(
+        { name: 'skill-tab', namespace: 'testuser', skillName: 'github', tab: 'overview' },
+        '',
+        navigate,
+      ),
+    );
+
+    await waitFor(() => {
+      expect(result.current.detailSkill?.viewer_liked).toBe(false);
+    });
+
+    await act(async () => {
+      await result.current.toggleSkillLike();
+    });
+
+    await waitFor(() => {
+      expect(likeSkill).toHaveBeenCalledWith('token-1', 'testuser', 'github');
+      expect(result.current.detailSkill?.viewer_liked).toBe(true);
+      expect(result.current.detailSkill?.like_count).toBe(1);
+    });
+
+    await act(async () => {
+      await result.current.toggleSkillLike();
+    });
+
+    await waitFor(() => {
+      expect(unlikeSkill).toHaveBeenCalledWith('token-1', 'testuser', 'github');
+      expect(result.current.detailSkill?.viewer_liked).toBe(false);
+      expect(result.current.detailSkill?.like_count).toBe(0);
+    });
+  });
+
+  it('records a share event after copying the detail link', async () => {
+    window.localStorage.setItem('skill-home-web-token', 'token-1');
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    });
+    Object.defineProperty(navigator, 'share', {
+      configurable: true,
+      value: undefined,
+    });
+
+    const navigate = vi.fn();
+    const { result } = renderHook(() =>
+      useRegistryApp(
+        { name: 'skill-tab', namespace: 'testuser', skillName: 'github', tab: 'overview' },
+        '',
+        navigate,
+      ),
+    );
+
+    await waitFor(() => {
+      expect(result.current.detailSkill?.name).toBe('github');
+    });
+
+    await act(async () => {
+      await result.current.shareDetailSkill();
+    });
+
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith(expect.stringContaining('/skills/testuser/github'));
+      expect(recordShareEvent).toHaveBeenCalledWith('token-1', 'testuser', 'github', 'copy-link');
+      expect(result.current.skillShareStatus).toBe('详情链接已复制。');
     });
   });
 

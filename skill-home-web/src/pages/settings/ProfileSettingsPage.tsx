@@ -27,6 +27,7 @@ export function ProfileSettingsPage({ model, navigate }: ProfileSettingsPageProp
   }
 
   const canManageCatalog = Boolean(model.currentUser?.is_admin || model.currentUser?.is_super_admin);
+  const canManageUsers = Boolean(model.currentUser?.is_super_admin);
 
   function canEditSkillSettings(skill: (typeof model.mySkills)[number]) {
     return Boolean(
@@ -44,11 +45,11 @@ export function ProfileSettingsPage({ model, navigate }: ProfileSettingsPageProp
       )}
       description="管理账号概览、已发布技能和进入对象级设置。"
       navAriaLabel="Settings"
-      navItems={getAccountSettingsNav('profile')}
+      navItems={getAccountSettingsNav('profile', canManageUsers)}
       onNavigate={navigate}
       sidebarHeader={model.currentUser ? (
         <div className="gh-settings-sidebar__scope">
-          <strong>{model.currentUser.username}</strong>
+          <strong>{model.currentUser.display_name_zh || model.currentUser.username}</strong>
           <span>{model.currentUser.email}</span>
         </div>
       ) : null}
@@ -56,6 +57,10 @@ export function ProfileSettingsPage({ model, navigate }: ProfileSettingsPageProp
     >
       <div className="gh-settings-stack">
         {model.accountError ? renderStatusBanner('danger', model.accountError) : null}
+        {model.profileError ? renderStatusBanner('danger', model.profileError) : null}
+        {model.profileSuccess ? renderStatusBanner('success', model.profileSuccess) : null}
+        {model.passwordError ? renderStatusBanner('danger', model.passwordError) : null}
+        {model.passwordSuccess ? renderStatusBanner('success', model.passwordSuccess) : null}
 
         <section className="gh-settings-card">
           <div className="gh-settings-card__header">
@@ -67,8 +72,12 @@ export function ProfileSettingsPage({ model, navigate }: ProfileSettingsPageProp
 
           <div className="gh-settings-summary-grid">
             <article className="gh-settings-summary-item">
+              <span>中文名</span>
+              <strong>{model.currentUser?.display_name_zh || '未填写'}</strong>
+            </article>
+            <article className="gh-settings-summary-item">
               <span>Username</span>
-              <strong>{model.currentUser?.username || '未命名用户'}</strong>
+              <strong>@{model.currentUser?.username || 'unknown'}</strong>
             </article>
             <article className="gh-settings-summary-item">
               <span>Joined</span>
@@ -79,10 +88,146 @@ export function ProfileSettingsPage({ model, navigate }: ProfileSettingsPageProp
               <strong>{model.accountStats.total}</strong>
             </article>
             <article className="gh-settings-summary-item">
+              <span>Likes</span>
+              <strong>{model.accountStats.totalLikes}</strong>
+            </article>
+            <article className="gh-settings-summary-item">
+              <span>Installs</span>
+              <strong>{model.accountStats.totalInstalls}</strong>
+            </article>
+            <article className="gh-settings-summary-item">
+              <span>Downloads</span>
+              <strong>{model.accountStats.totalDownloads}</strong>
+            </article>
+            <article className="gh-settings-summary-item">
+              <span>Rating</span>
+              <strong>
+                {model.accountStats.totalRatings
+                  ? `${model.accountStats.averageRating.toFixed(1)} / ${model.accountStats.totalRatings}`
+                  : '暂无'}
+              </strong>
+            </article>
+            <article className="gh-settings-summary-item">
               <span>API keys</span>
               <strong>{model.apiKeyStats.total}</strong>
             </article>
           </div>
+        </section>
+
+        <section className="gh-settings-card">
+          <div className="gh-settings-card__header">
+            <div>
+              <h2>Personal profile</h2>
+              <p>更新对外展示的中文名和头像地址。</p>
+            </div>
+          </div>
+
+          <form
+            className="form-grid-stack"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void model.submitProfileUpdate();
+            }}
+          >
+            <label className="field">
+              <span>中文名</span>
+              <input
+                required
+                value={model.profileForm.displayNameZh}
+                onChange={(event) =>
+                  model.setProfileForm((current) => ({
+                    ...current,
+                    displayNameZh: event.target.value,
+                  }))
+                }
+              />
+            </label>
+            <label className="field">
+              <span>头像 URL</span>
+              <input
+                placeholder="https://example.com/avatar.png"
+                value={model.profileForm.avatarUrl}
+                onChange={(event) =>
+                  model.setProfileForm((current) => ({
+                    ...current,
+                    avatarUrl: event.target.value,
+                  }))
+                }
+              />
+            </label>
+            <div className="gh-settings-actions">
+              <button className="button button--primary" disabled={model.profileSaving} type="submit">
+                {model.profileSaving ? '保存中...' : '保存资料'}
+              </button>
+            </div>
+          </form>
+        </section>
+
+        <section className="gh-settings-card">
+          <div className="gh-settings-card__header">
+            <div>
+              <h2>Password</h2>
+              <p>使用当前密码校验后更新登录密码。</p>
+            </div>
+          </div>
+
+          <form
+            className="form-grid-stack"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void model.submitPasswordUpdate();
+            }}
+          >
+            <label className="field">
+              <span>当前密码</span>
+              <input
+                autoComplete="current-password"
+                type="password"
+                value={model.passwordForm.currentPassword}
+                onChange={(event) =>
+                  model.setPasswordForm((current) => ({
+                    ...current,
+                    currentPassword: event.target.value,
+                  }))
+                }
+              />
+            </label>
+            <label className="field">
+              <span>新密码</span>
+              <input
+                autoComplete="new-password"
+                minLength={6}
+                type="password"
+                value={model.passwordForm.newPassword}
+                onChange={(event) =>
+                  model.setPasswordForm((current) => ({
+                    ...current,
+                    newPassword: event.target.value,
+                  }))
+                }
+              />
+            </label>
+            <label className="field">
+              <span>确认新密码</span>
+              <input
+                autoComplete="new-password"
+                minLength={6}
+                type="password"
+                value={model.passwordForm.confirmPassword}
+                onChange={(event) =>
+                  model.setPasswordForm((current) => ({
+                    ...current,
+                    confirmPassword: event.target.value,
+                  }))
+                }
+              />
+            </label>
+            <div className="gh-settings-actions">
+              <button className="button button--primary" disabled={model.passwordSaving} type="submit">
+                {model.passwordSaving ? '保存中...' : '更新密码'}
+              </button>
+            </div>
+          </form>
         </section>
 
         <section className="gh-settings-card">

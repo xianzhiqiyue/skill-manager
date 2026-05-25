@@ -45,6 +45,8 @@ export function SkillHeader({ onBack, skill }: SkillHeaderProps) {
         <div className="gh-object-header__meta">
           <code>{skillRef(skill)}</code>
           <span>{skill.versions?.length || 0} 个版本</span>
+          <span>{skill.like_count || 0} 点赞</span>
+          <span>{skill.install_count || 0} 安装</span>
           <span>{skill.download_count} 下载</span>
           <span>{formatDateTime(skill.updated_at)} 更新</span>
         </div>

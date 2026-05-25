@@ -3325,6 +3325,105 @@ body {
   justify-content: flex-end;
 }
 
+.gh-admin-users-toolbar {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(150px, 180px) minmax(140px, 170px) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.gh-admin-users-list,
+.gh-admin-audit-list {
+  display: grid;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--surface-soft);
+}
+
+.gh-admin-user-row,
+.gh-admin-audit-row {
+  display: grid;
+  gap: 12px;
+  padding: 14px 16px;
+  border-top: 1px solid var(--border);
+}
+
+.gh-admin-user-row:first-child,
+.gh-admin-audit-row:first-child {
+  border-top: 0;
+}
+
+.gh-admin-user-row {
+  grid-template-columns: minmax(180px, 0.9fr) minmax(170px, auto) minmax(360px, 1.4fr);
+  align-items: center;
+}
+
+.gh-admin-user-row__identity {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.gh-admin-user-row__identity strong {
+  color: var(--text);
+}
+
+.gh-admin-user-row__identity span {
+  color: var(--text-soft);
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+
+.gh-admin-user-row__badges,
+.gh-admin-user-row__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.gh-admin-user-row__badges {
+  justify-content: flex-start;
+}
+
+.gh-admin-user-row__actions {
+  justify-content: flex-end;
+}
+
+.gh-admin-user-row__password {
+  min-width: 150px;
+}
+
+.gh-admin-users-pagination {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  align-items: center;
+  color: var(--text-soft);
+  font-size: 0.92rem;
+}
+
+.gh-admin-audit-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.gh-admin-audit-row div {
+  display: grid;
+  gap: 4px;
+}
+
+.gh-admin-audit-row strong {
+  color: var(--text);
+}
+
+.gh-admin-audit-row span,
+.gh-admin-audit-row time {
+  color: var(--text-soft);
+  font-size: 0.9rem;
+}
+
 .gh-home-panel-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.35fr) minmax(260px, 0.95fr);
@@ -3845,6 +3944,8 @@ body {
 
   .gh-home-panel-grid,
   .gh-settings-split,
+  .gh-admin-users-toolbar,
+  .gh-admin-user-row,
   .gh-object-install-grid {
     grid-template-columns: 1fr;
   }
@@ -3871,6 +3972,16 @@ body {
 
   .gh-settings-list__meta {
     justify-content: flex-start;
+  }
+
+  .gh-admin-user-row__actions,
+  .gh-admin-users-pagination,
+  .gh-admin-audit-row {
+    justify-content: flex-start;
+  }
+
+  .gh-admin-audit-row {
+    grid-template-columns: 1fr;
   }
 }
 

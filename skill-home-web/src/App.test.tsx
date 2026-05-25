@@ -13,7 +13,7 @@ const baseModel = {
   authLoading: false,
   authError: null,
   authSuccess: null,
-  authForm: { username: '', email: '', password: '' },
+  authForm: { username: '', displayNameZh: '', email: '', password: '' },
   setAuthForm: vi.fn(),
   submitAuth: vi.fn(),
   handleLogout: vi.fn(),
@@ -86,6 +86,34 @@ const baseModel = {
   refreshDetail: vi.fn(),
   accountLoading: false,
   accountError: null,
+  profileForm: { displayNameZh: '', avatarUrl: '' },
+  setProfileForm: vi.fn(),
+  profileSaving: false,
+  profileError: null,
+  profileSuccess: null,
+  submitProfileUpdate: vi.fn(),
+  passwordForm: { currentPassword: '', newPassword: '', confirmPassword: '' },
+  setPasswordForm: vi.fn(),
+  passwordSaving: false,
+  passwordError: null,
+  passwordSuccess: null,
+  submitPasswordUpdate: vi.fn(),
+  adminUsers: [],
+  adminUsersTotal: 0,
+  adminUsersLoading: false,
+  adminUsersError: null,
+  adminUsersSuccess: null,
+  adminUsersSaving: null,
+  adminUserFilters: { query: '', role: 'all', status: 'all', page: 1, perPage: 20 },
+  setAdminUserFilters: vi.fn(),
+  adminUserPasswordDrafts: {},
+  setAdminUserPasswordDrafts: vi.fn(),
+  adminAuditLogs: [],
+  adminAuditLogsLoading: false,
+  adminAuditLogsError: null,
+  updateAdminUserAccess: vi.fn(),
+  resetAdminUserPassword: vi.fn(),
+  refreshAdminUsers: vi.fn(),
   mySkills: [],
   apiKeys: [],
   apiKeysLoading: false,
@@ -100,7 +128,16 @@ const baseModel = {
   submitAPIKeyCreate: vi.fn(),
   removeAPIKey: vi.fn(),
   refreshAPIKeys: vi.fn(),
-  accountStats: { total: 0, publicCount: 0, privateCount: 0 },
+  accountStats: {
+    total: 0,
+    publicCount: 0,
+    privateCount: 0,
+    totalLikes: 0,
+    totalDownloads: 0,
+    totalInstalls: 0,
+    averageRating: 0,
+    totalRatings: 0,
+  },
   apiKeyStats: { total: 0, active: 0, expiringSoon: 0 },
   managedSkillKey: null,
   setManagedSkillKey: vi.fn(),
@@ -438,7 +475,16 @@ describe('App shell', () => {
           },
         ],
       },
-      accountStats: { total: 1, publicCount: 1, privateCount: 0 },
+      accountStats: {
+        total: 1,
+        publicCount: 1,
+        privateCount: 0,
+        totalLikes: 0,
+        totalDownloads: 18,
+        totalInstalls: 0,
+        averageRating: 0,
+        totalRatings: 0,
+      },
     });
 
     renderApp();
@@ -483,7 +529,16 @@ describe('App shell', () => {
           },
         ],
       },
-      accountStats: { total: 1, publicCount: 1, privateCount: 0 },
+      accountStats: {
+        total: 1,
+        publicCount: 1,
+        privateCount: 0,
+        totalLikes: 0,
+        totalDownloads: 18,
+        totalInstalls: 0,
+        averageRating: 0,
+        totalRatings: 0,
+      },
     });
 
     renderApp();
@@ -530,6 +585,55 @@ describe('App shell', () => {
     expect(cards).toHaveLength(1);
     expect(createHeading.closest('.gh-settings-card')).toBe(existingHeading.closest('.gh-settings-card'));
     expect(createHeading.compareDocumentPosition(existingHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('renders user permission management for super admins', () => {
+    mockUseRoute.mockReturnValue({
+      route: { name: 'settings', section: 'users' },
+      location: { pathname: '/settings/users', search: '' },
+      navigate: vi.fn(),
+    });
+    mockUseRegistryApp.mockReturnValue({
+      ...baseModel,
+      token: 'token',
+      currentUser: {
+        id: 'admin-1',
+        username: 'root',
+        display_name_zh: '平台超管',
+        email: 'root@example.com',
+        is_super_admin: true,
+      },
+      adminUsersTotal: 1,
+      adminUsers: [
+        {
+          id: 'user-1',
+          username: 'member',
+          display_name_zh: '成员',
+          email: 'member@example.com',
+          role: 'member',
+          is_active: true,
+          is_admin: false,
+          is_super_admin: false,
+          created_at: '2026-03-20T10:00:00Z',
+        },
+      ],
+      adminAuditLogs: [
+        {
+          id: 'audit-1',
+          action: 'admin.user.update',
+          resource_type: 'user',
+          metadata: { username: 'member' },
+          created_at: '2026-03-20T10:00:00Z',
+        },
+      ],
+    });
+
+    renderApp();
+
+    expect(screen.getByRole('heading', { name: 'Users' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Users' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByText('@member')).toBeInTheDocument();
+    expect(screen.getByText('admin.user.update')).toBeInTheDocument();
   });
 
   it('renders publish as a focused creation form under /publish/new', () => {

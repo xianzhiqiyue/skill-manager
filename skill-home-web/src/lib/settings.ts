@@ -19,8 +19,8 @@ export function buildSkillSettingsPath(
   return `/settings/skills/${encodeURIComponent(namespace)}/${encodeURIComponent(skillName)}/${section}`;
 }
 
-export function getAccountSettingsNav(section: SettingsSection): SettingsNavItem[] {
-  return [
+export function getAccountSettingsNav(section: SettingsSection, canManageUsers = false): SettingsNavItem[] {
+  const items: SettingsNavItem[] = [
     {
       current: section === 'profile',
       href: buildSettingsPath('profile'),
@@ -32,6 +32,16 @@ export function getAccountSettingsNav(section: SettingsSection): SettingsNavItem
       label: 'API Keys',
     },
   ];
+
+  if (canManageUsers) {
+    items.push({
+      current: section === 'users',
+      href: buildSettingsPath('users'),
+      label: 'Users',
+    });
+  }
+
+  return items;
 }
 
 export function getSkillSettingsNav(

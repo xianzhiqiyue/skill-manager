@@ -24,6 +24,11 @@ export type SkillOverviewPageModel = SkillObjectPageModel & {
   skillRatingError?: string | null;
   skillRatingSuccess?: string | null;
   submitSkillRating?: (rating: number, comment?: string) => Promise<void>;
+  skillLikeSaving?: boolean;
+  skillLikeError?: string | null;
+  skillShareStatus?: string | null;
+  toggleSkillLike?: () => Promise<void>;
+  shareDetailSkill?: () => Promise<void>;
 };
 
 type SkillOverviewPageProps = {
@@ -91,9 +96,51 @@ export function SkillOverviewPage({ model, navigate, search }: SkillOverviewPage
         // Resolve the contract URL once so this page explicitly follows download_url when present.
         const downloadUrl = getDownloadUrl(skill);
         const hasRatings = (skill.rating_count || 0) > 0;
+        const ownerLabel =
+          skill.owner?.display_name_zh ||
+          skill.owner_display_name_zh ||
+          skill.owner?.username ||
+          skill.owner_username ||
+          skill.namespace;
 
         return (
-            <div className="gh-object-overview">
+          <div className="gh-object-overview">
+            <OverviewCard eyebrow="Social" title="Community signal">
+              {model.skillLikeError ? (
+                <div className="status-banner status-banner--danger">{model.skillLikeError}</div>
+              ) : null}
+              {model.skillShareStatus ? (
+                <div className="status-banner status-banner--success">{model.skillShareStatus}</div>
+              ) : null}
+              <div className="detail-fact-list">
+                <OverviewStat label="Author" value={ownerLabel} />
+                <OverviewStat label="Likes" value={String(skill.like_count || 0)} />
+                <OverviewStat label="Installs" value={String(skill.install_count || 0)} />
+                <OverviewStat label="Downloads" value={String(skill.download_count)} />
+              </div>
+              <div className="gh-rating-actions">
+                <button
+                  className="button button--secondary"
+                  disabled={model.skillLikeSaving}
+                  onClick={() => {
+                    void model.toggleSkillLike?.();
+                  }}
+                  type="button"
+                >
+                  {model.skillLikeSaving ? '处理中…' : skill.viewer_liked ? '取消点赞' : '点赞'}
+                </button>
+                <button
+                  className="button button--quiet"
+                  onClick={() => {
+                    void model.shareDetailSkill?.();
+                  }}
+                  type="button"
+                >
+                  分享
+                </button>
+              </div>
+            </OverviewCard>
+
               {(communityTags.length || model.currentUser) ? (
                 <OverviewCard eyebrow="Community" title="Community tags">
                   {model.communityTagError ? (
@@ -234,6 +281,7 @@ export function SkillOverviewPage({ model, navigate, search }: SkillOverviewPage
                   <OverviewStat label="Latest version" value={latestVersion} />
                   <OverviewStat label="Scan status" value={latestScan.label} />
                   <OverviewStat label="Downloads" value={String(skill.download_count)} />
+                  <OverviewStat label="Installs" value={String(skill.install_count || 0)} />
                   <OverviewStat label="License" value={skill.license || '未填写'} />
                 </div>
                 {officialTags.length ? (
