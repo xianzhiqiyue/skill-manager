@@ -45,6 +45,8 @@ func newCatalogTestDatabase(t *testing.T) *storage.Database {
 		homepage TEXT,
 		repository TEXT,
 		download_count INTEGER DEFAULT 0,
+		like_count INTEGER DEFAULT 0,
+		install_count INTEGER DEFAULT 0,
 		rating_sum INTEGER DEFAULT 0,
 		rating_count INTEGER DEFAULT 0,
 		is_public NUMERIC DEFAULT 1,
@@ -74,6 +76,22 @@ func newCatalogTestDatabase(t *testing.T) *storage.Database {
 		deleted_at DATETIME
 	)`).Error; err != nil {
 		t.Fatalf("create skill_versions table failed: %v", err)
+	}
+	if err := db.Exec(`CREATE TABLE users (
+		id TEXT PRIMARY KEY,
+		username TEXT NOT NULL,
+		display_name_zh TEXT,
+		email TEXT NOT NULL,
+		password TEXT,
+		avatar_url TEXT,
+		is_active NUMERIC DEFAULT 1,
+		is_admin NUMERIC DEFAULT 0,
+		is_super_admin NUMERIC DEFAULT 0,
+		created_at DATETIME,
+		updated_at DATETIME,
+		deleted_at DATETIME
+	)`).Error; err != nil {
+		t.Fatalf("create users table failed: %v", err)
 	}
 
 	return &storage.Database{DB: db}

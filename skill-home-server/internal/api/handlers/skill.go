@@ -47,6 +47,14 @@ func ListSkills(db *storage.Database, objStorages ...*storage.ObjectStorage) gin
 			return
 		}
 		populateSkillsComputedFields(skills)
+		if err := populateSkillOwnerFields(db, skills); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"code": "INTERNAL_ERROR", "message": err.Error()})
+			return
+		}
+		if err := loadViewerLikes(db, skills, currentUserFromContext(c)); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"code": "INTERNAL_ERROR", "message": err.Error()})
+			return
+		}
 		if err := populateSkillsDownloadURLs(db, objStorage, skills); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"code": "INTERNAL_ERROR", "message": err.Error()})
 			return
@@ -138,6 +146,14 @@ func SearchSkills(db *storage.Database, objStorages ...*storage.ObjectStorage) g
 			return
 		}
 		populateSkillsComputedFields(skills)
+		if err := populateSkillOwnerFields(db, skills); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"code": "INTERNAL_ERROR", "message": err.Error()})
+			return
+		}
+		if err := loadViewerLikes(db, skills, currentUserFromContext(c)); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"code": "INTERNAL_ERROR", "message": err.Error()})
+			return
+		}
 		if err := populateSkillsDownloadURLs(db, objStorage, skills); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"code": "INTERNAL_ERROR", "message": err.Error()})
 			return

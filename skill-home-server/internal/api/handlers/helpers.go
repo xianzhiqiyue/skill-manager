@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/skill-home/server/internal/models"
 	"github.com/skill-home/server/internal/storage"
@@ -256,6 +257,10 @@ func applySkillOrderingCore(query *gorm.DB, sort string) *gorm.DB {
 	}
 
 	switch strings.ToLower(strings.TrimSpace(sort)) {
+	case "likes", "like":
+		return query.Order("like_count DESC").Order("download_count DESC").Order("updated_at DESC")
+	case "installs", "install":
+		return query.Order("install_count DESC").Order("download_count DESC").Order("updated_at DESC")
 	case "updated", "recent":
 		return query.Order("updated_at DESC").Order("download_count DESC")
 	case "newest", "created":
@@ -372,6 +377,10 @@ func populateSkillComputedFields(skill *models.Skill) {
 		return
 	}
 	skill.Rating = skill.GetRating()
+	if skill.OwnerUsername == "" && skill.Owner.ID != uuid.Nil {
+		skill.OwnerUsername = skill.Owner.Username
+		skill.OwnerDisplayNameZh = skill.Owner.DisplayNameZh
+	}
 }
 
 func populateSkillsComputedFields(skills []models.Skill) {
@@ -395,6 +404,119 @@ func loadUserRating(db *storage.Database, skill *models.Skill, userID *uuid.UUID
 
 	skill.UserRating = &rating
 	return nil
+}
+
+func loadViewerLike(db *storage.Database, skill *models.Skill, userID *uuid.UUID) error {
+	if db == nil || skill == nil || userID == nil || *userID == uuid.Nil {
+		return nil
+	}
+
+	var like models.SkillLike
+	if err := db.Where("skill_id = ? AND user_id = ?", skill.ID, *userID).First(&like).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			skill.ViewerLiked = false
+			return nil
+		}
+		return err
+	}
+
+	skill.ViewerLiked = true
+	return nil
+}
+
+func loadViewerLikes(db *storage.Database, skills []models.Skill, viewer *models.User) error {
+	if db == nil || viewer == nil || viewer.ID == uuid.Nil || len(skills) == 0 {
+		return nil
+	}
+
+	ids := make([]uuid.UUID, 0, len(skills))
+	for i := range skills {
+		if skills[i].ID != uuid.Nil {
+			ids = append(ids, skills[i].ID)
+		}
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+
+	var likedIDs []uuid.UUID
+	if err := db.Model(&models.SkillLike{}).
+		Where("user_id = ? AND skill_id IN ?", viewer.ID, ids).
+		Pluck("skill_id", &likedIDs).Error; err != nil {
+		return err
+	}
+	liked := make(map[uuid.UUID]struct{}, len(likedIDs))
+	for _, id := range likedIDs {
+		liked[id] = struct{}{}
+	}
+	for i := range skills {
+		_, skills[i].ViewerLiked = liked[skills[i].ID]
+	}
+	return nil
+}
+
+func populateSkillOwnerFields(db *storage.Database, skills []models.Skill) error {
+	if len(skills) == 0 {
+		return nil
+	}
+
+	ownerIDs := make([]uuid.UUID, 0, len(skills))
+	seen := map[uuid.UUID]struct{}{}
+	for i := range skills {
+		if skills[i].Owner.ID != uuid.Nil {
+			skills[i].OwnerUsername = skills[i].Owner.Username
+			skills[i].OwnerDisplayNameZh = skills[i].Owner.DisplayNameZh
+			continue
+		}
+		if skills[i].OwnerID == uuid.Nil {
+			continue
+		}
+		if _, exists := seen[skills[i].OwnerID]; exists {
+			continue
+		}
+		seen[skills[i].OwnerID] = struct{}{}
+		ownerIDs = append(ownerIDs, skills[i].OwnerID)
+	}
+	if db == nil || len(ownerIDs) == 0 {
+		return nil
+	}
+
+	var users []models.User
+	if err := db.Model(&models.User{}).
+		Select("id", "username", "display_name_zh").
+		Where("id IN ?", ownerIDs).
+		Find(&users).Error; err != nil {
+		return err
+	}
+	owners := make(map[uuid.UUID]models.User, len(users))
+	for _, user := range users {
+		owners[user.ID] = user
+	}
+	for i := range skills {
+		owner, exists := owners[skills[i].OwnerID]
+		if !exists {
+			continue
+		}
+		skills[i].OwnerUsername = owner.Username
+		skills[i].OwnerDisplayNameZh = owner.DisplayNameZh
+	}
+
+	return nil
+}
+
+func currentUserFromContext(c *gin.Context) *models.User {
+	if c == nil {
+		return nil
+	}
+	user, exists := c.Get("user")
+	if !exists {
+		return nil
+	}
+	viewer, ok := user.(*models.User)
+	if !ok {
+		return nil
+	}
+	return viewer
 }
 
 func normalizeTagValue(value string) string {
@@ -655,6 +777,10 @@ func populateSkillDetailResponse(db *storage.Database, objStorage *storage.Objec
 	}
 
 	populateSkillComputedFields(skill)
+	if skill.Owner.ID != uuid.Nil {
+		skill.OwnerUsername = skill.Owner.Username
+		skill.OwnerDisplayNameZh = skill.Owner.DisplayNameZh
+	}
 	populateSkillDetailDownloadURLs(objStorage, skill)
 	populateSkillDetailCredentials(skill)
 
@@ -662,6 +788,9 @@ func populateSkillDetailResponse(db *storage.Database, objStorage *storage.Objec
 	if viewer != nil {
 		viewerID = &viewer.ID
 		if err := loadUserRating(db, skill, viewerID); err != nil {
+			return err
+		}
+		if err := loadViewerLike(db, skill, viewerID); err != nil {
 			return err
 		}
 	}

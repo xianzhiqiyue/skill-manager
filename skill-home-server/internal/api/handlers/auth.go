@@ -3,6 +3,7 @@ package handlers
 import (
 	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -17,9 +18,10 @@ import (
 
 // RegisterRequest 注册请求
 type RegisterRequest struct {
-	Username string `json:"username" binding:"required,min=3,max=32"`
-	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required,min=6"`
+	Username      string `json:"username" binding:"required,min=3,max=32"`
+	DisplayNameZh string `json:"display_name_zh" binding:"required,max=64"`
+	Email         string `json:"email" binding:"required,email"`
+	Password      string `json:"password" binding:"required,min=6"`
 }
 
 // LoginRequest 登录请求
@@ -32,11 +34,12 @@ type LoginRequest struct {
 type AuthResponse struct {
 	Token string `json:"token"`
 	User  struct {
-		ID           string `json:"id"`
-		Username     string `json:"username"`
-		Email        string `json:"email"`
-		IsAdmin      bool   `json:"is_admin"`
-		IsSuperAdmin bool   `json:"is_super_admin"`
+		ID            string `json:"id"`
+		Username      string `json:"username"`
+		DisplayNameZh string `json:"display_name_zh,omitempty"`
+		Email         string `json:"email"`
+		IsAdmin       bool   `json:"is_admin"`
+		IsSuperAdmin  bool   `json:"is_super_admin"`
 	} `json:"user"`
 }
 
@@ -46,6 +49,17 @@ func Register(db *storage.Database) gin.HandlerFunc {
 		var req RegisterRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"code": "INVALID_INPUT", "message": err.Error()})
+			return
+		}
+		req.Username = strings.TrimSpace(req.Username)
+		req.DisplayNameZh = strings.TrimSpace(req.DisplayNameZh)
+		req.Email = strings.TrimSpace(req.Email)
+		if req.Username == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"code": "INVALID_INPUT", "message": "username is required"})
+			return
+		}
+		if req.DisplayNameZh == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"code": "INVALID_INPUT", "message": "display_name_zh is required"})
 			return
 		}
 
@@ -71,9 +85,10 @@ func Register(db *storage.Database) gin.HandlerFunc {
 
 		// 创建用户
 		user := models.User{
-			Username: req.Username,
-			Email:    req.Email,
-			Password: string(passwordHash),
+			Username:      req.Username,
+			DisplayNameZh: req.DisplayNameZh,
+			Email:         req.Email,
+			Password:      string(passwordHash),
 		}
 
 		if err := createUserRecord(db.DB, &user); err != nil {
@@ -89,8 +104,9 @@ func Register(db *storage.Database) gin.HandlerFunc {
 		}
 
 		writeAuditLog(db, c, &user.ID, "user.register", resourceTypeUser, &user.ID, models.JSON{
-			"username": user.Username,
-			"email":    user.Email,
+			"username":        user.Username,
+			"display_name_zh": user.DisplayNameZh,
+			"email":           user.Email,
 		})
 
 		// 生成 JWT
@@ -106,6 +122,7 @@ func Register(db *storage.Database) gin.HandlerFunc {
 		}
 		resp.User.ID = user.ID.String()
 		resp.User.Username = user.Username
+		resp.User.DisplayNameZh = user.DisplayNameZh
 		resp.User.Email = user.Email
 		resp.User.IsAdmin = user.IsAdmin
 		resp.User.IsSuperAdmin = user.IsSuperAdmin
@@ -168,6 +185,7 @@ func Login(db *storage.Database) gin.HandlerFunc {
 		}
 		resp.User.ID = user.ID.String()
 		resp.User.Username = user.Username
+		resp.User.DisplayNameZh = user.DisplayNameZh
 		resp.User.Email = user.Email
 		resp.User.IsAdmin = user.IsAdmin
 		resp.User.IsSuperAdmin = user.IsSuperAdmin
@@ -189,11 +207,12 @@ func generateToken(user *models.User) (string, error) {
 	}
 
 	claims := jwt.MapClaims{
-		"user_id":  user.ID.String(),
-		"username": user.Username,
-		"email":    user.Email,
-		"exp":      time.Now().Add(time.Hour * time.Duration(expireHours)).Unix(),
-		"iat":      time.Now().Unix(),
+		"user_id":         user.ID.String(),
+		"username":        user.Username,
+		"display_name_zh": user.DisplayNameZh,
+		"email":           user.Email,
+		"exp":             time.Now().Add(time.Hour * time.Duration(expireHours)).Unix(),
+		"iat":             time.Now().Unix(),
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)

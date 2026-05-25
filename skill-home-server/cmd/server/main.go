@@ -119,11 +119,14 @@ func setupRouter(db *storage.Database, objStorage *storage.ObjectStorage, scanne
 		api.POST("/auth/register", handlers.Register(db))
 		api.POST("/auth/login", handlers.Login(db))
 
-		api.GET("/skills", handlers.ListSkills(db, objStorage))
+		api.GET("/skills", middleware.OptionalAuth(db), handlers.ListSkills(db, objStorage))
 		api.GET("/skills/:namespace/:name", middleware.OptionalAuth(db), handlers.GetSkill(db, objStorage))
 		api.GET("/skills/:namespace/:name/versions", middleware.OptionalAuth(db), handlers.ListVersions(db, objStorage))
-		api.GET("/search", handlers.SearchSkills(db, objStorage))
+		api.GET("/search", middleware.OptionalAuth(db), handlers.SearchSkills(db, objStorage))
 		api.GET("/download/:namespace/:name/:version", middleware.OptionalAuth(db), middleware.RateLimit(), handlers.DownloadSkill(db, objStorage))
+		api.POST("/skills/:namespace/:name/install-events", middleware.OptionalAuth(db), handlers.RecordInstallEvent(db))
+		api.POST("/skills/:namespace/:name/share-events", middleware.OptionalAuth(db), handlers.RecordShareEvent(db))
+		api.GET("/users/:username/stats", handlers.GetPublicUserStats(db))
 
 		auth := api.Group("/")
 		auth.Use(middleware.Auth(db))
@@ -134,8 +137,13 @@ func setupRouter(db *storage.Database, objStorage *storage.ObjectStorage, scanne
 			auth.POST("/skills/:namespace/:name/versions", handlers.PublishVersion(db, objStorage, scanner))
 			auth.DELETE("/skills/:namespace/:name/versions/:version", handlers.DeleteVersion(db, objStorage))
 			auth.POST("/skills/:namespace/:name/rating", handlers.RateSkill(db))
+			auth.POST("/skills/:namespace/:name/like", handlers.LikeSkill(db, objStorage))
+			auth.DELETE("/skills/:namespace/:name/like", handlers.UnlikeSkill(db, objStorage))
 
 			auth.GET("/user", handlers.GetCurrentUser)
+			auth.GET("/user/stats", handlers.GetCurrentUserStats(db))
+			auth.PUT("/user/profile", handlers.UpdateCurrentUserProfile(db))
+			auth.PUT("/user/password", handlers.UpdateCurrentUserPassword(db))
 			auth.GET("/user/skills", handlers.GetUserSkills(db))
 			auth.GET("/user/audit-logs", handlers.ListAuditLogs(db))
 			auth.GET("/user/api-keys", handlers.ListAPIKeys(db))
@@ -143,6 +151,7 @@ func setupRouter(db *storage.Database, objStorage *storage.ObjectStorage, scanne
 			auth.DELETE("/user/api-keys/:id", handlers.RevokeAPIKey(db))
 			auth.GET("/admin/users", handlers.ListUsers(db))
 			auth.PUT("/admin/users/:id", handlers.UpdateUserByAdmin(db))
+			auth.GET("/admin/audit-logs", handlers.ListAdminAuditLogs(db))
 			auth.PATCH("/admin/skills/:namespace/:name/recommendation", handlers.UpdateSkillRecommendation(db))
 		}
 	}

@@ -41,6 +41,7 @@ func newTestDatabase(t *testing.T) *storage.Database {
 	mustExec(t, db, `CREATE TABLE users (
 		id TEXT PRIMARY KEY,
 		username TEXT NOT NULL,
+		display_name_zh TEXT,
 		email TEXT NOT NULL,
 		password TEXT,
 		avatar_url TEXT,
@@ -65,6 +66,8 @@ func newTestDatabase(t *testing.T) *storage.Database {
 		homepage TEXT,
 		repository TEXT,
 		download_count INTEGER DEFAULT 0,
+		like_count INTEGER DEFAULT 0,
+		install_count INTEGER DEFAULT 0,
 		rating_sum INTEGER DEFAULT 0,
 		rating_count INTEGER DEFAULT 0,
 		is_public NUMERIC DEFAULT 1,
@@ -94,6 +97,30 @@ func newTestDatabase(t *testing.T) *storage.Database {
 		updated_at DATETIME
 	)`)
 	mustExec(t, db, `CREATE UNIQUE INDEX idx_skill_user_rating ON skill_ratings(skill_id, user_id)`)
+	mustExec(t, db, `CREATE TABLE skill_likes (
+		id TEXT PRIMARY KEY,
+		skill_id TEXT NOT NULL,
+		user_id TEXT NOT NULL,
+		created_at DATETIME
+	)`)
+	mustExec(t, db, `CREATE UNIQUE INDEX idx_skill_like_user ON skill_likes(skill_id, user_id)`)
+	mustExec(t, db, `CREATE TABLE skill_install_events (
+		id TEXT PRIMARY KEY,
+		skill_id TEXT NOT NULL,
+		user_id TEXT,
+		version TEXT,
+		target TEXT,
+		install_mode TEXT,
+		client_version TEXT,
+		created_at DATETIME
+	)`)
+	mustExec(t, db, `CREATE TABLE skill_share_events (
+		id TEXT PRIMARY KEY,
+		skill_id TEXT NOT NULL,
+		user_id TEXT,
+		channel TEXT,
+		created_at DATETIME
+	)`)
 	mustExec(t, db, `CREATE TABLE skill_community_tags (
 		id TEXT PRIMARY KEY,
 		skill_id TEXT NOT NULL,
@@ -1472,6 +1499,13 @@ func TestSuperAdminCanManageUsers(t *testing.T) {
 	if listRec.Code != http.StatusOK {
 		t.Fatalf("list status: %d body=%s", listRec.Code, listRec.Body.String())
 	}
+	var listResp AdminUserListResponse
+	if err := json.Unmarshal(listRec.Body.Bytes(), &listResp); err != nil {
+		t.Fatalf("decode list response failed: %v", err)
+	}
+	if listResp.Total != 2 || len(listResp.Results) != 2 {
+		t.Fatalf("unexpected user list response: %+v", listResp)
+	}
 
 	updateBody := bytes.NewBufferString(`{"is_admin":true,"is_super_admin":true,"is_active":false,"password":"new-password"}`)
 	updateReq := httptest.NewRequest(http.MethodPut, "/api/v1/admin/users/"+target.ID.String(), updateBody)
@@ -1497,6 +1531,177 @@ func TestSuperAdminCanManageUsers(t *testing.T) {
 	}
 	if err := bcrypt.CompareHashAndPassword([]byte(updated.Password), []byte("new-password")); err != nil {
 		t.Fatalf("expected password to be updated: %v", err)
+	}
+
+	var updateResp AdminUserResponse
+	if err := json.Unmarshal(updateRec.Body.Bytes(), &updateResp); err != nil {
+		t.Fatalf("decode update response failed: %v", err)
+	}
+	if updateResp.Role != "super_admin" {
+		t.Fatalf("role = %q, want super_admin", updateResp.Role)
+	}
+}
+
+func TestListUsersSupportsFiltersAndPagination(t *testing.T) {
+	db := newTestDatabase(t)
+	users := []*models.User{
+		{ID: uuid.New(), Username: "root", DisplayNameZh: "超管", Email: "root@example.com", IsActive: true, IsSuperAdmin: true},
+		{ID: uuid.New(), Username: "catalog-admin", DisplayNameZh: "目录管理员", Email: "admin@example.com", IsActive: true, IsAdmin: true},
+		{ID: uuid.New(), Username: "alice", DisplayNameZh: "爱丽丝", Email: "alice@example.com", IsActive: true},
+		{ID: uuid.New(), Username: "bob", DisplayNameZh: "鲍勃", Email: "bob@example.com", IsActive: false},
+	}
+	if err := db.Create(users).Error; err != nil {
+		t.Fatalf("seed users failed: %v", err)
+	}
+	if err := db.Model(users[3]).Update("is_active", false).Error; err != nil {
+		t.Fatalf("set inactive user failed: %v", err)
+	}
+
+	router := newAuthedRouter(users[0])
+	router.GET("/api/v1/admin/users", ListUsers(db))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/users?role=member&status=inactive&q=bob&page=1&per_page=1", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("list status: %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	var resp AdminUserListResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response failed: %v", err)
+	}
+	if resp.Total != 1 || resp.Page != 1 || resp.PerPage != 1 || len(resp.Results) != 1 {
+		t.Fatalf("unexpected pagination response: %+v", resp)
+	}
+	if resp.Results[0].Username != "bob" || resp.Results[0].Role != "member" || resp.Results[0].IsActive {
+		t.Fatalf("unexpected filtered user: %+v", resp.Results[0])
+	}
+}
+
+func TestUpdateUserByAdminProtectsSuperAdminAccess(t *testing.T) {
+	db := newTestDatabase(t)
+	admin := &models.User{ID: uuid.New(), Username: "root", Email: "root@example.com", IsActive: true, IsSuperAdmin: true}
+	target := &models.User{ID: uuid.New(), Username: "member", Email: "member@example.com", IsActive: true}
+	if err := db.Create([]*models.User{admin, target}).Error; err != nil {
+		t.Fatalf("seed users failed: %v", err)
+	}
+
+	router := newAuthedRouter(admin)
+	router.PUT("/api/v1/admin/users/:id", UpdateUserByAdmin(db))
+
+	selfDeactivateReq := httptest.NewRequest(http.MethodPut, "/api/v1/admin/users/"+admin.ID.String(), bytes.NewBufferString(`{"is_active":false}`))
+	selfDeactivateReq.Header.Set("Content-Type", "application/json")
+	selfDeactivateRec := httptest.NewRecorder()
+	router.ServeHTTP(selfDeactivateRec, selfDeactivateReq)
+	if selfDeactivateRec.Code != http.StatusBadRequest {
+		t.Fatalf("expected self deactivation 400, got %d body=%s", selfDeactivateRec.Code, selfDeactivateRec.Body.String())
+	}
+
+	removeLastReq := httptest.NewRequest(http.MethodPut, "/api/v1/admin/users/"+admin.ID.String(), bytes.NewBufferString(`{"is_super_admin":false}`))
+	removeLastReq.Header.Set("Content-Type", "application/json")
+	removeLastRec := httptest.NewRecorder()
+	router.ServeHTTP(removeLastRec, removeLastReq)
+	if removeLastRec.Code != http.StatusBadRequest {
+		t.Fatalf("expected last super admin removal 400, got %d body=%s", removeLastRec.Code, removeLastRec.Body.String())
+	}
+
+	updateTargetReq := httptest.NewRequest(http.MethodPut, "/api/v1/admin/users/"+target.ID.String(), bytes.NewBufferString(`{"is_admin":true}`))
+	updateTargetReq.Header.Set("Content-Type", "application/json")
+	updateTargetRec := httptest.NewRecorder()
+	router.ServeHTTP(updateTargetRec, updateTargetReq)
+	if updateTargetRec.Code != http.StatusOK {
+		t.Fatalf("expected target update 200, got %d body=%s", updateTargetRec.Code, updateTargetRec.Body.String())
+	}
+}
+
+func TestCurrentUserCanUpdateProfileAndPassword(t *testing.T) {
+	db := newTestDatabase(t)
+	hash, err := bcrypt.GenerateFromPassword([]byte("old-password"), bcrypt.DefaultCost)
+	if err != nil {
+		t.Fatalf("hash password failed: %v", err)
+	}
+	user := &models.User{
+		ID:            uuid.New(),
+		Username:      "alice",
+		DisplayNameZh: "旧名字",
+		Email:         "alice@example.com",
+		Password:      string(hash),
+		IsActive:      true,
+	}
+	if err := db.Create(user).Error; err != nil {
+		t.Fatalf("create user failed: %v", err)
+	}
+
+	router := newAuthedRouter(user)
+	router.PUT("/api/v1/user/profile", UpdateCurrentUserProfile(db))
+	router.PUT("/api/v1/user/password", UpdateCurrentUserPassword(db))
+
+	profileReq := httptest.NewRequest(http.MethodPut, "/api/v1/user/profile", bytes.NewBufferString(`{"display_name_zh":"新名字","avatar_url":"https://example.com/avatar.png"}`))
+	profileReq.Header.Set("Content-Type", "application/json")
+	profileRec := httptest.NewRecorder()
+	router.ServeHTTP(profileRec, profileReq)
+	if profileRec.Code != http.StatusOK {
+		t.Fatalf("profile status: %d body=%s", profileRec.Code, profileRec.Body.String())
+	}
+
+	passwordReq := httptest.NewRequest(http.MethodPut, "/api/v1/user/password", bytes.NewBufferString(`{"current_password":"old-password","new_password":"new-password"}`))
+	passwordReq.Header.Set("Content-Type", "application/json")
+	passwordRec := httptest.NewRecorder()
+	router.ServeHTTP(passwordRec, passwordReq)
+	if passwordRec.Code != http.StatusOK {
+		t.Fatalf("password status: %d body=%s", passwordRec.Code, passwordRec.Body.String())
+	}
+
+	var updated models.User
+	if err := db.First(&updated, "id = ?", user.ID).Error; err != nil {
+		t.Fatalf("reload user failed: %v", err)
+	}
+	if updated.DisplayNameZh != "新名字" || updated.AvatarURL != "https://example.com/avatar.png" {
+		t.Fatalf("unexpected profile: %+v", updated)
+	}
+	if err := bcrypt.CompareHashAndPassword([]byte(updated.Password), []byte("new-password")); err != nil {
+		t.Fatalf("expected new password hash: %v", err)
+	}
+}
+
+func TestSuperAdminCanListGlobalAuditLogs(t *testing.T) {
+	db := newTestDatabase(t)
+	admin := &models.User{ID: uuid.New(), Username: "root", Email: "root@example.com", IsActive: true, IsSuperAdmin: true}
+	target := &models.User{ID: uuid.New(), Username: "member", Email: "member@example.com", IsActive: true}
+	if err := db.Create([]*models.User{admin, target}).Error; err != nil {
+		t.Fatalf("seed users failed: %v", err)
+	}
+
+	router := newAuthedRouter(admin)
+	router.PUT("/api/v1/admin/users/:id", UpdateUserByAdmin(db))
+	router.GET("/api/v1/admin/audit-logs", ListAdminAuditLogs(db))
+
+	updateReq := httptest.NewRequest(http.MethodPut, "/api/v1/admin/users/"+target.ID.String(), bytes.NewBufferString(`{"is_admin":true}`))
+	updateReq.Header.Set("Content-Type", "application/json")
+	updateRec := httptest.NewRecorder()
+	router.ServeHTTP(updateRec, updateReq)
+	if updateRec.Code != http.StatusOK {
+		t.Fatalf("update status: %d body=%s", updateRec.Code, updateRec.Body.String())
+	}
+
+	listReq := httptest.NewRequest(http.MethodGet, "/api/v1/admin/audit-logs?action=admin.user.update", nil)
+	listRec := httptest.NewRecorder()
+	router.ServeHTTP(listRec, listReq)
+	if listRec.Code != http.StatusOK {
+		t.Fatalf("audit list status: %d body=%s", listRec.Code, listRec.Body.String())
+	}
+
+	var resp struct {
+		Total   int64             `json:"total"`
+		Results []models.AuditLog `json:"results"`
+	}
+	if err := json.Unmarshal(listRec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode audit response failed: %v", err)
+	}
+	if resp.Total != 1 || len(resp.Results) != 1 || resp.Results[0].Action != "admin.user.update" {
+		t.Fatalf("unexpected audit response: %+v", resp)
 	}
 }
 
@@ -3624,6 +3829,206 @@ func TestCreateSkillRecordReturnsAlreadyExistsOnConflict(t *testing.T) {
 	}
 	if got := currentCatalogVersion(t, db); got != 1 {
 		t.Fatalf("catalog_version = %d, want 1", got)
+	}
+}
+
+func TestRegisterRequiresDisplayNameZh(t *testing.T) {
+	db := newTestDatabase(t)
+
+	router := gin.New()
+	router.POST("/api/v1/auth/register", Register(db))
+
+	body := strings.NewReader(`{"username":"testuser","email":"test@example.com","password":"secret123"}`)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/register", body)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestRegisterPersistsDisplayNameZh(t *testing.T) {
+	t.Setenv("SKILL_HOME_AUTH_JWT_SECRET", "test-secret")
+	if err := config.Load(); err != nil {
+		t.Fatalf("load config failed: %v", err)
+	}
+
+	db := newTestDatabase(t)
+	mustExec(t, db.DB, `CREATE UNIQUE INDEX idx_users_email ON users(email)`)
+	mustExec(t, db.DB, `CREATE UNIQUE INDEX idx_users_username ON users(username)`)
+
+	router := gin.New()
+	router.POST("/api/v1/auth/register", Register(db))
+
+	body := strings.NewReader(`{"username":"testuser","display_name_zh":"测试用户","email":"test@example.com","password":"secret123"}`)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/register", body)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	var resp AuthResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response failed: %v", err)
+	}
+	if resp.User.DisplayNameZh != "测试用户" {
+		t.Fatalf("display_name_zh = %q, want 测试用户", resp.User.DisplayNameZh)
+	}
+	if resp.Token == "" {
+		t.Fatal("expected auth token")
+	}
+
+	var user models.User
+	if err := db.First(&user, "username = ?", "testuser").Error; err != nil {
+		t.Fatalf("load registered user failed: %v", err)
+	}
+	if user.DisplayNameZh != "测试用户" {
+		t.Fatalf("stored display_name_zh = %q, want 测试用户", user.DisplayNameZh)
+	}
+}
+
+func TestLikeSkillUpdatesCountAndViewerState(t *testing.T) {
+	db := newTestDatabase(t)
+	owner := &models.User{ID: uuid.New(), Username: "owner", DisplayNameZh: "拥有者", Email: "owner@example.com"}
+	viewer := &models.User{ID: uuid.New(), Username: "viewer", DisplayNameZh: "访问者", Email: "viewer@example.com"}
+	if err := db.Create([]*models.User{owner, viewer}).Error; err != nil {
+		t.Fatalf("create users failed: %v", err)
+	}
+
+	skill := models.Skill{
+		ID:          uuid.New(),
+		Namespace:   "team",
+		Name:        "github",
+		OwnerID:     owner.ID,
+		Description: "public skill",
+		IsPublic:    true,
+	}
+	if err := db.Create(&skill).Error; err != nil {
+		t.Fatalf("create skill failed: %v", err)
+	}
+
+	router := newAuthedRouter(viewer)
+	router.POST("/api/v1/skills/:namespace/:name/like", LikeSkill(db))
+	router.DELETE("/api/v1/skills/:namespace/:name/like", UnlikeSkill(db))
+
+	postReq := httptest.NewRequest(http.MethodPost, "/api/v1/skills/team/github/like", nil)
+	postRec := httptest.NewRecorder()
+	router.ServeHTTP(postRec, postReq)
+	if postRec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", postRec.Code, postRec.Body.String())
+	}
+
+	var liked models.Skill
+	if err := json.Unmarshal(postRec.Body.Bytes(), &liked); err != nil {
+		t.Fatalf("decode liked skill failed: %v", err)
+	}
+	if liked.LikeCount != 1 || !liked.ViewerLiked {
+		t.Fatalf("unexpected liked state: like_count=%d viewer_liked=%v", liked.LikeCount, liked.ViewerLiked)
+	}
+	if liked.OwnerUsername != "owner" || liked.OwnerDisplayNameZh != "拥有者" {
+		t.Fatalf("unexpected owner fields: %+v", liked)
+	}
+
+	duplicateReq := httptest.NewRequest(http.MethodPost, "/api/v1/skills/team/github/like", nil)
+	duplicateRec := httptest.NewRecorder()
+	router.ServeHTTP(duplicateRec, duplicateReq)
+	if duplicateRec.Code != http.StatusOK {
+		t.Fatalf("expected duplicate like 200, got %d body=%s", duplicateRec.Code, duplicateRec.Body.String())
+	}
+	var duplicate models.Skill
+	if err := json.Unmarshal(duplicateRec.Body.Bytes(), &duplicate); err != nil {
+		t.Fatalf("decode duplicate like failed: %v", err)
+	}
+	if duplicate.LikeCount != 1 || !duplicate.ViewerLiked {
+		t.Fatalf("duplicate like state = like_count=%d viewer_liked=%v, want 1/true", duplicate.LikeCount, duplicate.ViewerLiked)
+	}
+
+	deleteReq := httptest.NewRequest(http.MethodDelete, "/api/v1/skills/team/github/like", nil)
+	deleteRec := httptest.NewRecorder()
+	router.ServeHTTP(deleteRec, deleteReq)
+	if deleteRec.Code != http.StatusOK {
+		t.Fatalf("expected unlike 200, got %d body=%s", deleteRec.Code, deleteRec.Body.String())
+	}
+
+	var unliked models.Skill
+	if err := json.Unmarshal(deleteRec.Body.Bytes(), &unliked); err != nil {
+		t.Fatalf("decode unliked skill failed: %v", err)
+	}
+	if unliked.LikeCount != 0 || unliked.ViewerLiked {
+		t.Fatalf("unexpected unliked state: like_count=%d viewer_liked=%v", unliked.LikeCount, unliked.ViewerLiked)
+	}
+}
+
+func TestRecordInstallEventIncrementsStats(t *testing.T) {
+	db := newTestDatabase(t)
+	owner := &models.User{ID: uuid.New(), Username: "owner", DisplayNameZh: "拥有者", Email: "owner@example.com"}
+	viewer := &models.User{ID: uuid.New(), Username: "viewer", Email: "viewer@example.com"}
+	if err := db.Create([]*models.User{owner, viewer}).Error; err != nil {
+		t.Fatalf("create users failed: %v", err)
+	}
+
+	skill := models.Skill{
+		ID:            uuid.New(),
+		Namespace:     "team",
+		Name:          "github",
+		OwnerID:       owner.ID,
+		Description:   "public skill",
+		DownloadCount: 3,
+		LikeCount:     2,
+		RatingSum:     9,
+		RatingCount:   2,
+		IsPublic:      true,
+	}
+	if err := db.Create(&skill).Error; err != nil {
+		t.Fatalf("create skill failed: %v", err)
+	}
+
+	router := newAuthedRouter(viewer)
+	router.POST("/api/v1/skills/:namespace/:name/install-events", RecordInstallEvent(db))
+
+	body := strings.NewReader(`{"version":"1.0.0","target":"codex","install_mode":"mirror","client_version":"1.2.3"}`)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/skills/team/github/install-events", body)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	var resp struct {
+		InstallCount int64        `json:"install_count"`
+		Skill        models.Skill `json:"skill"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response failed: %v", err)
+	}
+	if resp.InstallCount != 1 || resp.Skill.InstallCount != 1 {
+		t.Fatalf("install_count = %d/%d, want 1", resp.InstallCount, resp.Skill.InstallCount)
+	}
+
+	var event models.SkillInstallEvent
+	if err := db.First(&event, "skill_id = ?", skill.ID).Error; err != nil {
+		t.Fatalf("load install event failed: %v", err)
+	}
+	if event.UserID == nil || *event.UserID != viewer.ID || event.Target != "codex" {
+		t.Fatalf("unexpected install event: %+v", event)
+	}
+
+	stats, err := buildUserStats(db, owner, false)
+	if err != nil {
+		t.Fatalf("build stats failed: %v", err)
+	}
+	if stats.SkillCount != 1 || stats.TotalInstallCount != 1 || stats.TotalLikeCount != 2 || stats.TotalDownloadCount != 3 {
+		t.Fatalf("unexpected stats: %+v", stats)
+	}
+	if stats.AverageRating != 4.5 {
+		t.Fatalf("average_rating = %v, want 4.5", stats.AverageRating)
 	}
 }
 
