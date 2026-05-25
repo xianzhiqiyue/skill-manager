@@ -12,7 +12,8 @@ registry:
 # 本地配置
 local:
   skills_dir: "~/.skill-home/skills"
-  default_namespace: "@user"
+  # 登录后会自动更新为当前登录用户的用户名，例如 "@tester"
+  default_namespace: "@<login-username>"
 
 # IDE 配置
 ide:

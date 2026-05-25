@@ -11,7 +11,7 @@
 | 打包与导出 | `pack` `export` | 生成 zip 发布包或导出为 IDE 平台格式 |
 | IDE 同步 | `sync` `install` `uninstall` | 同步到 Claude、Copilot、Cursor、Codex、OpenClaw |
 | 注册中心交互 | `push` `pull` `search` `list --remote` `info` | 发布、拉取、搜索和查看远程 skill |
-| 生命周期管理 | `update` `delete` `delete-version` `rate` | 更新本地缓存、删除远程版本、评分 |
+| 生命周期管理 | `update` `delete` `delete-version` `rate` | 更新本地缓存、删除远程版本、评分；`install` 成功后会上报安装事件 |
 | 环境治理 | `login` `logout` `whoami` `doctor` `self-update` | 认证、诊断、本机 CLI 自更新 |
 
 ## 安装
@@ -99,7 +99,11 @@ skill-home update --ide codex --global --mode mirror
 - CLI 会先请求 `GET /api/v1/catalog/version`
 - 如果 `catalog_version` 未变化，优先复用本地缓存目录
 - 如果服务暂时失败但本地已有缓存，会回退到旧缓存，并在 `stderr` 提示“结果可能过期”
-- 这层缓存只覆盖公开目录结构，不保证 `download_count`、`rating`、`rating_count` 这类动态统计字段实时
+- 这层缓存只覆盖公开目录结构，不保证 `download_count`、`like_count`、`install_count`、`rating`、`rating_count` 这类动态统计字段实时
+
+## 安装事件统计
+
+`skill-home install <skill-ref>` 在拉取并同步到 IDE 成功后，会向注册中心上报一次安装事件，包含安装版本、目标 IDE、安装模式和 CLI 版本。上报失败只会输出 warning，不会回滚本地安装结果。
 
 ## 命令参考
 

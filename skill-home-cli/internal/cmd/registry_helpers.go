@@ -23,6 +23,7 @@ type registryClient interface {
 	GetUserSkills() ([]registry.Skill, error)
 	ListAuditLogs(page, perPage int, action string) (*registry.AuditLogList, error)
 	RateSkill(namespace, name string, req *registry.RateSkillRequest) (*registry.RateSkillResponse, error)
+	RecordInstallEvent(namespace, name string, req *registry.InstallEventRequest) (*registry.InstallEventResponse, error)
 	Publish(skillPath string, req *registry.PublishRequest) (*registry.PublishResponse, error)
 	UpdateSkill(namespace, name string, req *registry.UpdateSkillRequest) (*registry.Skill, error)
 }

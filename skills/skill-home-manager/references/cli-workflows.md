@@ -166,7 +166,7 @@ skill-home delete-version @namespace/name@1.2.3 --yes
 规则:
 
 - `push`、`delete`、`delete-version` 必须先 `skill-home login`
-- `push` 默认发布到当前登录用户的用户名命名空间；不要默认使用 `@user`、示例命名空间、历史 manifest 命名空间或 `default_namespace`
+- `push` 默认发布到当前登录用户的用户名命名空间；新版 CLI 登录后也会把 `local.default_namespace` 保存为 `@<用户名>`；不要默认使用 `@user`、示例命名空间或历史 manifest 命名空间
 - `push` 在交互终端里会尝试补齐缺失的 `category/tags`，但代理默认仍应先整理好 `SKILL.md`
 - `pull`、`install`、`update`、`search`、`info`、`list --remote` 对公开 skill 不要求登录
 - 匿名读取私有 skill 时，如果看到“该 skill 可能是私有的”，先登录再重试

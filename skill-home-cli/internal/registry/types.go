@@ -6,30 +6,35 @@ import (
 
 // Skill 技能信息
 type Skill struct {
-	ID            string                      `json:"id"`
-	Namespace     string                      `json:"namespace"`
-	Name          string                      `json:"name"`
-	OwnerID       string                      `json:"owner_id,omitempty"`
-	Description   string                      `json:"description"`
-	Category      string                      `json:"category,omitempty"`
-	DescriptionZh string                      `json:"description_zh,omitempty"`
-	Author        string                      `json:"author"`
-	Tags          []string                    `json:"tags,omitempty"`
-	License       string                      `json:"license,omitempty"`
-	Homepage      string                      `json:"homepage,omitempty"`
-	DownloadCount int64                       `json:"download_count"`
-	Rating        float64                     `json:"rating"`
-	RatingCount   int64                       `json:"rating_count"`
-	IsPublic      bool                        `json:"is_public"`
-	IsDeprecated  bool                        `json:"is_deprecated"`
-	CreatedAt     time.Time                   `json:"created_at"`
-	UpdatedAt     time.Time                   `json:"updated_at"`
-	LatestVersion string                      `json:"latest_version,omitempty"`
-	DownloadURL   string                      `json:"download_url,omitempty"`
-	Owner         *User                       `json:"owner,omitempty"`
-	Versions      []SkillVersion              `json:"versions,omitempty"`
-	UserRating    *SkillRating                `json:"user_rating,omitempty"`
-	Credentials   []SkillCredentialDescriptor `json:"credentials,omitempty"`
+	ID                 string                      `json:"id"`
+	Namespace          string                      `json:"namespace"`
+	Name               string                      `json:"name"`
+	OwnerID            string                      `json:"owner_id,omitempty"`
+	OwnerUsername      string                      `json:"owner_username,omitempty"`
+	OwnerDisplayNameZh string                      `json:"owner_display_name_zh,omitempty"`
+	Description        string                      `json:"description"`
+	Category           string                      `json:"category,omitempty"`
+	DescriptionZh      string                      `json:"description_zh,omitempty"`
+	Author             string                      `json:"author"`
+	Tags               []string                    `json:"tags,omitempty"`
+	License            string                      `json:"license,omitempty"`
+	Homepage           string                      `json:"homepage,omitempty"`
+	DownloadCount      int64                       `json:"download_count"`
+	LikeCount          int64                       `json:"like_count"`
+	InstallCount       int64                       `json:"install_count"`
+	Rating             float64                     `json:"rating"`
+	RatingCount        int64                       `json:"rating_count"`
+	IsPublic           bool                        `json:"is_public"`
+	IsDeprecated       bool                        `json:"is_deprecated"`
+	CreatedAt          time.Time                   `json:"created_at"`
+	UpdatedAt          time.Time                   `json:"updated_at"`
+	LatestVersion      string                      `json:"latest_version,omitempty"`
+	DownloadURL        string                      `json:"download_url,omitempty"`
+	Owner              *User                       `json:"owner,omitempty"`
+	Versions           []SkillVersion              `json:"versions,omitempty"`
+	UserRating         *SkillRating                `json:"user_rating,omitempty"`
+	ViewerLiked        bool                        `json:"viewer_liked,omitempty"`
+	Credentials        []SkillCredentialDescriptor `json:"credentials,omitempty"`
 }
 
 // SkillCredentialDescriptor 技能凭证描述
@@ -119,11 +124,12 @@ type AuthResponse struct {
 
 // User 用户信息
 type User struct {
-	ID        string    `json:"id"`
-	Username  string    `json:"username"`
-	Email     string    `json:"email"`
-	AvatarURL string    `json:"avatar_url,omitempty"`
-	CreatedAt time.Time `json:"created_at"`
+	ID            string    `json:"id"`
+	Username      string    `json:"username"`
+	DisplayNameZh string    `json:"display_name_zh,omitempty"`
+	Email         string    `json:"email"`
+	AvatarURL     string    `json:"avatar_url,omitempty"`
+	CreatedAt     time.Time `json:"created_at"`
 }
 
 // SearchResult 搜索结果
@@ -192,6 +198,18 @@ type RateSkillRequest struct {
 type RateSkillResponse struct {
 	Skill      Skill       `json:"skill"`
 	UserRating SkillRating `json:"user_rating"`
+}
+
+type InstallEventRequest struct {
+	Version       string `json:"version,omitempty"`
+	Target        string `json:"target,omitempty"`
+	InstallMode   string `json:"install_mode,omitempty"`
+	ClientVersion string `json:"client_version,omitempty"`
+}
+
+type InstallEventResponse struct {
+	InstallCount int64 `json:"install_count"`
+	Skill        Skill `json:"skill"`
 }
 
 // APIError API 错误响应

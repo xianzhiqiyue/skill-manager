@@ -677,3 +677,33 @@ func (c *Client) RateSkill(namespace, name string, req *RateSkillRequest) (*Rate
 
 	return &result, nil
 }
+
+// RecordInstallEvent 上报安装成功事件。该接口用于注册中心统计真实安装量。
+func (c *Client) RecordInstallEvent(namespace, name string, req *InstallEventRequest) (*InstallEventResponse, error) {
+	body, err := json.Marshal(req)
+	if err != nil {
+		return nil, err
+	}
+
+	headers := map[string]string{
+		"Content-Type": "application/json",
+	}
+
+	path := fmt.Sprintf("/api/v1/skills/%s/%s/install-events", namespace, name)
+	resp, err := c.doRequest(http.MethodPost, path, bytes.NewReader(body), headers)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if err := c.handleError(resp); err != nil {
+		return nil, err
+	}
+
+	var result InstallEventResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+
+	return &result, nil
+}

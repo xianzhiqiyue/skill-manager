@@ -17,8 +17,11 @@ type RootOptions struct {
 	Debug      bool
 }
 
+var cliVersion = "dev"
+
 func NewRootCmd(version, commit, buildDate string) *cobra.Command {
 	opts := &RootOptions{}
+	cliVersion = version
 
 	rootCmd := &cobra.Command{
 		Use:   "skill-home",

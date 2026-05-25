@@ -1,6 +1,6 @@
 ---
 name: skill-home-manager
-version: 0.2.11
+version: 0.2.12
 description: 当用户想用本地 skill-home CLI 创建、编辑、验证、打包、导出、同步、安装或排查 skill 时使用，尤其适合把 skill 交付到 Codex。
 category: productivity
 namespace: "@skill-home"
@@ -112,7 +112,7 @@ ide_config:
 - `bash "$skill_home_manager_root/scripts/rebuild-cli.sh"` 在这个公共 skill 里表示“重新安装最新发布版 CLI”，不是从源码重建。
 - 不要默认要求本机存在任何 `skill-home` 源码仓库；只有当用户明确在维护该仓库时，才允许走源码工作流。
 - 涉及 registry 写操作时，先检查是否已登录；未登录时提示用户先执行 `skill-home login`。
-- 涉及 `push` 发布时，命名空间默认使用当前登录用户的用户名；新版 CLI 会自动用当前用户作为默认命名空间，旧版 CLI 则必须先刷新或显式传 `--namespace @<用户名>`。
+- 涉及 `push` 发布时，命名空间默认使用当前登录用户的用户名；新版 CLI 会自动用当前用户作为默认命名空间，并在 `login` 时把 `local.default_namespace` 保存为 `@<用户名>`；旧版 CLI 则必须先刷新或显式传 `--namespace @<用户名>`。
 - 遇到 skill 发布时，默认要把“补齐官方分类元数据”视为发布前置步骤，而不是等 `push` 失败后再补救。
 - 如果可以明确推断 `category/tags`，直接写回 `SKILL.md`；如果存在歧义，只问一个短问题澄清主分类或核心场景。
 - skill 发布的默认顺序是：递增版本号 -> `validate` -> `scan` -> `pack` -> `push`，发布成功后再把版本变更提交到 Git。

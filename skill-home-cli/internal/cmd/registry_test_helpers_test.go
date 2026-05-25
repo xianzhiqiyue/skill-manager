@@ -46,6 +46,10 @@ type fakeRegistryClient struct {
 	rateSkillResp *registry.RateSkillResponse
 	rateSkillErr  error
 
+	installEventCalls []installEventCall
+	installEventResp  *registry.InstallEventResponse
+	installEventErr   error
+
 	publishReq  *registry.PublishRequest
 	publishPath string
 	publishResp *registry.PublishResponse
@@ -73,6 +77,12 @@ type updateSkillCall struct {
 	namespace string
 	name      string
 	req       *registry.UpdateSkillRequest
+}
+
+type installEventCall struct {
+	namespace string
+	name      string
+	req       *registry.InstallEventRequest
 }
 
 func swapRegistryClientFactory(factory func() registryClient) func() {
@@ -191,6 +201,16 @@ func (f *fakeRegistryClient) ListAuditLogs(page, perPage int, action string) (*r
 
 func (f *fakeRegistryClient) RateSkill(namespace, name string, req *registry.RateSkillRequest) (*registry.RateSkillResponse, error) {
 	return f.rateSkillResp, f.rateSkillErr
+}
+
+func (f *fakeRegistryClient) RecordInstallEvent(namespace, name string, req *registry.InstallEventRequest) (*registry.InstallEventResponse, error) {
+	call := installEventCall{namespace: namespace, name: name}
+	if req != nil {
+		copyReq := *req
+		call.req = &copyReq
+	}
+	f.installEventCalls = append(f.installEventCalls, call)
+	return f.installEventResp, f.installEventErr
 }
 
 func (f *fakeRegistryClient) Publish(skillPath string, req *registry.PublishRequest) (*registry.PublishResponse, error) {

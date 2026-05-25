@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/skill-home/cli/internal/config"
+	"github.com/skill-home/cli/internal/registry"
 	"github.com/skill-home/cli/internal/skill"
 )
 
@@ -71,7 +72,37 @@ func runInstall(skillRef string, opts *installOptions) error {
 
 	fmt.Println()
 	fmt.Printf("%s 已安装 %s/%s@%s\n", color.GreenString("✓"), "@"+pulled.Namespace, pulled.Name, pulled.Version)
+	recordInstallEvent(pulled, opts)
 	return nil
+}
+
+func recordInstallEvent(pulled *pulledSkill, opts *installOptions) {
+	if pulled == nil {
+		return
+	}
+
+	target := ""
+	mode := ""
+	if opts != nil {
+		target = opts.ide
+		mode = opts.mode
+	}
+	if target == "" {
+		target = "auto"
+	}
+	if mode == "" {
+		mode = "auto"
+	}
+
+	_, err := newRegistryClient().RecordInstallEvent(pulled.Namespace, pulled.Name, &registry.InstallEventRequest{
+		Version:       pulled.Version,
+		Target:        target,
+		InstallMode:   mode,
+		ClientVersion: cliVersion,
+	})
+	if err != nil {
+		fmt.Printf("%s 安装统计上报失败: %v\n", color.YellowString("!"), err)
+	}
 }
 
 func scanInstallTarget(path string, force bool) error {

@@ -151,6 +151,15 @@ func loginWithAccount(server, email, password, apiKeyName string) error {
 func saveLoginSession(server, apiKey string, user *registry.User, apiKeyName string) error {
 	viper.Set("registry.endpoint", server)
 	viper.Set("registry.api_key", apiKey)
+	username := ""
+	email := ""
+	if user != nil {
+		username = strings.TrimSpace(user.Username)
+		email = strings.TrimSpace(user.Email)
+	}
+	if username != "" {
+		viper.Set("local.default_namespace", "@"+strings.TrimPrefix(username, "@"))
+	}
 
 	if err := config.Save(); err != nil {
 		return fmt.Errorf("保存配置失败: %w", err)
@@ -158,8 +167,11 @@ func saveLoginSession(server, apiKey string, user *registry.User, apiKeyName str
 
 	fmt.Println()
 	fmt.Println(color.GreenString("✓"), "登录成功!")
-	fmt.Printf("  用户名: %s\n", color.CyanString(user.Username))
-	fmt.Printf("  邮箱: %s\n", color.CyanString(user.Email))
+	fmt.Printf("  用户名: %s\n", color.CyanString(username))
+	fmt.Printf("  邮箱: %s\n", color.CyanString(email))
+	if username != "" {
+		fmt.Printf("  默认命名空间: %s\n", color.CyanString(viper.GetString("local.default_namespace")))
+	}
 	if apiKeyName != "" {
 		fmt.Printf("  CLI API Key: %s\n", color.CyanString(apiKeyName))
 	}

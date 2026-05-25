@@ -48,6 +48,9 @@ func TestRunLoginWithAPIKeyValidatesAndSavesConfig(t *testing.T) {
 	if got := viper.GetString("registry.api_key"); got != "sk_test_api_key" {
 		t.Fatalf("unexpected registry.api_key: %s", got)
 	}
+	if got := viper.GetString("local.default_namespace"); got != "@tester" {
+		t.Fatalf("unexpected local.default_namespace: %s", got)
+	}
 
 	configPath := filepath.Join(home, ".config", "skill-home", "config.yaml")
 	content, err := os.ReadFile(configPath)
@@ -56,6 +59,10 @@ func TestRunLoginWithAPIKeyValidatesAndSavesConfig(t *testing.T) {
 	}
 	if !strings.Contains(string(content), "api_key: sk_test_api_key") {
 		t.Fatalf("expected saved api key, got:\n%s", string(content))
+	}
+	if !strings.Contains(string(content), "default_namespace: '@tester'") &&
+		!strings.Contains(string(content), "default_namespace: \"@tester\"") {
+		t.Fatalf("expected saved default namespace, got:\n%s", string(content))
 	}
 }
 
@@ -125,6 +132,9 @@ func TestRunLoginWithEmailPasswordCreatesCLIAPIKey(t *testing.T) {
 	if got := viper.GetString("registry.api_key"); got != "sk_generated" {
 		t.Fatalf("unexpected registry.api_key: %s", got)
 	}
+	if got := viper.GetString("local.default_namespace"); got != "@tester" {
+		t.Fatalf("unexpected local.default_namespace: %s", got)
+	}
 
 	configPath := filepath.Join(home, ".config", "skill-home", "config.yaml")
 	content, err := os.ReadFile(configPath)
@@ -133,5 +143,9 @@ func TestRunLoginWithEmailPasswordCreatesCLIAPIKey(t *testing.T) {
 	}
 	if !strings.Contains(string(content), "api_key: sk_generated") {
 		t.Fatalf("expected saved api key, got:\n%s", string(content))
+	}
+	if !strings.Contains(string(content), "default_namespace: '@tester'") &&
+		!strings.Contains(string(content), "default_namespace: \"@tester\"") {
+		t.Fatalf("expected saved default namespace, got:\n%s", string(content))
 	}
 }

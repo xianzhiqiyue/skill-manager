@@ -89,7 +89,7 @@ skill-home delete-version @<用户名>/my-skill@1.0.0 --yes
 - 这个 skill 不是替代 `skill-home` CLI，而是把常用 CLI 工作流整理成可直接复用的 Codex 能力层
 - 公开 skill 的读取命令默认可匿名执行，例如 `list --remote`、`search`、`pull`、`install`
 - 写操作如 `push`、`delete`、`delete-version` 需要先 `skill-home login`
-- `push` 默认使用当前登录用户的用户名作为发布命名空间；旧版 CLI 需要刷新或显式传 `--namespace @<用户名>`
+- `push` 默认使用当前登录用户的用户名作为发布命名空间；新版 CLI 登录后也会把 `local.default_namespace` 保存为 `@<用户名>`；旧版 CLI 需要刷新或显式传 `--namespace @<用户名>`
 - `list --remote` 与 `search` 已接入目录版本缓存；目录版本未变化时会优先复用本地缓存
 - 发布前的 `category + official tags` 词表来自同一个 taxonomy 参考，不应由代理或用户自由发明新官方标签
 
