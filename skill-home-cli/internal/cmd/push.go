@@ -22,6 +22,7 @@ type pushOptions struct {
 	namespace string
 	version   string
 	force     bool
+	ownerOnly bool
 	message   string
 }
 
@@ -52,6 +53,7 @@ func newPushCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&opts.namespace, "namespace", "n", "", "命名空间 (默认使用当前登录用户的用户名)")
 	cmd.Flags().StringVar(&opts.version, "version", "", "指定版本号 (默认使用 SKILL.md 中的 version)")
 	cmd.Flags().BoolVarP(&opts.force, "force", "f", false, "强制推送，忽略安全警告")
+	cmd.Flags().BoolVar(&opts.ownerOnly, "owner-only", false, "仅允许发布者搜索和安装该 skill")
 	cmd.Flags().StringVarP(&opts.message, "message", "m", "", "版本说明")
 
 	return cmd
@@ -119,6 +121,9 @@ func runPush(path string, opts *pushOptions) error {
 		Tags:          tags,
 		License:       strings.TrimSpace(s.Manifest.License),
 		Force:         opts.force,
+	}
+	if opts.ownerOnly {
+		req.IsOwnerOnly = &opts.ownerOnly
 	}
 	if req.Name == "" {
 		return fmt.Errorf("技能名不能为空，请在 SKILL.md 中设置 name")

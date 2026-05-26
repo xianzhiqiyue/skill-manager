@@ -128,6 +128,7 @@ func runTranslateDescriptions(opts *translateDescriptionsOptions) error {
 			Tags:          append([]string{}, skill.Tags...),
 			License:       skill.License,
 			IsPublic:      skill.IsPublic,
+			IsOwnerOnly:   skill.IsOwnerOnly,
 			IsDeprecated:  skill.IsDeprecated,
 		}); err != nil {
 			fmt.Printf("%s @%s/%s 回写失败: %v\n", color.RedString("✗"), skill.Namespace, skill.Name, err)

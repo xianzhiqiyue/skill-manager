@@ -25,6 +25,7 @@ type Skill struct {
 	Rating             float64                     `json:"rating"`
 	RatingCount        int64                       `json:"rating_count"`
 	IsPublic           bool                        `json:"is_public"`
+	IsOwnerOnly        bool                        `json:"is_owner_only"`
 	IsDeprecated       bool                        `json:"is_deprecated"`
 	CreatedAt          time.Time                   `json:"created_at"`
 	UpdatedAt          time.Time                   `json:"updated_at"`
@@ -166,6 +167,7 @@ type PublishRequest struct {
 	Tags          []string `json:"tags,omitempty"`
 	License       string   `json:"license,omitempty"`
 	IsPublic      *bool    `json:"is_public,omitempty"`
+	IsOwnerOnly   *bool    `json:"is_owner_only,omitempty"`
 	Force         bool     `json:"force,omitempty"`
 }
 
@@ -176,6 +178,7 @@ type UpdateSkillRequest struct {
 	Tags          []string `json:"tags,omitempty"`
 	License       string   `json:"license,omitempty"`
 	IsPublic      bool     `json:"is_public"`
+	IsOwnerOnly   bool     `json:"is_owner_only"`
 	IsDeprecated  bool     `json:"is_deprecated"`
 }
 

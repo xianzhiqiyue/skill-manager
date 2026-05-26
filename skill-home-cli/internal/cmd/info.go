@@ -64,6 +64,9 @@ func runInfo(skillRef string, opts *infoOptions) error {
 		fmt.Printf("评分: %.1f (%d)\n", skill.Rating, skill.RatingCount)
 	}
 	fmt.Printf("可见性: %s\n", visibilityLabel(skill.IsPublic))
+	if skill.IsOwnerOnly {
+		fmt.Println("访问限制: 仅发布者可搜索和安装")
+	}
 	if skill.License != "" {
 		fmt.Printf("许可证: %s\n", skill.License)
 	}

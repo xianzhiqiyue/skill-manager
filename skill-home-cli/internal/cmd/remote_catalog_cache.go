@@ -5,12 +5,15 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"github.com/skill-home/cli/internal/registry"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/spf13/viper"
+
+	"github.com/skill-home/cli/internal/registry"
 )
 
 type remoteCatalogQuery struct {
@@ -43,8 +46,9 @@ type remoteCatalogQueryCache struct {
 }
 
 type remoteCatalogCache struct {
-	baseDir  string
-	endpoint string
+	baseDir    string
+	endpoint   string
+	cacheScope string
 }
 
 var writeJSONAtomicFunc = writeJSONAtomic
@@ -54,18 +58,27 @@ func newDefaultRemoteCatalogCache() (*remoteCatalogCache, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newRemoteCatalogCache(filepath.Join(home, ".config", "skill-home", "cache", "remote-catalog"), registryEndpoint()), nil
+	return newRemoteCatalogCache(
+		filepath.Join(home, ".config", "skill-home", "cache", "remote-catalog"),
+		registryEndpoint(),
+		remoteCatalogAuthScope(viper.GetString("registry.api_key")),
+	), nil
 }
 
-func newRemoteCatalogCache(baseDir, endpoint string) *remoteCatalogCache {
+func newRemoteCatalogCache(baseDir, endpoint string, cacheScopes ...string) *remoteCatalogCache {
+	cacheScope := "anonymous"
+	if len(cacheScopes) > 0 && strings.TrimSpace(cacheScopes[0]) != "" {
+		cacheScope = strings.TrimSpace(cacheScopes[0])
+	}
 	return &remoteCatalogCache{
-		baseDir:  baseDir,
-		endpoint: normalizeRegistryEndpoint(endpoint),
+		baseDir:    baseDir,
+		endpoint:   normalizeRegistryEndpoint(endpoint),
+		cacheScope: cacheScope,
 	}
 }
 
 func (c *remoteCatalogCache) cacheDir() string {
-	return filepath.Join(c.baseDir, hashString(c.endpoint))
+	return filepath.Join(c.baseDir, hashString(c.endpoint+"|"+c.cacheScope))
 }
 
 func (c *remoteCatalogCache) statePath() string {
@@ -284,6 +297,14 @@ func normalizeQuery(query remoteCatalogQuery) remoteCatalogQuery {
 
 func normalizeRegistryEndpoint(endpoint string) string {
 	return strings.TrimRight(strings.TrimSpace(endpoint), "/")
+}
+
+func remoteCatalogAuthScope(apiKey string) string {
+	apiKey = strings.TrimSpace(apiKey)
+	if apiKey == "" {
+		return "anonymous"
+	}
+	return "api-key:" + hashString(apiKey)
 }
 
 func normalizeNamespace(namespace string) string {

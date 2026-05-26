@@ -353,6 +353,17 @@ func (c *Client) publishArchive(path, skillPath string, req *PublishRequest) (*P
 			}
 		}
 	}
+	if req.IsOwnerOnly != nil {
+		if *req.IsOwnerOnly {
+			if err := writer.WriteField("is_owner_only", "true"); err != nil {
+				return nil, err
+			}
+		} else {
+			if err := writer.WriteField("is_owner_only", "false"); err != nil {
+				return nil, err
+			}
+		}
+	}
 	if req.Force {
 		if err := writer.WriteField("force", "true"); err != nil {
 			return nil, err
