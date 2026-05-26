@@ -22,6 +22,10 @@ describe('GitHub-style routes', () => {
   });
 
   it('parses settings routes', () => {
+    expect(parseRoute('/settings/stats')).toEqual({
+      name: 'settings',
+      section: 'stats',
+    });
     expect(parseRoute('/settings/skills/testuser/github/danger')).toEqual({
       name: 'skill-settings',
       namespace: 'testuser',

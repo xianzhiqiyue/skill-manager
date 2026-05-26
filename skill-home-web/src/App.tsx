@@ -18,6 +18,7 @@ import { SkillAccessSettingsPage } from './pages/settings/SkillAccessSettingsPag
 import { SkillDangerSettingsPage } from './pages/settings/SkillDangerSettingsPage';
 import { SkillGeneralSettingsPage } from './pages/settings/SkillGeneralSettingsPage';
 import { SkillVersionsSettingsPage } from './pages/settings/SkillVersionsSettingsPage';
+import { StatsSettingsPage } from './pages/settings/StatsSettingsPage';
 import { UserManagementSettingsPage } from './pages/settings/UserManagementSettingsPage';
 import { SkillActivityPage } from './pages/skill/SkillActivityPage';
 import { SkillInstallPage } from './pages/skill/SkillInstallPage';
@@ -192,6 +193,9 @@ export default function App() {
         ) : null}
         {route.name === 'settings' && route.section === 'profile' ? (
           <ProfileSettingsPage model={model} navigate={navigateInternal} />
+        ) : null}
+        {route.name === 'settings' && route.section === 'stats' ? (
+          <StatsSettingsPage model={model} navigate={navigateInternal} />
         ) : null}
         {route.name === 'settings' && route.section === 'api-keys' ? (
           <APIKeysSettingsPage model={model} navigate={navigateInternal} />

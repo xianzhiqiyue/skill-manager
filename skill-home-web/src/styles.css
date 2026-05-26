@@ -3325,6 +3325,59 @@ body {
   justify-content: flex-end;
 }
 
+.gh-stats-skill-list {
+  display: grid;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--surface-soft);
+}
+
+.gh-stats-skill-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, auto);
+  gap: 14px;
+  align-items: center;
+  padding: 14px 16px;
+  border: 0;
+  border-top: 1px solid var(--border);
+  background: transparent;
+  text-align: left;
+}
+
+.gh-stats-skill-row:first-child {
+  border-top: 0;
+}
+
+.gh-stats-skill-row:hover {
+  background: rgba(208, 215, 222, 0.2);
+}
+
+.gh-stats-skill-row__title {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.gh-stats-skill-row__title strong {
+  color: var(--text);
+}
+
+.gh-stats-skill-row__title span {
+  color: var(--text-soft);
+  font-size: 0.92rem;
+  overflow-wrap: anywhere;
+}
+
+.gh-stats-skill-row__metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(76px, auto));
+  gap: 10px;
+  color: var(--text-soft);
+  font-size: 0.88rem;
+  justify-content: end;
+}
+
 .gh-admin-users-toolbar {
   display: grid;
   grid-template-columns: minmax(220px, 1fr) minmax(150px, 180px) minmax(140px, 170px) auto;
@@ -3946,6 +3999,7 @@ body {
   .gh-settings-split,
   .gh-admin-users-toolbar,
   .gh-admin-user-row,
+  .gh-stats-skill-row,
   .gh-object-install-grid {
     grid-template-columns: 1fr;
   }
@@ -3972,6 +4026,11 @@ body {
 
   .gh-settings-list__meta {
     justify-content: flex-start;
+  }
+
+  .gh-stats-skill-row__metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    justify-content: stretch;
   }
 
   .gh-admin-user-row__actions,

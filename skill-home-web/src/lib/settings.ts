@@ -27,6 +27,11 @@ export function getAccountSettingsNav(section: SettingsSection, canManageUsers =
       label: 'Profile',
     },
     {
+      current: section === 'stats',
+      href: buildSettingsPath('stats'),
+      label: 'Stats',
+    },
+    {
       current: section === 'api-keys',
       href: buildSettingsPath('api-keys'),
       label: 'API Keys',

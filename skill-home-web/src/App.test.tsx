@@ -495,6 +495,52 @@ describe('App shell', () => {
     expect(screen.queryByText('我的技能控制台')).not.toBeInTheDocument();
   });
 
+  it('renders a dedicated account stats page from settings navigation', () => {
+    mockUseRoute.mockReturnValue({
+      route: { name: 'settings', section: 'stats' },
+      location: { pathname: '/settings/stats', search: '' },
+      navigate: vi.fn(),
+    });
+    mockUseRegistryApp.mockReturnValue({
+      ...baseModel,
+      token: 'token',
+      currentUser: {
+        id: 'user-1',
+        username: 'testuser',
+        display_name_zh: '测试用户',
+        email: 'test@example.com',
+      },
+      mySkills: [
+        {
+          ...baseModel.skills[0],
+          like_count: 4,
+          install_count: 7,
+          download_count: 18,
+          rating: 4.5,
+          rating_count: 2,
+        },
+      ],
+      accountStats: {
+        total: 1,
+        publicCount: 1,
+        privateCount: 0,
+        totalLikes: 4,
+        totalDownloads: 18,
+        totalInstalls: 7,
+        averageRating: 4.5,
+        totalRatings: 2,
+      },
+    });
+
+    renderApp();
+
+    expect(screen.getByRole('heading', { name: 'Stats' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Stats' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByText('Account statistics')).toBeInTheDocument();
+    expect(screen.getByText('@testuser/github')).toBeInTheDocument();
+    expect(screen.getByText('7 installs')).toBeInTheDocument();
+  });
+
   it('renders a dedicated skill danger settings page on the canonical skill-settings route', () => {
     mockUseRoute.mockReturnValue({
       route: {
