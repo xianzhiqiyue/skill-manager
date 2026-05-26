@@ -27,8 +27,9 @@ export function SkillAccessSettingsPage({
       (currentUser.is_super_admin || (skill.owner_id && currentUser.id === skill.owner_id)),
   );
   const canManageRecommendation = Boolean(currentUser?.is_admin || currentUser?.is_super_admin);
-  const recommendationRequiresPublic = skill?.is_public === false;
-  const canSaveRecommendation = !recommendationRequiresPublic || !model.manageForm.isRecommended;
+  const recommendationBlockedByAccess =
+    !model.manageForm.isPublic || model.manageForm.isOwnerOnly || skill?.is_public === false;
+  const canSaveRecommendation = !recommendationBlockedByAccess || !model.manageForm.isRecommended;
 
   return (
     <SkillSettingsFrame
@@ -65,11 +66,27 @@ export function SkillAccessSettingsPage({
                       model.setManageForm((current) => ({
                         ...current,
                         isPublic: event.target.checked,
+                        isRecommended: event.target.checked ? current.isRecommended : false,
                       }))
                     }
                     type="checkbox"
                   />
                   <span>公开展示到在线目录</span>
+                </label>
+
+                <label className="checkbox-field">
+                  <input
+                    checked={model.manageForm.isOwnerOnly}
+                    onChange={(event) =>
+                      model.setManageForm((current) => ({
+                        ...current,
+                        isOwnerOnly: event.target.checked,
+                        isRecommended: event.target.checked ? false : current.isRecommended,
+                      }))
+                    }
+                    type="checkbox"
+                  />
+                  <span>仅发布者可搜索和安装</span>
                 </label>
 
                 <label className="checkbox-field">
@@ -124,7 +141,7 @@ export function SkillAccessSettingsPage({
                 <label className="checkbox-field">
                   <input
                     checked={model.manageForm.isRecommended}
-                    disabled={recommendationRequiresPublic && !model.manageForm.isRecommended}
+                    disabled={recommendationBlockedByAccess && !model.manageForm.isRecommended}
                     onChange={(event) =>
                       model.setManageForm((current) => ({
                         ...current,
@@ -137,8 +154,8 @@ export function SkillAccessSettingsPage({
                 </label>
 
                 <p className="gh-community-tag-copy">
-                  {recommendationRequiresPublic
-                    ? '只有公开 skill 才能被推荐；如果转为私有会自动从推荐列表移除。'
+                  {recommendationBlockedByAccess
+                    ? '只有公开且未限制为仅发布者访问的 skill 才能被推荐。'
                     : '推荐 skill 会在技能中心和搜索结果中优先展示。'}
                 </p>
               </section>

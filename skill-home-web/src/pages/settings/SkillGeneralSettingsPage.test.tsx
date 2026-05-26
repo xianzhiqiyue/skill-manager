@@ -12,6 +12,7 @@ function SettingsHarness() {
     license: 'MIT',
     tags: [] as string[],
     isPublic: true,
+    isOwnerOnly: false,
     isDeprecated: false,
     isRecommended: false,
   });

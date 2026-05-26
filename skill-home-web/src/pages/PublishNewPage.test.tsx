@@ -15,6 +15,7 @@ function PublishHarness() {
     license: 'MIT',
     tags: [] as string[],
     isPublic: true,
+    isOwnerOnly: false,
   });
 
   return (

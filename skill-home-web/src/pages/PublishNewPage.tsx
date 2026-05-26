@@ -289,6 +289,20 @@ export function PublishNewPage({ model, navigate }: PublishNewPageProps) {
                     <span>发布为公开技能</span>
                   </label>
 
+                  <label className="checkbox-field">
+                    <input
+                      checked={model.publishForm.isOwnerOnly}
+                      onChange={(event) =>
+                        model.setPublishForm((current) => ({
+                          ...current,
+                          isOwnerOnly: event.target.checked,
+                        }))
+                      }
+                      type="checkbox"
+                    />
+                    <span>仅发布者可搜索和安装</span>
+                  </label>
+
                   <div className="gh-settings-actions">
                     <button
                       className="button button--primary"

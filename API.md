@@ -68,7 +68,7 @@ Authorization: Bearer <token>
 |------|----------|
 | 匿名用户 | 浏览公开 skill、搜索、下载公开版本、记录匿名安装/分享事件 |
 | 注册用户 | 发布 skill、管理自己的 skill/版本、评分、点赞、管理自己的 API Key、查看自己的统计和审计日志、修改个人资料和密码 |
-| Skill owner | 更新、公开/私有切换、弃用、删除自己拥有的 skill，发布/删除自己的版本 |
+| Skill owner | 更新、公开/私有切换、仅发布者访问、弃用、删除自己拥有的 skill，发布/删除自己的版本 |
 | Admin | 管理公开目录推荐状态 |
 | Super admin | 管理任意 skill/版本，查看和管理用户，查看全局审计日志 |
 
@@ -77,6 +77,7 @@ Authorization: Bearer <token>
 - 停用用户后，该用户的 JWT 与 API Key 都不能继续访问认证接口。
 - Super admin 不能停用当前登录账号。
 - 系统拒绝移除或停用最后一个有效 super admin。
+- 开启 `is_owner_only` 后，该 skill 只能被所有者搜索、查看版本和下载安装；公开对象地址不会直接暴露。
 - 用户权限变更写入 `admin.user.update` 审计日志。
 
 ## 错误处理
@@ -140,8 +141,8 @@ GET /api/v1/catalog/version
 
 - `catalog_version` 会随着公开目录结构发生有效变更而递增，客户端应仅以它判断目录结构缓存是否失效。
 - `updated_at` 仅用于观测和排障，表示最近一次目录版本变更时间，不应用作缓存对比键。
-- 成功的公开目录变更会触发版本递增，至少包括：创建公开 skill、公开 skill 更新、公开 skill 删除、公开 skill 发布版本、公开 skill 删除版本、推荐状态变更。
-- 私有 skill 的创建、更新、删除、发布版本、删除版本不会触发公开目录版本变化。
+- 成功的目录可发现性变更会触发版本递增，至少包括：创建公开或仅发布者访问的 skill、相关 skill 更新/删除、发布/删除版本、推荐状态变更。
+- 完全私有且未开启 `is_owner_only` 的 skill 创建、更新、删除、发布版本、删除版本不会触发目录版本变化。
 - `download_count`、`like_count`、`install_count`、`rating`、`rating_count` 等动态统计字段不属于该版本号覆盖范围；如果客户端需要这些字段的最新值，应主动重新拉取列表或详情接口。
 
 #### 列出技能
@@ -159,6 +160,8 @@ GET /api/v1/skills?page=1&per_page=20&q=keyword&tag=tag1&namespace=testuser
 | q | string | 搜索关键词 |
 | tag | string | 标签筛选 |
 | namespace | string | 命名空间筛选 |
+
+认证用户调用时，结果会额外包含该用户拥有且开启 `is_owner_only` 的 skill；其他用户和匿名用户不可搜索到这些条目。
 
 **响应**:
 
@@ -184,6 +187,8 @@ GET /api/v1/skills?page=1&per_page=20&q=keyword&tag=tag1&namespace=testuser
       "rating": 4.8,
       "rating_count": 5,
       "is_recommended": true,
+      "is_public": true,
+      "is_owner_only": false,
       "latest_version": "1.0.0",
       "download_url": "https://oss-example.aliyuncs.com/public-skills/testuser/my-skill/1.0.0.zip",
       "created_at": "2026-03-01T10:00:00Z",
@@ -224,6 +229,7 @@ Authorization: Bearer <token>  // 可选，访问私有技能或返回 user_rati
   "viewer_liked": true,
   "is_recommended": true,
   "is_public": true,
+  "is_owner_only": false,
   "latest_version": "1.0.0",
   "download_url": "https://oss-example.aliyuncs.com/public-skills/testuser/my-skill/1.0.0.zip",
   "created_at": "2026-03-01T10:00:00Z",
@@ -269,6 +275,7 @@ version: 1.0.0
 license: MIT
 tags: workflow, automation
 is_public: true
+is_owner_only: false
 skill: <文件>
 ```
 
@@ -299,7 +306,8 @@ Content-Type: application/json
   "category": "docs",
   "tags": ["docs", "workflow"],
   "license": "Apache-2.0",
-  "is_public": false
+  "is_public": false,
+  "is_owner_only": false
 }
 ```
 
@@ -793,6 +801,7 @@ Authorization: Bearer <token>
 | tags | []string | 官方标签，1-4 个 |
 | license | string | 许可证 |
 | is_public | bool | 是否公开 |
+| is_owner_only | bool | 是否仅允许所有者搜索和安装 |
 | is_recommended | bool | 是否推荐 |
 | download_count | int | 下载次数 |
 | like_count | int | 点赞数 |

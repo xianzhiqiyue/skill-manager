@@ -52,6 +52,7 @@
 | rating_sum | BIGINT | DEFAULT: 0 | 评分总和 |
 | rating_count | BIGINT | DEFAULT: 0 | 评分次数 |
 | is_public | BOOLEAN | DEFAULT: true | 是否公开 |
+| is_owner_only | BOOLEAN | DEFAULT: false | 是否仅允许所有者搜索和安装 |
 | is_deprecated | BOOLEAN | DEFAULT: false | 是否弃用 |
 | is_recommended | BOOLEAN | DEFAULT: false | 是否为推荐 skill |
 | latest_version | VARCHAR(20) | | 最新版本 |
@@ -63,6 +64,7 @@
 - PRIMARY KEY (id)
 - UNIQUE INDEX idx_namespace_name (namespace, name)
 - INDEX (owner_id)
+- INDEX (is_owner_only)
 - INDEX (is_recommended)
 - INDEX (deleted_at)
 
@@ -302,6 +304,7 @@ CREATE TABLE skills (
     rating_sum BIGINT DEFAULT 0,
     rating_count BIGINT DEFAULT 0,
     is_public BOOLEAN DEFAULT true,
+    is_owner_only BOOLEAN DEFAULT false,
     is_deprecated BOOLEAN DEFAULT false,
     is_recommended BOOLEAN DEFAULT false,
     latest_version VARCHAR(20),
@@ -312,6 +315,7 @@ CREATE TABLE skills (
 );
 
 CREATE INDEX idx_skills_owner ON skills(owner_id);
+CREATE INDEX idx_skills_owner_only ON skills(is_owner_only);
 CREATE INDEX idx_skills_recommended ON skills(is_recommended);
 CREATE INDEX idx_skills_deleted_at ON skills(deleted_at);
 
@@ -407,7 +411,7 @@ CREATE INDEX idx_skills_search ON skills USING gin(to_tsvector('simple', name ||
 2. **热门技能**:
 ```sql
 -- 预计算下载次数索引
-CREATE INDEX idx_skills_popular ON skills(download_count DESC) WHERE is_public = true;
+CREATE INDEX idx_skills_popular ON skills(download_count DESC) WHERE is_public = true AND is_owner_only = false;
 ```
 
 ### 分区策略

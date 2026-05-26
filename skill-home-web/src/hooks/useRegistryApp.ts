@@ -237,6 +237,7 @@ export function useRegistryApp(
     license: 'MIT',
     tags: [] as string[],
     isPublic: true,
+    isOwnerOnly: false,
     isDeprecated: false,
     isRecommended: false,
   });
@@ -254,6 +255,7 @@ export function useRegistryApp(
     license: 'MIT',
     tags: [] as string[],
     isPublic: true,
+    isOwnerOnly: false,
   });
   const [publishFile, setPublishFile] = useState<File | null>(null);
 
@@ -306,6 +308,7 @@ export function useRegistryApp(
 
     fetchSkills({
       perPage: 100,
+      token: token || undefined,
     })
       .then((data) => {
         if (cancelled) {
@@ -326,7 +329,7 @@ export function useRegistryApp(
     return () => {
       cancelled = true;
     };
-  }, [catalogNonce]);
+  }, [catalogNonce, token]);
 
   useEffect(() => {
     if (route.name !== 'skills') {
@@ -353,6 +356,7 @@ export function useRegistryApp(
       license: catalogFilters.license,
       sort: catalogFilters.sort,
       perPage: 100,
+      token: token || undefined,
     })
       .then((data) => {
         if (cancelled) {
@@ -386,6 +390,7 @@ export function useRegistryApp(
     catalogSearchNonce,
     normalizedCatalogSearch,
     route.name,
+    token,
   ]);
 
   useEffect(() => {
@@ -674,6 +679,7 @@ export function useRegistryApp(
           license: data.license || 'MIT',
           tags: data.tags || [],
           isPublic: data.is_public ?? true,
+          isOwnerOnly: data.is_owner_only ?? false,
           isDeprecated: data.is_deprecated ?? false,
           isRecommended: data.is_recommended ?? false,
         });
@@ -1019,6 +1025,7 @@ export function useRegistryApp(
         license: publishForm.license.trim(),
         tags: normalizeOfficialTags(publishForm.tags),
         isPublic: publishForm.isPublic,
+        isOwnerOnly: publishForm.isOwnerOnly,
         archive: publishFile,
       });
 
@@ -1067,6 +1074,7 @@ export function useRegistryApp(
         tags: normalizeOfficialTags(manageForm.tags),
         license: manageForm.license.trim(),
         isPublic: manageForm.isPublic,
+        isOwnerOnly: manageForm.isOwnerOnly,
         isDeprecated: manageForm.isDeprecated,
       });
 

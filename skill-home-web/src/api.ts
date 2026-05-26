@@ -70,6 +70,7 @@ export type SkillSummary = {
   latest_version?: string;
   download_url?: string;
   is_public?: boolean;
+  is_owner_only?: boolean;
   is_deprecated?: boolean;
   is_recommended?: boolean;
   created_at?: string;
@@ -130,6 +131,7 @@ export type FetchSkillsParams = {
   license?: string;
   sort?: 'downloads' | 'updated' | 'rating' | 'name';
   perPage?: number;
+  token?: string;
 };
 
 export type PublishPayload = {
@@ -142,6 +144,7 @@ export type PublishPayload = {
   license: string;
   tags: string[];
   isPublic: boolean;
+  isOwnerOnly: boolean;
   archive: File;
 };
 
@@ -160,6 +163,7 @@ export type UpdateSkillPayload = {
   tags: string[];
   license: string;
   isPublic: boolean;
+  isOwnerOnly: boolean;
   isDeprecated: boolean;
 };
 
@@ -398,10 +402,14 @@ export function fetchSkills(filters: FetchSkillsParams = {}) {
 
   if (filters.query?.trim()) {
     params.set('q', filters.query.trim());
-    return request<SkillListResponse>('/api/v1/search', params);
+    return request<SkillListResponse>('/api/v1/search', params, {
+      token: filters.token,
+    });
   }
 
-  return request<SkillListResponse>('/api/v1/skills', params);
+  return request<SkillListResponse>('/api/v1/skills', params, {
+    token: filters.token,
+  });
 }
 
 export function fetchSkillDetail(namespace: string, name: string, token?: string) {
@@ -634,6 +642,7 @@ export function publishSkill(token: string, payload: PublishPayload) {
   form.append('license', payload.license);
   form.append('tags', payload.tags.join(','));
   form.append('is_public', payload.isPublic ? 'true' : 'false');
+  form.append('is_owner_only', payload.isOwnerOnly ? 'true' : 'false');
   form.append('skill', payload.archive);
 
   return request<PublishResponse>('/api/v1/skills', undefined, {
@@ -662,6 +671,7 @@ export function updateSkill(
       tags: payload.tags,
       license: payload.license,
       is_public: payload.isPublic,
+      is_owner_only: payload.isOwnerOnly,
       is_deprecated: payload.isDeprecated,
     }),
   });
