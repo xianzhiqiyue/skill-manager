@@ -11,6 +11,7 @@ import { AuthPage as AuthRoutePage } from './pages/AuthPage';
 import { HomePage as HomeRoutePage } from './pages/HomePage';
 import { InstallDocsPage } from './pages/InstallDocsPage';
 import { PublishNewPage } from './pages/PublishNewPage';
+import { SoulStoreSSOPage } from './pages/SoulStoreSSOPage';
 import { SkillsSearchPage } from './pages/SkillsSearchPage';
 import { APIKeysSettingsPage } from './pages/settings/APIKeysSettingsPage';
 import { ProfileSettingsPage } from './pages/settings/ProfileSettingsPage';
@@ -236,6 +237,9 @@ export default function App() {
           />
         ) : null}
         {route.name === 'install' ? <InstallDocsPage model={model} navigate={navigateInternal} /> : null}
+        {route.name === 'soulstore-sso' ? (
+          <SoulStoreSSOPage locationSearch={location.search} model={model} />
+        ) : null}
         {route.name === 'auth' ? (
           <AuthRoutePage
             locationSearch={location.search}

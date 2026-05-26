@@ -41,6 +41,7 @@ func newTestDatabase(t *testing.T) *storage.Database {
 	mustExec(t, db, `CREATE TABLE users (
 		id TEXT PRIMARY KEY,
 		username TEXT NOT NULL,
+		soul_store_user_id TEXT,
 		display_name_zh TEXT,
 		email TEXT NOT NULL,
 		password TEXT,
@@ -4120,6 +4121,89 @@ func TestRegisterPersistsDisplayNameZh(t *testing.T) {
 	}
 	if user.DisplayNameZh != "测试用户" {
 		t.Fatalf("stored display_name_zh = %q, want 测试用户", user.DisplayNameZh)
+	}
+}
+
+func TestSoulStoreSSOLoginCreatesUserAndMapsPermissions(t *testing.T) {
+	core := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/skill-home/sso/exchange" {
+			t.Fatalf("unexpected exchange path: %s", r.URL.Path)
+		}
+		if got := r.Header.Get("X-SoulStore-SSO-Secret"); got != "shared-secret" {
+			t.Fatalf("unexpected sso secret header: %q", got)
+		}
+
+		var payload map[string]string
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			t.Fatalf("decode exchange body failed: %v", err)
+		}
+		if payload["ticket"] != "ticket-1" {
+			t.Fatalf("ticket = %q, want ticket-1", payload["ticket"])
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{
+			"user": {
+				"id": "soul-user-1",
+				"username": "admin",
+				"display_name": "Soul 管理员",
+				"email": "",
+				"avatar": "https://example.test/avatar.png",
+				"role": "superadmin",
+				"is_admin": true,
+				"is_super_admin": true
+			}
+		}`)
+	}))
+	defer core.Close()
+
+	t.Setenv("SKILL_HOME_AUTH_JWT_SECRET", "skill-home-secret")
+	t.Setenv("SKILL_HOME_SOULSTORE_BASE_URL", core.URL)
+	t.Setenv("SKILL_HOME_SOULSTORE_SSO_SECRET", "shared-secret")
+	if err := config.Load(); err != nil {
+		t.Fatalf("load config failed: %v", err)
+	}
+
+	db := newTestDatabase(t)
+	mustExec(t, db.DB, `CREATE UNIQUE INDEX idx_users_email ON users(email)`)
+	mustExec(t, db.DB, `CREATE UNIQUE INDEX idx_users_username ON users(username)`)
+	mustExec(t, db.DB, `CREATE UNIQUE INDEX idx_users_soul_store_user_id ON users(soul_store_user_id)`)
+
+	router := gin.New()
+	router.POST("/api/v1/auth/soulstore-sso", SoulStoreSSOLogin(db))
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/soulstore-sso", strings.NewReader(`{"ticket":"ticket-1"}`))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	var resp AuthResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response failed: %v", err)
+	}
+	if resp.Token == "" {
+		t.Fatal("expected skill-home token")
+	}
+	if resp.User.DisplayNameZh != "Soul 管理员" {
+		t.Fatalf("display_name_zh = %q, want Soul 管理员", resp.User.DisplayNameZh)
+	}
+	if !resp.User.IsSuperAdmin || !resp.User.IsAdmin {
+		t.Fatalf("expected super admin mapping, got admin=%v super=%v", resp.User.IsAdmin, resp.User.IsSuperAdmin)
+	}
+
+	var user models.User
+	if err := db.First(&user, "soul_store_user_id = ?", "soul-user-1").Error; err != nil {
+		t.Fatalf("load mapped user failed: %v", err)
+	}
+	if user.Email != "admin@soulstore.local" {
+		t.Fatalf("email = %q, want fallback email", user.Email)
+	}
+	if user.AvatarURL != "https://example.test/avatar.png" {
+		t.Fatalf("avatar_url = %q", user.AvatarURL)
 	}
 }
 

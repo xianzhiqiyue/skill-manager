@@ -54,4 +54,10 @@ describe('GitHub-style routes', () => {
       section: 'api-keys',
     });
   });
+
+  it('parses SoulStore SSO callback route', () => {
+    expect(parseRoute('/auth/soulstore-sso')).toEqual({
+      name: 'soulstore-sso',
+    });
+  });
 });

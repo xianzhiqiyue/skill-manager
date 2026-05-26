@@ -9,18 +9,19 @@ import (
 
 // User 用户模型
 type User struct {
-	ID            uuid.UUID      `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
-	Username      string         `gorm:"uniqueIndex;size:32;not null" json:"username"`
-	DisplayNameZh string         `gorm:"size:64" json:"display_name_zh,omitempty"`
-	Email         string         `gorm:"uniqueIndex;size:255;not null" json:"email"`
-	Password      string         `gorm:"size:255" json:"-"` // 不序列化到 JSON
-	AvatarURL     string         `gorm:"size:500" json:"avatar_url,omitempty"`
-	IsActive      bool           `gorm:"default:true" json:"is_active"`
-	IsAdmin       bool           `gorm:"default:false;index" json:"is_admin"`
-	IsSuperAdmin  bool           `gorm:"default:false;index" json:"is_super_admin"`
-	CreatedAt     time.Time      `json:"created_at"`
-	UpdatedAt     time.Time      `json:"updated_at"`
-	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
+	ID              uuid.UUID      `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
+	Username        string         `gorm:"uniqueIndex;size:32;not null" json:"username"`
+	SoulStoreUserID string         `gorm:"uniqueIndex;size:64" json:"soulstore_user_id,omitempty"`
+	DisplayNameZh   string         `gorm:"size:64" json:"display_name_zh,omitempty"`
+	Email           string         `gorm:"uniqueIndex;size:255;not null" json:"email"`
+	Password        string         `gorm:"size:255" json:"-"` // 不序列化到 JSON
+	AvatarURL       string         `gorm:"size:500" json:"avatar_url,omitempty"`
+	IsActive        bool           `gorm:"default:true" json:"is_active"`
+	IsAdmin         bool           `gorm:"default:false;index" json:"is_admin"`
+	IsSuperAdmin    bool           `gorm:"default:false;index" json:"is_super_admin"`
+	CreatedAt       time.Time      `json:"created_at"`
+	UpdatedAt       time.Time      `json:"updated_at"`
+	DeletedAt       gorm.DeletedAt `gorm:"index" json:"-"`
 
 	// 关联
 	Skills  []Skill  `gorm:"foreignKey:OwnerID" json:"-"`

@@ -118,6 +118,7 @@ func setupRouter(db *storage.Database, objStorage *storage.ObjectStorage, scanne
 		api.GET("/catalog/version", handlers.GetCatalogVersion(db))
 		api.POST("/auth/register", handlers.Register(db))
 		api.POST("/auth/login", handlers.Login(db))
+		api.POST("/auth/soulstore-sso", handlers.SoulStoreSSOLogin(db))
 
 		api.GET("/skills", middleware.OptionalAuth(db), handlers.ListSkills(db, objStorage))
 		api.GET("/skills/:namespace/:name", middleware.OptionalAuth(db), handlers.GetSkill(db, objStorage))

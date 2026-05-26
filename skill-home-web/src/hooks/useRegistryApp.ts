@@ -18,6 +18,7 @@ import {
   getSkillDescription,
   likeSkill,
   loginUser,
+  loginWithSoulStoreSSO,
   publishSkill,
   rateSkill,
   recordShareEvent,
@@ -108,6 +109,14 @@ function sortRecommendedFirst(left: SkillSummary, right: SkillSummary) {
     new Date(right.updated_at || 0).getTime() - new Date(left.updated_at || 0).getTime() ||
     left.name.localeCompare(right.name)
   );
+}
+
+function normalizeSafeNextPath(value: string | null | undefined) {
+  const nextPath = (value || '/').trim() || '/';
+  if (!nextPath.startsWith('/') || nextPath.startsWith('//') || nextPath.startsWith('/auth/soulstore-sso')) {
+    return '/';
+  }
+  return nextPath;
 }
 
 export function useRegistryApp(
@@ -789,6 +798,44 @@ export function useRegistryApp(
     }
   }
 
+  async function submitSoulStoreSSO(ticket: string, nextPath: string | null | undefined) {
+    const normalizedTicket = ticket.trim();
+    if (!normalizedTicket) {
+      setAuthError('缺少 SoulStore 登录票据。');
+      return false;
+    }
+
+    setAuthLoading(true);
+    setAuthError(null);
+    setAuthSuccess(null);
+
+    try {
+      const response = await loginWithSoulStoreSSO(normalizedTicket);
+      setToken(response.token);
+      setCurrentUser({
+        id: response.user.id,
+        username: response.user.username,
+        display_name_zh: response.user.display_name_zh,
+        email: response.user.email,
+        is_admin: response.user.is_admin,
+        is_super_admin: response.user.is_super_admin,
+      });
+      setProfileForm({
+        displayNameZh: response.user.display_name_zh || '',
+        avatarUrl: '',
+      });
+      setAuthSuccess('已通过 SoulStore 登录。');
+      setAccountNonce((value) => value + 1);
+      navigate(normalizeSafeNextPath(nextPath), { replace: true });
+      return true;
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : 'SoulStore 登录失败');
+      return false;
+    } finally {
+      setAuthLoading(false);
+    }
+  }
+
   function handleLogout() {
     setToken('');
     setCurrentUser(null);
@@ -1455,6 +1502,7 @@ export function useRegistryApp(
     authForm,
     setAuthForm,
     submitAuth,
+    submitSoulStoreSSO,
     handleLogout,
     skills,
     skillsTotal,

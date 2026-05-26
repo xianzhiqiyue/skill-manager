@@ -11,6 +11,7 @@ export type AppRoute =
   | { name: 'skill-settings'; namespace: string; skillName: string; section: SkillSettingsSection }
   | { name: 'publish-new' }
   | { name: 'install' }
+  | { name: 'soulstore-sso' }
   | { name: 'auth'; mode: 'login' | 'register' };
 
 function safeDecode(segment: string) {
@@ -115,6 +116,10 @@ export function parseRoute(pathname: string): AppRoute {
 
   if (segments[0] === 'install') {
     return { name: 'install' };
+  }
+
+  if (segments[0] === 'auth' && segments[1] === 'soulstore-sso') {
+    return { name: 'soulstore-sso' };
   }
 
   if (segments[0] === 'login') {

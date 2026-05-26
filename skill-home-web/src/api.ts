@@ -495,6 +495,16 @@ export function loginUser(payload: { email: string; password: string }) {
   });
 }
 
+export function loginWithSoulStoreSSO(ticket: string) {
+  return request<AuthResponse>('/api/v1/auth/soulstore-sso', undefined, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ ticket }),
+  });
+}
+
 export function fetchCurrentUser(token: string) {
   return request<AuthUser>('/api/v1/user', undefined, {
     token,

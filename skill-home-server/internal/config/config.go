@@ -12,11 +12,12 @@ import (
 
 // Config 应用配置
 type Config struct {
-	Server   ServerConfig   `mapstructure:"server"`
-	Database DatabaseConfig `mapstructure:"database"`
-	Storage  StorageConfig  `mapstructure:"storage"`
-	Auth     AuthConfig     `mapstructure:"auth"`
-	Search   SearchConfig   `mapstructure:"search"`
+	Server    ServerConfig    `mapstructure:"server"`
+	Database  DatabaseConfig  `mapstructure:"database"`
+	Storage   StorageConfig   `mapstructure:"storage"`
+	Auth      AuthConfig      `mapstructure:"auth"`
+	Search    SearchConfig    `mapstructure:"search"`
+	SoulStore SoulStoreConfig `mapstructure:"soulstore"`
 }
 
 // ServerConfig 服务器配置
@@ -65,6 +66,13 @@ type SearchConfig struct {
 	Engine    string `mapstructure:"engine"`
 	MeiliHost string `mapstructure:"meili_host"`
 	MeiliKey  string `mapstructure:"meili_key"`
+}
+
+type SoulStoreConfig struct {
+	BaseURL           string `mapstructure:"base_url"`
+	SSOSecret         string `mapstructure:"sso_secret"`
+	SSOExchangePath   string `mapstructure:"sso_exchange_path"`
+	SSOTimeoutSeconds int    `mapstructure:"sso_timeout_seconds"`
 }
 
 var cfg *Config
@@ -195,6 +203,25 @@ func loadFromEnv() {
 	}
 	if v := os.Getenv("SKILL_HOME_SEARCH_MEILI_KEY"); v != "" {
 		cfg.Search.MeiliKey = v
+	}
+
+	// SoulStore SSO
+	if v := os.Getenv("SKILL_HOME_SOULSTORE_BASE_URL"); v != "" {
+		cfg.SoulStore.BaseURL = v
+	}
+	if v := os.Getenv("SKILL_HOME_SOULSTORE_SSO_SECRET"); v != "" {
+		cfg.SoulStore.SSOSecret = v
+	}
+	if v := os.Getenv("SOULSTORE_SKILL_HOME_SSO_SECRET"); v != "" && cfg.SoulStore.SSOSecret == "" {
+		cfg.SoulStore.SSOSecret = v
+	}
+	if v := os.Getenv("SKILL_HOME_SOULSTORE_SSO_EXCHANGE_PATH"); v != "" {
+		cfg.SoulStore.SSOExchangePath = v
+	}
+	if v := os.Getenv("SKILL_HOME_SOULSTORE_SSO_TIMEOUT_SECONDS"); v != "" {
+		if seconds, err := strconv.Atoi(v); err == nil {
+			cfg.SoulStore.SSOTimeoutSeconds = seconds
+		}
 	}
 }
 
@@ -341,6 +368,9 @@ func setDefaults() {
 	viper.SetDefault("storage.bucket", "skill-home")
 	viper.SetDefault("auth.token_expire_hours", 24)
 	viper.SetDefault("search.enabled", true)
+	viper.SetDefault("soulstore.base_url", "https://soulstore.ciqtek.com")
+	viper.SetDefault("soulstore.sso_exchange_path", "/api/v1/skill-home/sso/exchange")
+	viper.SetDefault("soulstore.sso_timeout_seconds", 10)
 }
 
 func validate(cfg *Config) error {
@@ -352,6 +382,13 @@ func validate(cfg *Config) error {
 	}
 	if cfg.Auth.TokenExpire <= 0 {
 		cfg.Auth.TokenExpire = 24
+	}
+	cfg.SoulStore.BaseURL = strings.TrimRight(strings.TrimSpace(cfg.SoulStore.BaseURL), "/")
+	if strings.TrimSpace(cfg.SoulStore.SSOExchangePath) == "" {
+		cfg.SoulStore.SSOExchangePath = "/api/v1/skill-home/sso/exchange"
+	}
+	if cfg.SoulStore.SSOTimeoutSeconds <= 0 {
+		cfg.SoulStore.SSOTimeoutSeconds = 10
 	}
 	return nil
 }
