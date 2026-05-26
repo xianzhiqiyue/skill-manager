@@ -58,9 +58,16 @@ func canManageOwnedResource(user *models.User, ownerID uuid.UUID) bool {
 	return user.ID == ownerID || user.IsSuperAdmin
 }
 
+func isSkillOwner(user *models.User, skill *models.Skill) bool {
+	return user != nil && skill != nil && user.ID != uuid.Nil && user.ID == skill.OwnerID
+}
+
 func canAccessSkill(user *models.User, skill *models.Skill) bool {
 	if skill == nil {
 		return false
+	}
+	if skill.IsOwnerOnly {
+		return isSkillOwner(user, skill)
 	}
 	if skill.IsPublic {
 		return true
@@ -241,6 +248,17 @@ func applyExtendedSkillFilters(query *gorm.DB, namespace, tag, license string) *
 		query = query.Where("license = ?", license)
 	}
 	return query
+}
+
+func applyDiscoverableSkillFilter(query *gorm.DB, viewer *models.User) *gorm.DB {
+	if viewer != nil && viewer.ID != uuid.Nil {
+		return query.Where(
+			"((is_public = ? AND COALESCE(is_owner_only, FALSE) = FALSE) OR (COALESCE(is_owner_only, FALSE) = TRUE AND owner_id = ?))",
+			true,
+			viewer.ID,
+		)
+	}
+	return query.Where("is_public = ? AND COALESCE(is_owner_only, FALSE) = FALSE", true)
 }
 
 func applySkillOrdering(query *gorm.DB, sort string) *gorm.DB {
@@ -679,7 +697,7 @@ func populateSkillsDownloadURLs(db *storage.Database, objStorage *storage.Object
 	for i := range skills {
 		skills[i].DownloadURL = resolvePublicDownloadURL(
 			objStorage,
-			skills[i].IsPublic,
+			skills[i].IsPublic && !skills[i].IsOwnerOnly,
 			latestPaths[skills[i].ID],
 			skills[i].Namespace,
 			skills[i].Name,
@@ -699,7 +717,7 @@ func populateSkillDetailDownloadURLs(objStorage *storage.ObjectStorage, skill *m
 	for i := range skill.Versions {
 		skill.Versions[i].DownloadURL = resolvePublicDownloadURL(
 			objStorage,
-			skill.IsPublic,
+			skill.IsPublic && !skill.IsOwnerOnly,
 			skill.Versions[i].StoragePath,
 			skill.Namespace,
 			skill.Name,
@@ -716,7 +734,7 @@ func populateSkillDetailDownloadURLs(objStorage *storage.ObjectStorage, skill *m
 
 	skill.DownloadURL = resolvePublicDownloadURL(
 		objStorage,
-		skill.IsPublic,
+		skill.IsPublic && !skill.IsOwnerOnly,
 		latestStoragePath,
 		skill.Namespace,
 		skill.Name,

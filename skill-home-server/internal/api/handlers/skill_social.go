@@ -220,7 +220,7 @@ func loadSkillForSocialAction(db *storage.Database, namespace, name string, view
 	if err := scopeNamespaceName(db.Preload("Versions").Preload("Owner"), namespace, name).First(&skill).Error; err != nil {
 		return nil, err
 	}
-	if !skill.IsPublic && !canAccessSkill(viewer, &skill) {
+	if !canAccessSkill(viewer, &skill) {
 		return nil, gorm.ErrRecordNotFound
 	}
 	return &skill, nil

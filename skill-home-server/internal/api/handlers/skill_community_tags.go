@@ -116,7 +116,7 @@ func loadSkillForCommunityTag(db *storage.Database, namespace, name string, user
 		return nil, err
 	}
 
-	if !skill.IsPublic && !canManageOwnedResource(user, skill.OwnerID) {
+	if !canAccessSkill(user, &skill) {
 		return nil, gorm.ErrRecordNotFound
 	}
 

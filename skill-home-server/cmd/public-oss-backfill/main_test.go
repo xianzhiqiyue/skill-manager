@@ -194,6 +194,7 @@ func newBackfillTestDatabase(t *testing.T) *storage.Database {
 		namespace TEXT NOT NULL,
 		name TEXT NOT NULL,
 		is_public NUMERIC DEFAULT 1,
+		is_owner_only NUMERIC DEFAULT 0,
 		deleted_at DATETIME
 	)`)
 	mustExec(t, db, `CREATE TABLE skill_versions (

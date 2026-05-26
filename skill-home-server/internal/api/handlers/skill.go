@@ -23,7 +23,8 @@ func ListSkills(db *storage.Database, objStorages ...*storage.ObjectStorage) gin
 
 	return func(c *gin.Context) {
 		var skills []models.Skill
-		query := db.Model(&models.Skill{}).Where("is_public = ?", true)
+		viewer := currentUserFromContext(c)
+		query := applyDiscoverableSkillFilter(db.Model(&models.Skill{}), viewer)
 
 		// 分页
 		page, perPage := parsePagination(c.DefaultQuery("page", "1"), c.DefaultQuery("per_page", "20"))
@@ -51,7 +52,7 @@ func ListSkills(db *storage.Database, objStorages ...*storage.ObjectStorage) gin
 			c.JSON(http.StatusInternalServerError, gin.H{"code": "INTERNAL_ERROR", "message": err.Error()})
 			return
 		}
-		if err := loadViewerLikes(db, skills, currentUserFromContext(c)); err != nil {
+		if err := loadViewerLikes(db, skills, viewer); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"code": "INTERNAL_ERROR", "message": err.Error()})
 			return
 		}
@@ -87,24 +88,10 @@ func GetSkill(db *storage.Database, objStorages ...*storage.ObjectStorage) gin.H
 			return
 		}
 
-		// 检查权限
-		var currentUser *models.User
-		if !skill.IsPublic {
-			user, exists := c.Get("user")
-			if !exists {
-				c.JSON(http.StatusForbidden, gin.H{"code": "FORBIDDEN", "message": "Access denied"})
-				return
-			}
-			owner, ok := user.(*models.User)
-			if !ok || !canAccessSkill(owner, &skill) {
-				c.JSON(http.StatusForbidden, gin.H{"code": "FORBIDDEN", "message": "Access denied"})
-				return
-			}
-			currentUser = owner
-		} else if user, exists := c.Get("user"); exists {
-			if viewer, ok := user.(*models.User); ok {
-				currentUser = viewer
-			}
+		currentUser := currentUserFromContext(c)
+		if !canAccessSkill(currentUser, &skill) {
+			c.JSON(http.StatusForbidden, gin.H{"code": "FORBIDDEN", "message": "Access denied"})
+			return
 		}
 
 		if err := populateSkillDetailResponse(db, objStorage, &skill, currentUser); err != nil {
@@ -129,7 +116,8 @@ func SearchSkills(db *storage.Database, objStorages ...*storage.ObjectStorage) g
 
 		page, perPage := parsePagination(c.DefaultQuery("page", "1"), c.DefaultQuery("per_page", "20"))
 		var skills []models.Skill
-		query := db.Model(&models.Skill{}).Where("is_public = ?", true)
+		viewer := currentUserFromContext(c)
+		query := applyDiscoverableSkillFilter(db.Model(&models.Skill{}), viewer)
 		query = applyExtendedSkillFilters(
 			query,
 			c.Query("namespace"),
@@ -150,7 +138,7 @@ func SearchSkills(db *storage.Database, objStorages ...*storage.ObjectStorage) g
 			c.JSON(http.StatusInternalServerError, gin.H{"code": "INTERNAL_ERROR", "message": err.Error()})
 			return
 		}
-		if err := loadViewerLikes(db, skills, currentUserFromContext(c)); err != nil {
+		if err := loadViewerLikes(db, skills, viewer); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"code": "INTERNAL_ERROR", "message": err.Error()})
 			return
 		}
@@ -182,17 +170,9 @@ func ListVersions(db *storage.Database, objStorages ...*storage.ObjectStorage) g
 			return
 		}
 
-		if !skill.IsPublic {
-			user, exists := c.Get("user")
-			if !exists {
-				c.JSON(http.StatusForbidden, gin.H{"code": "FORBIDDEN", "message": "Access denied"})
-				return
-			}
-			owner, ok := user.(*models.User)
-			if !ok || !canAccessSkill(owner, &skill) {
-				c.JSON(http.StatusForbidden, gin.H{"code": "FORBIDDEN", "message": "Access denied"})
-				return
-			}
+		if !canAccessSkill(currentUserFromContext(c), &skill) {
+			c.JSON(http.StatusForbidden, gin.H{"code": "FORBIDDEN", "message": "Access denied"})
+			return
 		}
 
 		var versions []models.SkillVersion
@@ -200,7 +180,7 @@ func ListVersions(db *storage.Database, objStorages ...*storage.ObjectStorage) g
 			c.JSON(http.StatusInternalServerError, gin.H{"code": "INTERNAL_ERROR", "message": err.Error()})
 			return
 		}
-		populateVersionDownloadURLs(objStorage, skill.IsPublic, namespace, name, versions)
+		populateVersionDownloadURLs(objStorage, skill.IsPublic && !skill.IsOwnerOnly, namespace, name, versions)
 
 		c.JSON(http.StatusOK, versions)
 	}
@@ -216,6 +196,7 @@ type CreateSkillRequest struct {
 	Tags          []string `json:"tags"`
 	License       string   `json:"license"`
 	IsPublic      bool     `json:"is_public"`
+	IsOwnerOnly   bool     `json:"is_owner_only"`
 }
 
 type UpdateSkillRequest struct {
@@ -225,6 +206,7 @@ type UpdateSkillRequest struct {
 	Tags          []string `json:"tags"`
 	License       string   `json:"license"`
 	IsPublic      bool     `json:"is_public"`
+	IsOwnerOnly   bool     `json:"is_owner_only"`
 	IsDeprecated  *bool    `json:"is_deprecated,omitempty"`
 }
 
@@ -327,6 +309,7 @@ func CreateSkill(db *storage.Database, objStorage *storage.ObjectStorage, scanne
 		}
 
 		isPublic := strings.EqualFold(c.DefaultPostForm("is_public", "true"), "true")
+		isOwnerOnly := strings.EqualFold(c.DefaultPostForm("is_owner_only", "false"), "true")
 
 		// 创建技能记录
 		skill := models.Skill{
@@ -339,6 +322,7 @@ func CreateSkill(db *storage.Database, objStorage *storage.ObjectStorage, scanne
 			Tags:          models.StringArray(normalizedTags),
 			License:       c.PostForm("license"),
 			IsPublic:      isPublic,
+			IsOwnerOnly:   isOwnerOnly,
 		}
 
 		versionModel := models.SkillVersion{
@@ -363,16 +347,17 @@ func CreateSkill(db *storage.Database, objStorage *storage.ObjectStorage, scanne
 			if err := tx.Model(&skill).Update("latest_version", versionModel.Version).Error; err != nil {
 				return err
 			}
-			if isPublic {
+			if isPublic || isOwnerOnly {
 				if err := bumpCatalogVersionTx(tx); err != nil {
 					return err
 				}
 			}
 			return writeAuditLogTx(tx, c, &user.ID, "skill.create", resourceTypeSkill, &skill.ID, models.JSON{
-				"namespace": namespace,
-				"name":      name,
-				"version":   versionModel.Version,
-				"is_public": isPublic,
+				"namespace":     namespace,
+				"name":          name,
+				"version":       versionModel.Version,
+				"is_public":     isPublic,
+				"is_owner_only": isOwnerOnly,
 			})
 		}); err != nil {
 			_ = objStorage.Delete(c, storagePath)
@@ -388,7 +373,7 @@ func CreateSkill(db *storage.Database, objStorage *storage.ObjectStorage, scanne
 			"namespace":    namespace,
 			"name":         name,
 			"version":      versionModel.Version,
-			"download_url": resolvePublicDownloadURL(objStorage, isPublic, storagePath, namespace, name, versionModel.Version),
+			"download_url": resolvePublicDownloadURL(objStorage, isPublic && !isOwnerOnly, storagePath, namespace, name, versionModel.Version),
 		})
 	}
 }
@@ -429,6 +414,7 @@ func UpdateSkill(db *storage.Database) gin.HandlerFunc {
 			return
 		}
 		wasPublic := skill.IsPublic
+		wasOwnerOnly := skill.IsOwnerOnly
 		normalizedCategory := skill.Category
 		normalizedTags := append([]string{}, []string(skill.Tags)...)
 		if req.Category != skill.Category || !stringSlicesEqual(req.Tags, []string(skill.Tags)) {
@@ -445,6 +431,7 @@ func UpdateSkill(db *storage.Database) gin.HandlerFunc {
 			!stringSlicesEqual([]string(skill.Tags), normalizedTags) ||
 			skill.License != req.License ||
 			skill.IsPublic != req.IsPublic ||
+			skill.IsOwnerOnly != req.IsOwnerOnly ||
 			(req.IsDeprecated != nil && skill.IsDeprecated != *req.IsDeprecated)
 
 		// 更新字段
@@ -454,11 +441,12 @@ func UpdateSkill(db *storage.Database) gin.HandlerFunc {
 		skill.Tags = models.StringArray(normalizedTags)
 		skill.License = req.License
 		skill.IsPublic = req.IsPublic
+		skill.IsOwnerOnly = req.IsOwnerOnly
 		if req.IsDeprecated != nil {
 			skill.IsDeprecated = *req.IsDeprecated
 		}
 		wasRecommended := skill.IsRecommended
-		if !skill.IsPublic {
+		if !skill.IsPublic || skill.IsOwnerOnly {
 			skill.IsRecommended = false
 		}
 		hasEffectiveChange = hasEffectiveChange || wasRecommended != skill.IsRecommended
@@ -467,7 +455,7 @@ func UpdateSkill(db *storage.Database) gin.HandlerFunc {
 			if err := tx.Save(&skill).Error; err != nil {
 				return err
 			}
-			if hasEffectiveChange && (wasPublic || skill.IsPublic) {
+			if hasEffectiveChange && (wasPublic || skill.IsPublic || wasOwnerOnly || skill.IsOwnerOnly) {
 				if err := bumpCatalogVersionTx(tx); err != nil {
 					return err
 				}
@@ -476,6 +464,7 @@ func UpdateSkill(db *storage.Database) gin.HandlerFunc {
 				"namespace":      namespace,
 				"name":           name,
 				"is_public":      skill.IsPublic,
+				"is_owner_only":  skill.IsOwnerOnly,
 				"is_deprecated":  skill.IsDeprecated,
 				"is_recommended": skill.IsRecommended,
 			})
@@ -517,8 +506,8 @@ func UpdateSkillRecommendation(db *storage.Database) gin.HandlerFunc {
 			return
 		}
 
-		if req.IsRecommended && !skill.IsPublic {
-			c.JSON(http.StatusBadRequest, gin.H{"code": "INVALID_INPUT", "message": "Only public skills can be recommended"})
+		if req.IsRecommended && (!skill.IsPublic || skill.IsOwnerOnly) {
+			c.JSON(http.StatusBadRequest, gin.H{"code": "INVALID_INPUT", "message": "Only public skills without owner-only access can be recommended"})
 			return
 		}
 
@@ -589,7 +578,7 @@ func DeleteSkill(db *storage.Database, objStorage *storage.ObjectStorage) gin.Ha
 			if err := tx.Delete(&skill).Error; err != nil {
 				return err
 			}
-			if skill.IsPublic {
+			if skill.IsPublic || skill.IsOwnerOnly {
 				if err := bumpCatalogVersionTx(tx); err != nil {
 					return err
 				}

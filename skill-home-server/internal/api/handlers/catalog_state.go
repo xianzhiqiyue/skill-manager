@@ -178,7 +178,7 @@ func latestPublicSkillMutationAtTx(tx *gorm.DB) (time.Time, error) {
 	var skill models.Skill
 	if err := tx.Unscoped().
 		Model(&models.Skill{}).
-		Where("is_public = ?", true).
+		Where("is_public = ? OR COALESCE(is_owner_only, FALSE) = TRUE", true).
 		Order("COALESCE(deleted_at, updated_at, created_at) DESC").
 		Limit(1).
 		Take(&skill).Error; err != nil {
@@ -195,7 +195,7 @@ func latestPublicSkillVersionMutationAtTx(tx *gorm.DB) (time.Time, error) {
 	if err := tx.Unscoped().
 		Model(&models.SkillVersion{}).
 		Joins("JOIN skills ON skills.id = skill_versions.skill_id").
-		Where("skills.is_public = ?", true).
+		Where("skills.is_public = ? OR COALESCE(skills.is_owner_only, FALSE) = TRUE", true).
 		Order("COALESCE(skill_versions.deleted_at, skill_versions.published_at, skill_versions.created_at) DESC").
 		Limit(1).
 		Take(&version).Error; err != nil {

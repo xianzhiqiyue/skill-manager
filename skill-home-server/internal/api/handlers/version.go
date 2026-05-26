@@ -139,7 +139,7 @@ func PublishVersion(db *storage.Database, objStorage *storage.ObjectStorage, sca
 			if err := tx.Model(&skill).Updates(updates).Error; err != nil {
 				return err
 			}
-			if skill.IsPublic {
+			if skill.IsPublic || skill.IsOwnerOnly {
 				if err := bumpCatalogVersionTx(tx); err != nil {
 					return err
 				}
@@ -166,7 +166,7 @@ func PublishVersion(db *storage.Database, objStorage *storage.ObjectStorage, sca
 			"namespace":    namespace,
 			"name":         name,
 			"version":      version.Version,
-			"download_url": resolvePublicDownloadURL(objStorage, skill.IsPublic, storagePath, namespace, name, version.Version),
+			"download_url": resolvePublicDownloadURL(objStorage, skill.IsPublic && !skill.IsOwnerOnly, storagePath, namespace, name, version.Version),
 			"published_at": version.PublishedAt,
 		})
 	}
@@ -218,7 +218,7 @@ func DeleteVersion(db *storage.Database, objStorage *storage.ObjectStorage) gin.
 					if err := tx.Model(&skill).Update("latest_version", "").Error; err != nil {
 						return err
 					}
-					if skill.IsPublic {
+					if skill.IsPublic || skill.IsOwnerOnly {
 						if err := bumpCatalogVersionTx(tx); err != nil {
 							return err
 						}
@@ -234,7 +234,7 @@ func DeleteVersion(db *storage.Database, objStorage *storage.ObjectStorage) gin.
 			if err := tx.Model(&skill).Update("latest_version", latest.Version).Error; err != nil {
 				return err
 			}
-			if skill.IsPublic {
+			if skill.IsPublic || skill.IsOwnerOnly {
 				if err := bumpCatalogVersionTx(tx); err != nil {
 					return err
 				}
@@ -274,18 +274,9 @@ func DownloadSkill(db *storage.Database, objStorage *storage.ObjectStorage) gin.
 			return
 		}
 
-		// 检查权限（私有技能需要认证）
-		if !skill.IsPublic {
-			user, exists := c.Get("user")
-			if !exists {
-				c.JSON(http.StatusForbidden, gin.H{"code": "FORBIDDEN", "message": "Access denied"})
-				return
-			}
-			owner, ok := user.(*models.User)
-			if !ok || !canAccessSkill(owner, &skill) {
-				c.JSON(http.StatusForbidden, gin.H{"code": "FORBIDDEN", "message": "Access denied"})
-				return
-			}
+		if !canAccessSkill(currentUserFromContext(c), &skill) {
+			c.JSON(http.StatusForbidden, gin.H{"code": "FORBIDDEN", "message": "Access denied"})
+			return
 		}
 
 		sourceFormat, err := detectArchiveFormat(skillVersion.StoragePath, nil)
@@ -296,8 +287,8 @@ func DownloadSkill(db *storage.Database, objStorage *storage.ObjectStorage) gin.
 				return
 			}
 
-			if skill.IsPublic {
-				if publicURL := resolvePublicDownloadURL(objStorage, skill.IsPublic, skillVersion.StoragePath, namespace, name, version); (strings.HasPrefix(publicURL, "http://") || strings.HasPrefix(publicURL, "https://")) && targetFormat == sourceFormat {
+			if skill.IsPublic && !skill.IsOwnerOnly {
+				if publicURL := resolvePublicDownloadURL(objStorage, true, skillVersion.StoragePath, namespace, name, version); (strings.HasPrefix(publicURL, "http://") || strings.HasPrefix(publicURL, "https://")) && targetFormat == sourceFormat {
 					db.Model(&skill).UpdateColumn("download_count", gorm.Expr("download_count + 1"))
 					c.Redirect(http.StatusFound, publicURL)
 					return

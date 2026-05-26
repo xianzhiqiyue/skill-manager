@@ -228,6 +228,7 @@ func loadPublicSkillVersions(db *storage.Database) ([]publicSkillVersionRecord, 
 		Select("skills.namespace, skills.name, skill_versions.version, skill_versions.storage_path").
 		Joins("JOIN skills ON skills.id = skill_versions.skill_id").
 		Where("skills.is_public = ?", true).
+		Where("COALESCE(skills.is_owner_only, FALSE) = FALSE").
 		Where("skills.deleted_at IS NULL").
 		Where("skill_versions.deleted_at IS NULL").
 		Where("COALESCE(skill_versions.storage_path, '') <> ''").

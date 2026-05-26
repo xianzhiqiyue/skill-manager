@@ -71,6 +71,7 @@ func newTestDatabase(t *testing.T) *storage.Database {
 		rating_sum INTEGER DEFAULT 0,
 		rating_count INTEGER DEFAULT 0,
 		is_public NUMERIC DEFAULT 1,
+		is_owner_only NUMERIC DEFAULT 0,
 		is_deprecated NUMERIC DEFAULT 0,
 		is_recommended NUMERIC DEFAULT 0,
 		latest_version TEXT,
@@ -455,6 +456,53 @@ func TestPrivateSkillDetailRejectsAnonymousAccess(t *testing.T) {
 
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("expected 403, got %d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestOwnerOnlySkillDetailRequiresOwner(t *testing.T) {
+	db := newTestDatabase(t)
+	owner := &models.User{ID: uuid.New(), Username: "owner", Email: "owner@example.com"}
+	other := &models.User{ID: uuid.New(), Username: "other", Email: "other@example.com"}
+	if err := db.Create([]*models.User{owner, other}).Error; err != nil {
+		t.Fatalf("seed users failed: %v", err)
+	}
+
+	skill := models.Skill{
+		ID:          uuid.New(),
+		Namespace:   "team",
+		Name:        "owner-only",
+		OwnerID:     owner.ID,
+		Description: "owner only skill",
+		IsPublic:    true,
+		IsOwnerOnly: true,
+	}
+	if err := db.Create(&skill).Error; err != nil {
+		t.Fatalf("create skill failed: %v", err)
+	}
+
+	requestDetail := func(router *gin.Engine) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/skills/team/owner-only", nil)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		return rec
+	}
+
+	anonymousRouter := gin.New()
+	anonymousRouter.GET("/api/v1/skills/:namespace/:name", middleware.OptionalAuth(db), GetSkill(db))
+	if rec := requestDetail(anonymousRouter); rec.Code != http.StatusForbidden {
+		t.Fatalf("anonymous status = %d, want 403 body=%s", rec.Code, rec.Body.String())
+	}
+
+	otherRouter := newAuthedRouter(other)
+	otherRouter.GET("/api/v1/skills/:namespace/:name", middleware.OptionalAuth(db), GetSkill(db))
+	if rec := requestDetail(otherRouter); rec.Code != http.StatusForbidden {
+		t.Fatalf("other status = %d, want 403 body=%s", rec.Code, rec.Body.String())
+	}
+
+	ownerRouter := newAuthedRouter(owner)
+	ownerRouter.GET("/api/v1/skills/:namespace/:name", middleware.OptionalAuth(db), GetSkill(db))
+	if rec := requestDetail(ownerRouter); rec.Code != http.StatusOK {
+		t.Fatalf("owner status = %d, want 200 body=%s", rec.Code, rec.Body.String())
 	}
 }
 
@@ -1104,6 +1152,53 @@ func TestCreatePrivateSkillKeepsRelativeDownloadURL(t *testing.T) {
 
 	got, _ := resp["download_url"].(string)
 	want := "/api/v1/download/team/private-github/1.0.0"
+	if got != want {
+		t.Fatalf("download_url = %q, want %q", got, want)
+	}
+}
+
+func TestCreateOwnerOnlySkillStoresAccessConfig(t *testing.T) {
+	db := newTestDatabase(t)
+	objStorage := newPublicTestObjectStorage(t)
+	user := &models.User{ID: uuid.New(), Username: "owner", Email: "owner@example.com"}
+	if err := db.Create(user).Error; err != nil {
+		t.Fatalf("create user failed: %v", err)
+	}
+
+	router := newAuthedRouter(user)
+	router.POST("/api/v1/skills", CreateSkill(db, objStorage, validator.NewScanner()))
+
+	req, _ := newCreateSkillRequest(t, map[string]string{
+		"namespace":     "team",
+		"name":          "owner-only-github",
+		"category":      "integration",
+		"tags":          "api",
+		"version":       "1.0.0",
+		"is_public":     "true",
+		"is_owner_only": "true",
+	}, newSkillArchive(t))
+
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("unexpected status: %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	var skill models.Skill
+	if err := scopeNamespaceName(db.DB, "team", "owner-only-github").First(&skill).Error; err != nil {
+		t.Fatalf("load created skill failed: %v", err)
+	}
+	if !skill.IsPublic || !skill.IsOwnerOnly {
+		t.Fatalf("unexpected access config: is_public=%t is_owner_only=%t", skill.IsPublic, skill.IsOwnerOnly)
+	}
+
+	var resp map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response failed: %v", err)
+	}
+	got, _ := resp["download_url"].(string)
+	want := "/api/v1/download/team/owner-only-github/1.0.0"
 	if got != want {
 		t.Fatalf("download_url = %q, want %q", got, want)
 	}
@@ -3000,6 +3095,142 @@ func TestSearchSkillsPrefersNewestAmongExactNameMatches(t *testing.T) {
 	}
 	if resp.Results[0].Namespace != "skill-home" {
 		t.Fatalf("expected newest exact match first, got %+v", resp.Results)
+	}
+}
+
+func TestSearchSkillsRestrictsOwnerOnlyResults(t *testing.T) {
+	db := newTestDatabase(t)
+	owner := &models.User{ID: uuid.New(), Username: "owner", Email: "owner@example.com"}
+	other := &models.User{ID: uuid.New(), Username: "other", Email: "other@example.com"}
+	if err := db.Create([]*models.User{owner, other}).Error; err != nil {
+		t.Fatalf("seed users failed: %v", err)
+	}
+
+	skills := []models.Skill{
+		{ID: uuid.New(), Namespace: "team", Name: "github-public", OwnerID: owner.ID, Description: "github workflow", IsPublic: true},
+		{ID: uuid.New(), Namespace: "team", Name: "github-owner-public", OwnerID: owner.ID, Description: "github owner", IsPublic: true, IsOwnerOnly: true},
+		{ID: uuid.New(), Namespace: "team", Name: "github-owner-private", OwnerID: owner.ID, Description: "github private owner", IsPublic: false, IsOwnerOnly: true},
+		{ID: uuid.New(), Namespace: "team", Name: "github-other-owner", OwnerID: other.ID, Description: "github other owner", IsPublic: true, IsOwnerOnly: true},
+	}
+	if err := db.Create(&skills).Error; err != nil {
+		t.Fatalf("seed skills failed: %v", err)
+	}
+
+	assertSearchNames := func(t *testing.T, router *gin.Engine, want map[string]bool) {
+		t.Helper()
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/search?q=github&per_page=20", nil)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("unexpected status: %d body=%s", rec.Code, rec.Body.String())
+		}
+
+		var resp struct {
+			Results []models.Skill `json:"results"`
+		}
+		if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("decode response failed: %v", err)
+		}
+		got := make(map[string]bool, len(resp.Results))
+		for _, skill := range resp.Results {
+			got[skill.Name] = true
+		}
+		if len(got) != len(want) {
+			t.Fatalf("result names = %#v, want %#v", got, want)
+		}
+		for name := range want {
+			if !got[name] {
+				t.Fatalf("result names = %#v, missing %s", got, name)
+			}
+		}
+	}
+
+	anonymousRouter := gin.New()
+	anonymousRouter.GET("/api/v1/search", middleware.OptionalAuth(db), SearchSkills(db))
+	assertSearchNames(t, anonymousRouter, map[string]bool{
+		"github-public": true,
+	})
+
+	ownerRouter := newAuthedRouter(owner)
+	ownerRouter.GET("/api/v1/search", middleware.OptionalAuth(db), SearchSkills(db))
+	assertSearchNames(t, ownerRouter, map[string]bool{
+		"github-public":        true,
+		"github-owner-public":  true,
+		"github-owner-private": true,
+	})
+
+	otherRouter := newAuthedRouter(other)
+	otherRouter.GET("/api/v1/search", middleware.OptionalAuth(db), SearchSkills(db))
+	assertSearchNames(t, otherRouter, map[string]bool{
+		"github-public":      true,
+		"github-other-owner": true,
+	})
+}
+
+func TestOwnerOnlyDownloadRequiresOwner(t *testing.T) {
+	db := newTestDatabase(t)
+	objStorage := newTestObjectStorage(t)
+	owner := &models.User{ID: uuid.New(), Username: "owner", Email: "owner@example.com"}
+	other := &models.User{ID: uuid.New(), Username: "other", Email: "other@example.com"}
+	if err := db.Create([]*models.User{owner, other}).Error; err != nil {
+		t.Fatalf("seed users failed: %v", err)
+	}
+
+	archive := newSkillArchive(t)
+	storagePath := "skills/team/owner-only/test.zip"
+	if err := objStorage.Upload(context.Background(), storagePath, bytes.NewReader(archive), int64(len(archive))); err != nil {
+		t.Fatalf("upload archive failed: %v", err)
+	}
+
+	skill := models.Skill{
+		ID:            uuid.New(),
+		Namespace:     "team",
+		Name:          "owner-only",
+		OwnerID:       owner.ID,
+		Description:   "owner only skill",
+		IsPublic:      true,
+		IsOwnerOnly:   true,
+		LatestVersion: "1.0.0",
+	}
+	if err := db.Create(&skill).Error; err != nil {
+		t.Fatalf("create skill failed: %v", err)
+	}
+	version := models.SkillVersion{
+		ID:          uuid.New(),
+		SkillID:     skill.ID,
+		Version:     "1.0.0",
+		StoragePath: storagePath,
+		SizeBytes:   int64(len(archive)),
+		ScanStatus:  "pass",
+		PublishedBy: owner.ID,
+	}
+	if err := db.Create(&version).Error; err != nil {
+		t.Fatalf("create version failed: %v", err)
+	}
+
+	requestDownload := func(router *gin.Engine) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/download/team/owner-only/1.0.0?format=zip", nil)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		return rec
+	}
+
+	anonymousRouter := gin.New()
+	anonymousRouter.GET("/api/v1/download/:namespace/:name/:version", middleware.OptionalAuth(db), DownloadSkill(db, objStorage))
+	if rec := requestDownload(anonymousRouter); rec.Code != http.StatusForbidden {
+		t.Fatalf("anonymous status = %d, want 403 body=%s", rec.Code, rec.Body.String())
+	}
+
+	otherRouter := newAuthedRouter(other)
+	otherRouter.GET("/api/v1/download/:namespace/:name/:version", middleware.OptionalAuth(db), DownloadSkill(db, objStorage))
+	if rec := requestDownload(otherRouter); rec.Code != http.StatusForbidden {
+		t.Fatalf("other status = %d, want 403 body=%s", rec.Code, rec.Body.String())
+	}
+
+	ownerRouter := newAuthedRouter(owner)
+	ownerRouter.GET("/api/v1/download/:namespace/:name/:version", middleware.OptionalAuth(db), DownloadSkill(db, objStorage))
+	if rec := requestDownload(ownerRouter); rec.Code != http.StatusOK {
+		t.Fatalf("owner status = %d, want 200 body=%s", rec.Code, rec.Body.String())
 	}
 }
 

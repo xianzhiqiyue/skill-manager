@@ -50,6 +50,7 @@ func newCatalogTestDatabase(t *testing.T) *storage.Database {
 		rating_sum INTEGER DEFAULT 0,
 		rating_count INTEGER DEFAULT 0,
 		is_public NUMERIC DEFAULT 1,
+		is_owner_only NUMERIC DEFAULT 0,
 		is_deprecated NUMERIC DEFAULT 0,
 		is_recommended NUMERIC DEFAULT 0,
 		latest_version TEXT,
