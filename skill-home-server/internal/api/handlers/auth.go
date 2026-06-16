@@ -3,6 +3,7 @@ package handlers
 import (
 	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -45,6 +46,11 @@ func Register(db *storage.Database) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req RegisterRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"code": "INVALID_INPUT", "message": err.Error()})
+			return
+		}
+		req.Username = strings.TrimSpace(req.Username)
+		if err := validateUsername(req.Username); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"code": "INVALID_INPUT", "message": err.Error()})
 			return
 		}

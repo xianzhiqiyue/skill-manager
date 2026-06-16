@@ -80,7 +80,9 @@ export function AuthPage({ locationSearch, model, mode, navigate }: AuthPageProp
                     <span>用户名</span>
                     <input
                       placeholder="例如 testuser"
+                      pattern="[A-Za-z0-9][A-Za-z0-9_-]{2,31}"
                       required
+                      title="用户名只能使用 3-32 位 ASCII 字母、数字、下划线或连字符。"
                       value={model.authForm.username}
                       onChange={(event) =>
                         model.setAuthForm((current) => ({

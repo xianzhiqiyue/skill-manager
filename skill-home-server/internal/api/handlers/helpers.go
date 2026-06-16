@@ -27,6 +27,7 @@ const (
 
 var (
 	versionPattern        = regexp.MustCompile(`^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$`)
+	usernamePattern       = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]{2,31}$`)
 	errEmailExists        = errors.New("email already exists")
 	errSkillAlreadyExists = errors.New("skill already exists")
 	errSkillVersionExists = errors.New("skill version already exists")
@@ -95,6 +96,14 @@ func scopeNamespaceName(db *gorm.DB, namespace, name string) *gorm.DB {
 
 func validateNamespace(namespace string) error {
 	return validatePathSegment(namespace, "namespace")
+}
+
+func validateUsername(username string) error {
+	username = strings.TrimSpace(username)
+	if !usernamePattern.MatchString(username) {
+		return fmt.Errorf("username must be 3-32 characters and use only ASCII letters, numbers, underscores, or hyphens")
+	}
+	return nil
 }
 
 func validateSkillName(name string) error {

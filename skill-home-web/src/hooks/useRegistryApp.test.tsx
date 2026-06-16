@@ -9,6 +9,7 @@ import {
   fetchSkillDetail,
   loginUser,
   publishSkill,
+  registerUser,
   removeCommunityTag,
   updateSkill,
   updateSkillRecommendation,
@@ -350,6 +351,28 @@ describe('useRegistryApp catalog URL sync', () => {
     await waitFor(() => {
       expect(navigate).toHaveBeenCalledWith('/settings/api-keys');
     });
+  });
+
+  it('rejects Chinese usernames before submitting registration', async () => {
+    const navigate = vi.fn();
+    const { result } = renderHook(() =>
+      useRegistryApp({ name: 'auth', mode: 'register' }, '', navigate),
+    );
+
+    act(() => {
+      result.current.setAuthForm({
+        username: '蔡国龙',
+        email: 'caigl@example.com',
+        password: 'secret123',
+      });
+    });
+
+    await act(async () => {
+      await result.current.submitAuth('register');
+    });
+
+    expect(registerUser).not.toHaveBeenCalled();
+    expect(result.current.authError).toContain('ASCII');
   });
 
   it('submits selected publish category and tags with the release payload', async () => {

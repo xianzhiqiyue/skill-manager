@@ -45,6 +45,8 @@ import { parseTags, skillKey } from '../lib/format';
 import { buildAuthPath, buildSkillPath, parseAuthRedirect, type AppRoute } from '../lib/routes';
 
 const TOKEN_STORAGE_KEY = 'skill-home-web-token';
+const USERNAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{2,31}$/;
+const USERNAME_VALIDATION_MESSAGE = '用户名只能使用 3-32 位 ASCII 字母、数字、下划线或连字符。';
 
 function loadStoredToken() {
   if (typeof window === 'undefined') {
@@ -586,6 +588,10 @@ export function useRegistryApp(
     setAuthSuccess(null);
 
     try {
+      if (mode === 'register' && !USERNAME_PATTERN.test(authForm.username.trim())) {
+        throw new Error(USERNAME_VALIDATION_MESSAGE);
+      }
+
       const response: AuthResponse =
         mode === 'register'
           ? await registerUser({

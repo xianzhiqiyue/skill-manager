@@ -3680,3 +3680,59 @@ func TestCreateUserRecordReturnsUsernameExistsOnConflict(t *testing.T) {
 		t.Fatalf("expected errUsernameExists, got %v", err)
 	}
 }
+
+func TestRegisterRejectsNonASCIIUsername(t *testing.T) {
+	db := newTestDatabase(t)
+	router := newAuthedRouter(nil)
+	router.POST("/api/v1/auth/register", Register(db))
+
+	body := bytes.NewBufferString(`{"username":"蔡国龙","email":"caigl@example.com","password":"secret123"}`)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/register", body)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("register status: %d body=%s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "ASCII letters") {
+		t.Fatalf("expected ASCII username validation message, got %s", rec.Body.String())
+	}
+
+	var count int64
+	if err := db.Model(&models.User{}).Where("email = ?", "caigl@example.com").Count(&count).Error; err != nil {
+		t.Fatalf("count users failed: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("expected no user to be created, got %d", count)
+	}
+}
+
+func TestRegisterAcceptsASCIIUsername(t *testing.T) {
+	t.Setenv("SKILL_HOME_AUTH_JWT_SECRET", "test-secret")
+	if err := config.Load(); err != nil {
+		t.Fatalf("load test config failed: %v", err)
+	}
+
+	db := newTestDatabase(t)
+	router := newAuthedRouter(nil)
+	router.POST("/api/v1/auth/register", Register(db))
+
+	body := bytes.NewBufferString(`{"username":"jason_01","email":"jason@example.com","password":"secret123"}`)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/register", body)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("register status: %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	var user models.User
+	if err := db.First(&user, "email = ?", "jason@example.com").Error; err != nil {
+		t.Fatalf("load registered user failed: %v", err)
+	}
+	if user.Username != "jason_01" {
+		t.Fatalf("expected username jason_01, got %q", user.Username)
+	}
+}
