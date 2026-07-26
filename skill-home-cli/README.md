@@ -6,27 +6,64 @@
 
 | 能力域 | 代表命令 | 说明 |
 |--------|----------|------|
-| 本地创作 | `init` `create` `import` | 新建 skill、交互式生成模板、从 GitHub/Claude/Codex/Cursor 导入 |
+| 本地创作 | `init` `create` `import` | 新建 skill、交互式生成模板、从 GitHub/Claude/Codex/Xigua 导入 |
 | 质量检查 | `validate` `scan` `preview` | 校验 `SKILL.md`、做安全扫描、预览导出效果 |
 | 打包与导出 | `pack` `export` | 生成 zip 发布包或导出为 IDE 平台格式 |
-| IDE 同步 | `sync` `install` `uninstall` | 同步到 Claude、Copilot、Cursor、Codex、OpenClaw |
+| IDE 同步 | `sync` `install` `uninstall` | 同步到 Claude、Codex、OpenClaw、Xigua |
 | 注册中心交互 | `push` `pull` `search` `list --remote` `info` | 发布、拉取、搜索和查看远程 skill |
-| 生命周期管理 | `update` `delete` `delete-version` `rate` | 更新本地缓存、删除远程版本、评分；`install` 成功后会上报安装事件 |
+| 生命周期管理 | `update` `delete` `delete-version` `feedback` `collaborators` | 更新本地缓存、管理协作者、删除远程版本、提交结构化反馈；`install` 成功后会上报安装事件 |
 | 环境治理 | `login` `logout` `whoami` `doctor` `self-update` | 认证、诊断、本机 CLI 自更新 |
 
 ## 安装
 
-### 使用已部署安装页
+### 交给 Agent 安装
+
+在 Skill Home 的[安装指南](https://soulstore.ciqtek.com/skill-home/install)选择当前操作系统，复制“给 Agent 的 CLI 安装指引”。也可以直接告诉 Agent：
+
+```text
+请帮我在当前电脑安装最新稳定版 Skill Home CLI。只使用 https://soulstore.ciqtek.com/skill-home 的官方安装入口；安装后运行 skill-home doctor 和 skill-home version，并告诉我实际安装路径和检查结果。不要修改无关程序，失败时停止操作并说明原因。
+```
+
+### Linux
+
+支持 x64 和 ARM64：
 
 ```bash
 curl -fsSL https://soulstore.ciqtek.com/skill-home/install.sh -o /tmp/skill-home-install.sh
 bash /tmp/skill-home-install.sh
 ```
 
+### macOS
+
+同一安装脚本支持 Intel 和 Apple 芯片：
+
+```bash
+curl -fsSL https://soulstore.ciqtek.com/skill-home/install.sh -o /tmp/skill-home-install.sh
+bash /tmp/skill-home-install.sh
+```
+
+### Windows
+
+当前支持 Windows x64。请在原生 PowerShell 中执行，无需 Git Bash：
+
+```powershell
+$installer = Join-Path $env:TEMP 'skill-home-install.ps1'
+Invoke-WebRequest 'https://soulstore.ciqtek.com/skill-home/install.ps1' -OutFile $installer
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File $installer
+```
+
+安装脚本会把 CLI 目录加入当前用户的 `PATH`。如果当前窗口仍找不到 `skill-home`，请重新打开 PowerShell。
+
 指定版本：
 
 ```bash
 bash /tmp/skill-home-install.sh v0.2.16
+```
+
+Windows 指定版本：
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File $installer -Version v0.2.16
 ```
 
 升级已安装 CLI：
@@ -36,7 +73,7 @@ skill-home self-update
 skill-home self-update v0.2.16
 ```
 
-安装脚本和 `self-update` 都从当前 Skill Home 服务托管的 `/releases` 读取版本元数据、校验文件和平台包。
+Linux/macOS 安装脚本、Windows PowerShell 安装脚本和 `self-update` 都从当前 Skill Home 服务托管的 `/releases` 读取版本元数据、校验文件和平台包。
 
 ### 从源码安装
 
@@ -127,9 +164,13 @@ skill-home update --ide codex --global --mode mirror
 | `skill-home uninstall <skill-ref>` | 从本地 IDE 卸载技能 |
 | `skill-home update` | 更新本地缓存技能到最新版 |
 | `skill-home push [path]` | 推送技能到注册中心，必要时交互补齐分类元数据 |
+| `skill-home collaborators <skill-ref>` | 查看远程 skill 协作者 |
+| `skill-home collaborators add <skill-ref> <username> --role maintainer` | 新增或更新协作者角色 |
+| `skill-home collaborators remove <skill-ref> <username>` | 移除协作者 |
 | `skill-home delete <skill-ref>` | 删除远程技能 |
 | `skill-home delete-version <skill-ref>` | 删除远程技能版本 |
-| `skill-home rate <skill-ref> --score 5` | 为技能评分 |
+| `skill-home feedback <skill-ref> --type suggestion --message "增加示例"` | 提交有用、问题或建议反馈 |
+| `skill-home rate <skill-ref>` | 已弃用；输出迁移到 `feedback` 的提示，不发送评分请求 |
 | `skill-home activity` | 查看最近活动 |
 | `skill-home doctor` | 诊断本地环境与 registry 配置 |
 | `skill-home self-update [version]` | 更新当前 CLI 到最新或指定版本 |
@@ -144,7 +185,7 @@ skill-home update --ide codex --global --mode mirror
 
 ## 注册中心认证边界
 
-- `push`、`delete`、`delete-version`、`rate`、`activity`、`whoami` 需要先执行 `skill-home login`
+- `push`、`collaborators`、`delete`、`delete-version`、`feedback`、`activity`、`whoami` 需要先执行 `skill-home login`
 - `pull`、`install`、`update`、`search`、`info`、`list --remote` 对公开 skill 不需要登录
 - 访问私有 skill 时，CLI 会提示先执行 `skill-home login`
 
@@ -184,13 +225,6 @@ ide:
     enabled: true
     project_path: ".claude/skills"
     global_path: "~/.claude/skills"
-  copilot:
-    enabled: false
-    project_path: ".github/skills"
-    global_path: "~/.copilot/skills"
-  cursor:
-    enabled: true
-    project_path: ".cursor/rules"
   codex:
     enabled: true
     project_path: ".agents/skills"
@@ -199,6 +233,10 @@ ide:
     enabled: true
     project_path: "skills"
     global_path: "~/.openclaw/skills"
+  xigua:
+    enabled: false
+    project_path: ".xigua/skills"
+    global_path: "~/.xigua-agent/skills"
 
 sync:
   mode: "auto"

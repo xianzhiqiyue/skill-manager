@@ -13,7 +13,7 @@ import (
 	"github.com/skill-home/cli/internal/config"
 )
 
-func TestGetTargetIDEsIncludesOpenClawWhenEnabled(t *testing.T) {
+func TestGetTargetIDEsIncludesOpenClawAndXiguaWhenEnabled(t *testing.T) {
 	t.Cleanup(func() {
 		config.C = nil
 	})
@@ -21,17 +21,18 @@ func TestGetTargetIDEsIncludesOpenClawWhenEnabled(t *testing.T) {
 	config.C = &config.Config{
 		IDE: config.IDEConfig{
 			OpenClaw: config.IDE{Enabled: true},
+			Xigua:    config.IDE{Enabled: true},
 		},
 	}
 
 	got := getTargetIDEs(&syncOptions{})
-	want := []string{"openclaw"}
-	if len(got) != len(want) || got[0] != want[0] {
+	want := []string{"openclaw", "xigua"}
+	if len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
 		t.Fatalf("unexpected target IDEs: got %v want %v", got, want)
 	}
 }
 
-func TestIdeFlagUsageMentionsOpenClaw(t *testing.T) {
+func TestIdeFlagUsageMentionsSupportedTargets(t *testing.T) {
 	tests := []struct {
 		name  string
 		usage string
@@ -47,11 +48,17 @@ func TestIdeFlagUsageMentionsOpenClaw(t *testing.T) {
 			if !strings.Contains(tt.usage, "openclaw") {
 				t.Fatalf("usage does not mention openclaw: %q", tt.usage)
 			}
+			if !strings.Contains(tt.usage, "xigua") {
+				t.Fatalf("usage does not mention xigua: %q", tt.usage)
+			}
+			if strings.Contains(tt.usage, "cursor") || strings.Contains(tt.usage, "copilot") {
+				t.Fatalf("usage mentions removed targets: %q", tt.usage)
+			}
 		})
 	}
 }
 
-func TestRunDoctorReportsOpenClawPathsAndSymlinkSupport(t *testing.T) {
+func TestRunDoctorReportsOpenClawAndXiguaPathsAndSymlinkSupport(t *testing.T) {
 	t.Cleanup(func() {
 		viper.Reset()
 		config.C = nil
@@ -80,6 +87,7 @@ func TestRunDoctorReportsOpenClawPathsAndSymlinkSupport(t *testing.T) {
 		t.Fatalf("Getwd after chdir returned error: %v", err)
 	}
 	globalPath := filepath.Join(tempDir, ".openclaw", "skills")
+	xiguaGlobalPath := filepath.Join(tempDir, ".xigua-agent", "skills")
 
 	config.C = &config.Config{
 		Local: config.Local{SkillsDir: tempDir},
@@ -89,10 +97,16 @@ func TestRunDoctorReportsOpenClawPathsAndSymlinkSupport(t *testing.T) {
 				ProjectPath: "skills",
 				GlobalPath:  globalPath,
 			},
+			Xigua: config.IDE{
+				Enabled:     true,
+				ProjectPath: ".xigua/skills",
+				GlobalPath:  xiguaGlobalPath,
+			},
 		},
 	}
 
 	projectPath := filepath.Join(resolvedWorkspaceDir, "skills")
+	xiguaProjectPath := filepath.Join(resolvedWorkspaceDir, ".xigua", "skills")
 
 	restore := swapRegistryClientFactory(func() registryClient {
 		return &fakeRegistryClient{}
@@ -110,6 +124,12 @@ func TestRunDoctorReportsOpenClawPathsAndSymlinkSupport(t *testing.T) {
 	}
 	if !strings.Contains(output, "openclaw 全局路径: "+globalPath) {
 		t.Fatalf("doctor output missing openclaw global path: %s", output)
+	}
+	if !strings.Contains(output, "xigua 项目路径: "+xiguaProjectPath) {
+		t.Fatalf("doctor output missing xigua project path: %s", output)
+	}
+	if !strings.Contains(output, "xigua 全局路径: "+xiguaGlobalPath) {
+		t.Fatalf("doctor output missing xigua global path: %s", output)
 	}
 	if !strings.Contains(output, "symlink=true") {
 		t.Fatalf("doctor output missing symlink support: %s", output)

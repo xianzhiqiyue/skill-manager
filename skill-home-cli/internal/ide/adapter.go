@@ -29,11 +29,12 @@ type Adapter interface {
 
 // SkillData 技能数据
 type SkillData struct {
-	Name       string
-	Manifest   []byte
-	Body       string
-	References map[string][]byte
-	Scripts    map[string][]byte
+	Name            string
+	Manifest        []byte
+	Body            string
+	References      map[string][]byte
+	Scripts         map[string][]byte
+	AdditionalFiles map[string][]byte
 }
 
 // NewAdapter 创建 IDE 适配器
@@ -41,14 +42,12 @@ func NewAdapter(ideType, targetPath string) (Adapter, error) {
 	switch ideType {
 	case "claude":
 		return NewClaudeAdapter(targetPath), nil
-	case "copilot":
-		return NewCopilotAdapter(targetPath), nil
-	case "cursor":
-		return NewCursorAdapter(targetPath), nil
 	case "codex":
 		return NewCodexAdapter(targetPath), nil
 	case "openclaw":
 		return NewOpenClawAdapter(targetPath), nil
+	case "xigua":
+		return NewXiguaAdapter(targetPath), nil
 	default:
 		return nil, fmt.Errorf("不支持的 IDE 类型: %s", ideType)
 	}

@@ -11,22 +11,26 @@ BACKUP_DIR="${DEPLOY_DIR}/backup-$(date +%Y%m%d-%H%M%S)"
 LOCAL_BASE_URL="${SKILL_HOME_LOCAL_BASE_URL:-http://localhost:8080/skill-home}"
 HEALTHCHECK_URL="${SKILL_HOME_HEALTHCHECK_URL:-${LOCAL_BASE_URL}/health}"
 INSTALLCHECK_URL="${SKILL_HOME_INSTALLCHECK_URL:-${LOCAL_BASE_URL}/install.sh}"
+WINDOWS_INSTALLCHECK_URL="${SKILL_HOME_WINDOWS_INSTALLCHECK_URL:-${LOCAL_BASE_URL}/install.ps1}"
 RELEASES_LATEST_URL="${SKILL_HOME_RELEASES_LATEST_URL:-${LOCAL_BASE_URL}/releases/latest.json}"
 
 update_server=0
 update_cli_binary=0
 update_install_script=0
+update_windows_install_script=0
 update_release_assets=0
 needs_restart=0
 
 [ -f "$DEPLOY_DIR/server.new" ] && update_server=1 && needs_restart=1
 [ -f "$DEPLOY_DIR/skill-home.new" ] && update_cli_binary=1 && needs_restart=1
 [ -f "$DEPLOY_DIR/install.sh.new" ] && update_install_script=1
+[ -f "$DEPLOY_DIR/install.ps1.new" ] && update_windows_install_script=1
 [ -d "$DEPLOY_DIR/releases.new" ] && update_release_assets=1
 
 if [ "$update_server" -eq 0 ] \
   && [ "$update_cli_binary" -eq 0 ] \
   && [ "$update_install_script" -eq 0 ] \
+  && [ "$update_windows_install_script" -eq 0 ] \
   && [ "$update_release_assets" -eq 0 ]; then
   echo "❌ 没有发现可部署的更新文件"
   exit 1
@@ -107,6 +111,9 @@ verify_deployment() {
   if [ "$update_install_script" -eq 1 ] || [ -f "$DEPLOY_DIR/install.sh" ]; then
     curl -fsSL "$INSTALLCHECK_URL" | grep -q "skill-home CLI 安装脚本"
   fi
+  if [ "$update_windows_install_script" -eq 1 ] || [ -f "$DEPLOY_DIR/install.ps1" ]; then
+    curl -fsSL "$WINDOWS_INSTALLCHECK_URL" | grep -q "skill-home CLI Windows 安装脚本"
+  fi
 
   if [ "$update_release_assets" -eq 1 ] || [ -d "$DEPLOY_DIR/releases" ]; then
     curl -fsSL "$RELEASES_LATEST_URL" | grep -q '"tag_name"'
@@ -130,6 +137,9 @@ rollback() {
   if [ "$update_install_script" -eq 1 ]; then
     restore_file_if_needed "$DEPLOY_DIR/install.sh"
   fi
+  if [ "$update_windows_install_script" -eq 1 ]; then
+    restore_file_if_needed "$DEPLOY_DIR/install.ps1"
+  fi
   if [ "$update_release_assets" -eq 1 ]; then
     restore_dir_if_needed "$DEPLOY_DIR/releases"
   fi
@@ -152,6 +162,9 @@ fi
 if [ "$update_install_script" -eq 1 ]; then
   backup_if_exists "$DEPLOY_DIR/install.sh" "install.sh"
 fi
+if [ "$update_windows_install_script" -eq 1 ]; then
+  backup_if_exists "$DEPLOY_DIR/install.ps1" "install.ps1"
+fi
 if [ "$update_release_assets" -eq 1 ]; then
   backup_if_exists "$DEPLOY_DIR/releases" "releases"
 fi
@@ -172,6 +185,9 @@ if [ "$update_cli_binary" -eq 1 ]; then
 fi
 if [ "$update_install_script" -eq 1 ]; then
   replace_file_if_present "$DEPLOY_DIR/install.sh.new" "$DEPLOY_DIR/install.sh" 0755
+fi
+if [ "$update_windows_install_script" -eq 1 ]; then
+  replace_file_if_present "$DEPLOY_DIR/install.ps1.new" "$DEPLOY_DIR/install.ps1" 0644
 fi
 if [ "$update_release_assets" -eq 1 ]; then
   replace_dir_if_present "$DEPLOY_DIR/releases.new" "$DEPLOY_DIR/releases"

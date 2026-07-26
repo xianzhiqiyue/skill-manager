@@ -77,10 +77,10 @@ category: {{.Category}}
   - {{.}}{{end}}{{end}}
 license: {{.License}}
 ide_config:
-  cursor:
-    globs: ["**/*.{ts,tsx,js,jsx,py,go,rs}"]
-    always_apply: false
   claude:
+    auto_activate: true
+  xigua:
+    globs: ["**/*.{ts,tsx,js,jsx,py,go,rs}"]
     auto_activate: true
 ---
 
@@ -552,7 +552,7 @@ func newCreateCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&opts.outputDir, "output", "o", ".", "输出目录")
 	cmd.Flags().StringVarP(&opts.template, "template", "t", "", "使用指定模板 (basic|code-reviewer|api-designer|refactor-expert|test-expert|doc-writer|security-auditor|performance-optimizer)")
 	cmd.Flags().BoolVarP(&opts.quick, "quick", "q", false, "快速模式，使用默认值")
-	cmd.Flags().StringVar(&opts.platforms, "platforms", "claude", "目标平台，逗号分隔 (claude,codex,cursor)")
+	cmd.Flags().StringVar(&opts.platforms, "platforms", "claude", "目标平台，逗号分隔 (claude,codex,xigua)")
 
 	return cmd
 }
@@ -808,7 +808,7 @@ func runInteractiveWizard(skillName string, templateName string, answers *SkillA
 	platformOptions := []string{
 		"claude (Claude Code)",
 		"codex (OpenAI Codex)",
-		"cursor (Cursor IDE)",
+		"xigua (Xigua Agent)",
 	}
 	promptPlatform := &survey.MultiSelect{
 		Message: "选择目标平台:",
@@ -953,10 +953,11 @@ func renderIDEConfig(platforms []string) string {
 			config.WriteString("    globs: [\"**/*\"]\n")
 			config.WriteString("    auto_activate: true\n")
 			config.WriteString("    tools: [read, edit, bash, glob, grep]\n")
-		case "cursor":
-			config.WriteString("  cursor:\n")
+		case "xigua":
+			config.WriteString("  xigua:\n")
 			config.WriteString("    globs: [\"**/*\"]\n")
-			config.WriteString("    always_apply: false\n")
+			config.WriteString("    auto_activate: true\n")
+			config.WriteString("    file_context: true\n")
 		}
 	}
 

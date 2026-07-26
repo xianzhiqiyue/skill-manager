@@ -11,21 +11,13 @@ import (
 
 // IDEConfig 多平台 IDE 配置
 type IDEConfig struct {
-	Claude  *ClaudeConfig  `yaml:"claude,omitempty"`
-	Copilot *CopilotConfig `yaml:"copilot,omitempty"`
-	Codex   *CodexConfig   `yaml:"codex,omitempty"`
-	Cursor  *CursorConfig  `yaml:"cursor,omitempty"`
+	Claude *ClaudeConfig `yaml:"claude,omitempty"`
+	Codex  *CodexConfig  `yaml:"codex,omitempty"`
+	Xigua  *XiguaConfig  `yaml:"xigua,omitempty"`
 }
 
 // ClaudeConfig Claude Code 特定配置
 type ClaudeConfig struct {
-	Globs        []string `yaml:"globs,omitempty"`
-	AutoActivate bool     `yaml:"auto_activate,omitempty"`
-	FileContext  bool     `yaml:"file_context,omitempty"`
-}
-
-// CopilotConfig GitHub Copilot 特定配置
-type CopilotConfig struct {
 	Globs        []string `yaml:"globs,omitempty"`
 	AutoActivate bool     `yaml:"auto_activate,omitempty"`
 	FileContext  bool     `yaml:"file_context,omitempty"`
@@ -38,10 +30,11 @@ type CodexConfig struct {
 	Tools        []string `yaml:"tools,omitempty"`
 }
 
-// CursorConfig Cursor 特定配置
-type CursorConfig struct {
-	Globs       []string `yaml:"globs,omitempty"`
-	AlwaysApply bool     `yaml:"always_apply,omitempty"`
+// XiguaConfig Xigua Agent 特定配置
+type XiguaConfig struct {
+	Globs        []string `yaml:"globs,omitempty"`
+	AutoActivate bool     `yaml:"auto_activate,omitempty"`
+	FileContext  bool     `yaml:"file_context,omitempty"`
 }
 
 // Manifest 技能元数据
@@ -193,27 +186,4 @@ func (s *Skill) GetFullName() string {
 		ns = "@user"
 	}
 	return fmt.Sprintf("%s/%s", ns, s.Manifest.Name)
-}
-
-// ToCursorMdc 转换为 Cursor .mdc 格式
-func (s *Skill) ToCursorMdc() string {
-	// 提取 globs
-	globs := "**/*"
-	if s.Manifest.IDEConfig.Cursor != nil && len(s.Manifest.IDEConfig.Cursor.Globs) > 0 {
-		globs = strings.Join(s.Manifest.IDEConfig.Cursor.Globs, ", ")
-	}
-
-	return fmt.Sprintf(`---
-title: %s
-description: %s
-globs: %s
----
-
-%s`, s.Manifest.Name, s.Manifest.Description, globs, s.Body)
-}
-
-// SaveAsCursorMdc 保存为 .mdc 文件
-func (s *Skill) SaveAsCursorMdc(outputPath string) error {
-	content := s.ToCursorMdc()
-	return os.WriteFile(outputPath, []byte(content), 0644)
 }

@@ -240,7 +240,7 @@ func TestListSkillsUsesSkillsEndpoint(t *testing.T) {
 	}
 }
 
-func TestRateSkillPostsJSONAndAuthorization(t *testing.T) {
+func TestCreateSkillFeedbackPostsJSONAndAuthorization(t *testing.T) {
 	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -249,7 +249,7 @@ func TestRateSkillPostsJSONAndAuthorization(t *testing.T) {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		if r.URL.Path != "/api/v1/skills/team/reviewer/rating" {
+		if r.URL.Path != "/api/v1/skills/team/reviewer/feedback" {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 			w.WriteHeader(http.StatusBadRequest)
 			return
@@ -260,42 +260,38 @@ func TestRateSkillPostsJSONAndAuthorization(t *testing.T) {
 			return
 		}
 
-		var req RateSkillRequest
+		var req CreateSkillFeedbackRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			t.Errorf("decode request failed: %v", err)
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		if req.Rating != 5 || req.Comment != "great" {
+		if req.FeedbackType != "suggestion" || req.Content != "add an example" {
 			t.Errorf("unexpected request payload: %+v", req)
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 
-		_ = json.NewEncoder(w).Encode(RateSkillResponse{
-			Skill: Skill{
-				Namespace:   "team",
-				Name:        "reviewer",
-				Rating:      4.5,
-				RatingCount: 2,
-			},
-			UserRating: SkillRating{
-				Rating:  5,
-				Comment: "great",
-			},
+		_ = json.NewEncoder(w).Encode(SkillFeedback{
+			ID:             "feedback-1",
+			SkillNamespace: "team",
+			SkillName:      "reviewer",
+			FeedbackType:   "suggestion",
+			Content:        "add an example",
+			Status:         "pending",
 		})
 	}))
 	defer server.Close()
 
 	client := NewClient(server.URL, "sk_test")
-	resp, err := client.RateSkill("team", "reviewer", &RateSkillRequest{
-		Rating:  5,
-		Comment: "great",
+	resp, err := client.CreateSkillFeedback("team", "reviewer", &CreateSkillFeedbackRequest{
+		FeedbackType: "suggestion",
+		Content:      "add an example",
 	})
 	if err != nil {
-		t.Fatalf("RateSkill returned error: %v", err)
+		t.Fatalf("CreateSkillFeedback returned error: %v", err)
 	}
-	if resp.Skill.Rating != 4.5 || resp.UserRating.Rating != 5 {
+	if resp.ID != "feedback-1" || resp.Status != "pending" {
 		t.Fatalf("unexpected response: %+v", resp)
 	}
 }

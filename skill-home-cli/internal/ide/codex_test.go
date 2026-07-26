@@ -8,7 +8,7 @@ import (
 	"github.com/skill-home/cli/internal/skill"
 )
 
-func TestConvertToCodexFormatIncludesScriptsAndReferences(t *testing.T) {
+func TestConvertToCodexFormatIncludesCodexSkillFiles(t *testing.T) {
 	t.Parallel()
 
 	tempDir := t.TempDir()
@@ -18,11 +18,23 @@ func TestConvertToCodexFormatIncludesScriptsAndReferences(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(tempDir, "scripts"), 0755); err != nil {
 		t.Fatalf("MkdirAll scripts returned error: %v", err)
 	}
+	if err := os.MkdirAll(filepath.Join(tempDir, "assets", "images"), 0755); err != nil {
+		t.Fatalf("MkdirAll assets returned error: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(tempDir, "agents"), 0755); err != nil {
+		t.Fatalf("MkdirAll agents returned error: %v", err)
+	}
 	if err := os.WriteFile(filepath.Join(tempDir, "references", "guide.md"), []byte("guide"), 0644); err != nil {
 		t.Fatalf("WriteFile reference returned error: %v", err)
 	}
 	if err := os.WriteFile(filepath.Join(tempDir, "scripts", "run.sh"), []byte("#!/usr/bin/env bash\necho ok\n"), 0644); err != nil {
 		t.Fatalf("WriteFile script returned error: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tempDir, "assets", "images", "diagram.png"), []byte("diagram"), 0644); err != nil {
+		t.Fatalf("WriteFile asset returned error: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tempDir, "agents", "openai.yaml"), []byte("interface:\n  display_name: Demo\n"), 0644); err != nil {
+		t.Fatalf("WriteFile openai config returned error: %v", err)
 	}
 
 	data := ConvertToCodexFormat(&skill.Skill{
@@ -42,9 +54,15 @@ func TestConvertToCodexFormatIncludesScriptsAndReferences(t *testing.T) {
 	if got := string(data.Scripts["run.sh"]); got != "#!/usr/bin/env bash\necho ok\n" {
 		t.Fatalf("unexpected script content: %q", got)
 	}
+	if got := string(data.AdditionalFiles[filepath.Join("assets", "images", "diagram.png")]); got != "diagram" {
+		t.Fatalf("unexpected asset content: %q", got)
+	}
+	if got := string(data.AdditionalFiles[filepath.Join("agents", "openai.yaml")]); got != "interface:\n  display_name: Demo\n" {
+		t.Fatalf("unexpected openai config content: %q", got)
+	}
 }
 
-func TestCodexAdapterInstallSkillWritesScripts(t *testing.T) {
+func TestCodexAdapterInstallSkillWritesAllExportedFiles(t *testing.T) {
 	t.Parallel()
 
 	targetDir := t.TempDir()
@@ -56,6 +74,10 @@ func TestCodexAdapterInstallSkillWritesScripts(t *testing.T) {
 		Body:       "Body",
 		Scripts:    map[string][]byte{"run.sh": []byte("#!/usr/bin/env bash\necho ok\n")},
 		References: map[string][]byte{"guide.md": []byte("guide")},
+		AdditionalFiles: map[string][]byte{
+			filepath.Join("assets", "images", "diagram.png"): []byte("diagram"),
+			filepath.Join("agents", "openai.yaml"):           []byte("interface:\n  display_name: Demo\n"),
+		},
 	})
 	if err != nil {
 		t.Fatalf("InstallSkill returned error: %v", err)
@@ -66,5 +88,15 @@ func TestCodexAdapterInstallSkillWritesScripts(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(targetDir, "demo-skill", "references", "guide.md")); err != nil {
 		t.Fatalf("expected installed reference file: %v", err)
+	}
+	if got, err := os.ReadFile(filepath.Join(targetDir, "demo-skill", "assets", "images", "diagram.png")); err != nil {
+		t.Fatalf("expected installed asset file: %v", err)
+	} else if string(got) != "diagram" {
+		t.Fatalf("unexpected installed asset content: %q", got)
+	}
+	if got, err := os.ReadFile(filepath.Join(targetDir, "demo-skill", "agents", "openai.yaml")); err != nil {
+		t.Fatalf("expected installed openai config: %v", err)
+	} else if string(got) != "interface:\n  display_name: Demo\n" {
+		t.Fatalf("unexpected installed openai config content: %q", got)
 	}
 }

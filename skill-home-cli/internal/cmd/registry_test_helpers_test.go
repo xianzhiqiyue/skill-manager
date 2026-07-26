@@ -28,6 +28,14 @@ type fakeRegistryClient struct {
 	deleteVersionCalls []deleteVersionCall
 	deleteVersionErr   error
 
+	listCollaboratorsResp   []registry.SkillCollaborator
+	listCollaboratorsErr    error
+	upsertCollaboratorCalls []upsertCollaboratorCall
+	upsertCollaboratorResp  *registry.SkillCollaborator
+	upsertCollaboratorErr   error
+	deleteCollaboratorCalls []deleteCollaboratorCall
+	deleteCollaboratorErr   error
+
 	searchResp *registry.SearchResult
 	searchErr  error
 
@@ -43,8 +51,9 @@ type fakeRegistryClient struct {
 	listAuditLogsResp *registry.AuditLogList
 	listAuditLogsErr  error
 
-	rateSkillResp *registry.RateSkillResponse
-	rateSkillErr  error
+	feedbackCalls []feedbackCall
+	feedbackResp  *registry.SkillFeedback
+	feedbackErr   error
 
 	installEventCalls []installEventCall
 	installEventResp  *registry.InstallEventResponse
@@ -71,6 +80,18 @@ type deleteVersionCall struct {
 	namespace string
 	name      string
 	version   string
+}
+
+type upsertCollaboratorCall struct {
+	namespace string
+	name      string
+	req       *registry.UpsertCollaboratorRequest
+}
+
+type deleteCollaboratorCall struct {
+	namespace string
+	name      string
+	username  string
 }
 
 type updateSkillCall struct {
@@ -187,6 +208,31 @@ func (f *fakeRegistryClient) DeleteVersion(namespace, name, version string) erro
 	return f.deleteVersionErr
 }
 
+func (f *fakeRegistryClient) ListCollaborators(namespace, name string) ([]registry.SkillCollaborator, error) {
+	return f.listCollaboratorsResp, f.listCollaboratorsErr
+}
+
+type feedbackCall struct {
+	namespace string
+	name      string
+	req       *registry.CreateSkillFeedbackRequest
+}
+
+func (f *fakeRegistryClient) UpsertCollaborator(namespace, name string, req *registry.UpsertCollaboratorRequest) (*registry.SkillCollaborator, error) {
+	call := upsertCollaboratorCall{namespace: namespace, name: name}
+	if req != nil {
+		copyReq := *req
+		call.req = &copyReq
+	}
+	f.upsertCollaboratorCalls = append(f.upsertCollaboratorCalls, call)
+	return f.upsertCollaboratorResp, f.upsertCollaboratorErr
+}
+
+func (f *fakeRegistryClient) DeleteCollaborator(namespace, name, username string) error {
+	f.deleteCollaboratorCalls = append(f.deleteCollaboratorCalls, deleteCollaboratorCall{namespace: namespace, name: name, username: username})
+	return f.deleteCollaboratorErr
+}
+
 func (f *fakeRegistryClient) GetCurrentUser() (*registry.User, error) {
 	return f.getCurrentUserResp, f.getCurrentUserErr
 }
@@ -199,8 +245,14 @@ func (f *fakeRegistryClient) ListAuditLogs(page, perPage int, action string) (*r
 	return f.listAuditLogsResp, f.listAuditLogsErr
 }
 
-func (f *fakeRegistryClient) RateSkill(namespace, name string, req *registry.RateSkillRequest) (*registry.RateSkillResponse, error) {
-	return f.rateSkillResp, f.rateSkillErr
+func (f *fakeRegistryClient) CreateSkillFeedback(namespace, name string, req *registry.CreateSkillFeedbackRequest) (*registry.SkillFeedback, error) {
+	call := feedbackCall{namespace: namespace, name: name}
+	if req != nil {
+		copyReq := *req
+		call.req = &copyReq
+	}
+	f.feedbackCalls = append(f.feedbackCalls, call)
+	return f.feedbackResp, f.feedbackErr
 }
 
 func (f *fakeRegistryClient) RecordInstallEvent(namespace, name string, req *registry.InstallEventRequest) (*registry.InstallEventResponse, error) {

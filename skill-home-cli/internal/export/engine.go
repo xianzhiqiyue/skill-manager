@@ -1,6 +1,7 @@
 package export
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -35,12 +36,10 @@ func (e *Engine) Export(s *skill.Skill, platform string) (*Result, error) {
 	switch platform {
 	case "claude":
 		return e.exportToClaude(s)
-	case "copilot":
-		return e.exportToCopilot(s)
 	case "codex":
 		return e.exportToCodex(s)
-	case "cursor":
-		return e.exportToCursor(s)
+	case "xigua":
+		return e.exportToXigua(s)
 	default:
 		return nil, fmt.Errorf("不支持的平台: %s", platform)
 	}
@@ -133,48 +132,6 @@ func deriveRequiresFromMetadata(metadata map[string]interface{}) []string {
 		return nil
 	}
 	return requires
-}
-
-// exportToCopilot 导出到 GitHub Copilot 格式
-func (e *Engine) exportToCopilot(s *skill.Skill) (*Result, error) {
-	result := &Result{
-		Platform: "copilot",
-		Files:    make(map[string][]byte),
-	}
-
-	manifest := buildBaseManifest(s)
-	if s.Manifest.IDEConfig.Copilot != nil {
-		cfg := s.Manifest.IDEConfig.Copilot
-		if len(cfg.Globs) > 0 {
-			manifest["globs"] = cfg.Globs
-		}
-		manifest["auto_activate"] = cfg.AutoActivate
-		manifest["file_context"] = cfg.FileContext
-	}
-
-	manifestBytes, err := yaml.Marshal(manifest)
-	if err != nil {
-		return nil, fmt.Errorf("序列化 manifest 失败: %w", err)
-	}
-
-	content := fmt.Sprintf("---\n%s---\n\n%s", string(manifestBytes), s.Body)
-	result.Files["SKILL.md"] = []byte(content)
-
-	for _, ref := range s.References {
-		refPath := filepath.Join(s.Path, "references", ref)
-		if data, err := os.ReadFile(refPath); err == nil {
-			result.Files[filepath.Join("references", ref)] = data
-		}
-	}
-
-	for _, script := range s.Scripts {
-		scriptPath := filepath.Join(s.Path, "scripts", script)
-		if data, err := os.ReadFile(scriptPath); err == nil {
-			result.Files[filepath.Join("scripts", script)] = data
-		}
-	}
-
-	return result, nil
 }
 
 // exportToClaude 导出到 Claude Code 格式
@@ -283,38 +240,59 @@ func (e *Engine) exportToCodex(s *skill.Skill) (*Result, error) {
 	return result, nil
 }
 
-// exportToCursor 导出到 Cursor 格式
-func (e *Engine) exportToCursor(s *skill.Skill) (*Result, error) {
+// exportToXigua 导出到 Xigua Agent 包格式
+func (e *Engine) exportToXigua(s *skill.Skill) (*Result, error) {
 	result := &Result{
-		Platform: "cursor",
+		Platform: "xigua",
 		Files:    make(map[string][]byte),
 	}
 
-	// 构建 frontmatter
-	frontmatter := map[string]interface{}{
-		"title":       s.Manifest.Name,
-		"description": s.Manifest.Description,
+	manifest := buildBaseManifest(s)
+	manifest["slug"] = xiguaSlug(s.Manifest.Name)
+	if s.Manifest.IDEConfig.Xigua != nil {
+		cfg := s.Manifest.IDEConfig.Xigua
+		if len(cfg.Globs) > 0 {
+			manifest["globs"] = cfg.Globs
+		}
+		manifest["auto_activate"] = cfg.AutoActivate
+		manifest["file_context"] = cfg.FileContext
 	}
 
-	// 添加 Cursor 特定配置
-	globs := "*"
-	if s.Manifest.IDEConfig.Cursor != nil {
-		cfg := s.Manifest.IDEConfig.Cursor
-		if len(cfg.Globs) > 0 {
-			globs = strings.Join(cfg.Globs, ", ")
+	manifestBytes, err := yaml.Marshal(manifest)
+	if err != nil {
+		return nil, fmt.Errorf("序列化 manifest 失败: %w", err)
+	}
+
+	content := fmt.Sprintf("---\n%s---\n\n%s", string(manifestBytes), s.Body)
+	result.Files["SKILL.md"] = []byte(content)
+
+	packageManifest := map[string]interface{}{
+		"name":           s.Manifest.Name,
+		"slug":           xiguaSlug(s.Manifest.Name),
+		"version":        s.Manifest.Version,
+		"description":    s.Manifest.Description,
+		"sourceType":     "skill-home",
+		"originalFormat": "skill-home",
+	}
+	packageManifestBytes, err := json.MarshalIndent(packageManifest, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("序列化 skill.json 失败: %w", err)
+	}
+	result.Files["skill.json"] = []byte(strings.TrimSpace(string(packageManifestBytes)) + "\n")
+
+	for _, ref := range s.References {
+		refPath := filepath.Join(s.Path, "references", ref)
+		if data, err := os.ReadFile(refPath); err == nil {
+			result.Files[filepath.Join("references", ref)] = data
 		}
 	}
-	frontmatter["globs"] = globs
 
-	// 序列化 frontmatter
-	manifestBytes, err := yaml.Marshal(frontmatter)
-	if err != nil {
-		return nil, fmt.Errorf("序列化 frontmatter 失败: %w", err)
+	for _, script := range s.Scripts {
+		scriptPath := filepath.Join(s.Path, "scripts", script)
+		if data, err := os.ReadFile(scriptPath); err == nil {
+			result.Files[filepath.Join("scripts", script)] = data
+		}
 	}
-
-	// 构建 .mdc 文件内容
-	content := fmt.Sprintf("---\n%s---\n\n%s", string(manifestBytes), s.Body)
-	result.Files[s.Manifest.Name+".mdc"] = []byte(content)
 
 	return result, nil
 }
@@ -351,13 +329,34 @@ func GetDefaultTargetPath(platform string) (string, error) {
 	switch platform {
 	case "claude":
 		return filepath.Join(home, ".claude", "skills"), nil
-	case "copilot":
-		return filepath.Join(home, ".copilot", "skills"), nil
 	case "codex":
 		return filepath.Join(".codex", "agents"), nil
-	case "cursor":
-		return filepath.Join(".cursor", "rules"), nil
+	case "xigua":
+		return filepath.Join(home, ".xigua-agent", "skills"), nil
 	default:
 		return "", fmt.Errorf("不支持的平台: %s", platform)
 	}
+}
+
+func xiguaSlug(input string) string {
+	var builder strings.Builder
+	lastDash := false
+	for _, r := range strings.ToLower(input) {
+		isAlpha := r >= 'a' && r <= 'z'
+		isDigit := r >= '0' && r <= '9'
+		if isAlpha || isDigit {
+			builder.WriteRune(r)
+			lastDash = false
+			continue
+		}
+		if !lastDash && builder.Len() > 0 {
+			builder.WriteByte('-')
+			lastDash = true
+		}
+	}
+	slug := strings.Trim(builder.String(), "-")
+	if slug == "" {
+		return "skill"
+	}
+	return slug
 }

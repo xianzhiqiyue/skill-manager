@@ -27,13 +27,14 @@ func newImportCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "import <source-url>",
 		Short: "从外部源导入技能",
-		Long: `从 GitHub、Claude Code、Codex 等外部源导入技能并转换为通用 SKILL.md 格式。
+		Long: `从 GitHub、Claude Code、Codex、Xigua 等外部源导入技能并转换为通用 SKILL.md 格式。
 
 支持的源:
   GitHub:    skill-home import github.com/user/repo
   GitHub:    skill-home import https://github.com/user/repo
   Claude:    skill-home import claude://~/.claude/skills/skill-name
   Codex:     skill-home import codex://~/.codex/skills/skill-name
+  Xigua:     skill-home import xigua://~/.xigua-agent/skills/skill-name
   Local:     skill-home import /path/to/local/skill
 
 示例:
@@ -52,7 +53,7 @@ func newImportCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVarP(&opts.outputDir, "output", "o", ".", "输出目录")
-	cmd.Flags().StringVarP(&opts.source, "source", "s", "", "强制指定源类型 (github|claude|codex|cursor|local)")
+	cmd.Flags().StringVarP(&opts.source, "source", "s", "", "强制指定源类型 (github|claude|codex|xigua|local)")
 	cmd.Flags().BoolVar(&opts.convertOnly, "convert-only", false, "仅转换格式，不保存到注册中心")
 	cmd.Flags().BoolVarP(&opts.force, "force", "f", false, "强制覆盖已存在的文件")
 
@@ -191,8 +192,8 @@ func detectSourceType(url string) string {
 		return "codex"
 	}
 
-	if strings.HasPrefix(url, "cursor://") {
-		return "cursor"
+	if strings.HasPrefix(url, "xigua://") {
+		return "xigua"
 	}
 
 	// 检查本地路径
@@ -205,8 +206,8 @@ func detectSourceType(url string) string {
 		if strings.Contains(expanded, ".codex") || strings.Contains(expanded, ".agents") {
 			return "codex"
 		}
-		if strings.Contains(expanded, ".cursor") {
-			return "cursor"
+		if strings.Contains(expanded, ".xigua") || strings.Contains(expanded, ".xigua-agent") {
+			return "xigua"
 		}
 		return "local"
 	}
@@ -224,8 +225,8 @@ func createImporter(sourceType, sourceURL string) (types.SkillImporter, error) {
 		return NewClaudeImporter(sourceURL)
 	case "codex":
 		return NewCodexImporter(sourceURL)
-	case "cursor":
-		return NewCursorImporter(sourceURL)
+	case "xigua":
+		return NewXiguaImporter(sourceURL)
 	case "local":
 		return NewLocalImporter(sourceURL)
 	default:

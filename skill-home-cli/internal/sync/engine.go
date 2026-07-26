@@ -74,10 +74,10 @@ func (e *Engine) convertSkill(s *skill.Skill, ideType string) ide.SkillData {
 	switch ideType {
 	case "claude":
 		return ide.ConvertToClaudeFormat(s)
-	case "cursor":
-		return ide.ConvertToCursorFormat(s)
 	case "codex":
 		return ide.ConvertToCodexFormat(s)
+	case "xigua":
+		return ide.ConvertToXiguaFormat(s)
 	default:
 		return ide.ConvertToClaudeFormat(s)
 	}

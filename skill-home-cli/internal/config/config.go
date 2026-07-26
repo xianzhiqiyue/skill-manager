@@ -39,10 +39,9 @@ type Local struct {
 // IDEConfig IDE 配置
 type IDEConfig struct {
 	Claude   IDE `yaml:"claude" mapstructure:"claude"`
-	Copilot  IDE `yaml:"copilot" mapstructure:"copilot"`
-	Cursor   IDE `yaml:"cursor" mapstructure:"cursor"`
 	Codex    IDE `yaml:"codex" mapstructure:"codex"`
 	OpenClaw IDE `yaml:"openclaw" mapstructure:"openclaw"`
+	Xigua    IDE `yaml:"xigua" mapstructure:"xigua"`
 }
 
 // IDE 单个 IDE 配置
@@ -132,14 +131,6 @@ func applyViperValues(cfg *Config) {
 	cfg.IDE.Claude.ProjectPath = viper.GetString("ide.claude.project_path")
 	cfg.IDE.Claude.GlobalPath = viper.GetString("ide.claude.global_path")
 
-	cfg.IDE.Copilot.Enabled = viper.GetBool("ide.copilot.enabled")
-	cfg.IDE.Copilot.ProjectPath = viper.GetString("ide.copilot.project_path")
-	cfg.IDE.Copilot.GlobalPath = viper.GetString("ide.copilot.global_path")
-
-	cfg.IDE.Cursor.Enabled = viper.GetBool("ide.cursor.enabled")
-	cfg.IDE.Cursor.ProjectPath = viper.GetString("ide.cursor.project_path")
-	cfg.IDE.Cursor.GlobalPath = viper.GetString("ide.cursor.global_path")
-
 	cfg.IDE.Codex.Enabled = viper.GetBool("ide.codex.enabled")
 	cfg.IDE.Codex.ProjectPath = viper.GetString("ide.codex.project_path")
 	cfg.IDE.Codex.GlobalPath = viper.GetString("ide.codex.global_path")
@@ -147,6 +138,10 @@ func applyViperValues(cfg *Config) {
 	cfg.IDE.OpenClaw.Enabled = viper.GetBool("ide.openclaw.enabled")
 	cfg.IDE.OpenClaw.ProjectPath = viper.GetString("ide.openclaw.project_path")
 	cfg.IDE.OpenClaw.GlobalPath = viper.GetString("ide.openclaw.global_path")
+
+	cfg.IDE.Xigua.Enabled = viper.GetBool("ide.xigua.enabled")
+	cfg.IDE.Xigua.ProjectPath = viper.GetString("ide.xigua.project_path")
+	cfg.IDE.Xigua.GlobalPath = viper.GetString("ide.xigua.global_path")
 
 	cfg.Sync.Mode = viper.GetString("sync.mode")
 	cfg.Sync.ConflictStrategy = viper.GetString("sync.conflict_strategy")
@@ -166,17 +161,15 @@ func setDefaults() {
 	viper.SetDefault("ide.claude.enabled", true)
 	viper.SetDefault("ide.claude.project_path", ".claude/skills")
 	viper.SetDefault("ide.claude.global_path", "~/.claude/skills")
-	viper.SetDefault("ide.copilot.enabled", false)
-	viper.SetDefault("ide.copilot.project_path", ".github/skills")
-	viper.SetDefault("ide.copilot.global_path", "~/.copilot/skills")
-	viper.SetDefault("ide.cursor.enabled", true)
-	viper.SetDefault("ide.cursor.project_path", ".cursor/rules")
 	viper.SetDefault("ide.codex.enabled", true)
 	viper.SetDefault("ide.codex.project_path", ".agents/skills")
 	viper.SetDefault("ide.codex.global_path", "~/.agents/skills")
 	viper.SetDefault("ide.openclaw.enabled", false)
 	viper.SetDefault("ide.openclaw.project_path", "skills")
 	viper.SetDefault("ide.openclaw.global_path", "~/.openclaw/skills")
+	viper.SetDefault("ide.xigua.enabled", false)
+	viper.SetDefault("ide.xigua.project_path", ".xigua/skills")
+	viper.SetDefault("ide.xigua.global_path", "~/.xigua-agent/skills")
 	viper.SetDefault("sync.mode", "auto")
 	viper.SetDefault("sync.conflict_strategy", "project_wins")
 	viper.SetDefault("sync.auto_sync_on_push", false)
@@ -199,9 +192,9 @@ func expandPaths() {
 
 	C.Local.SkillsDir = expandPath(C.Local.SkillsDir, home)
 	C.IDE.Claude.GlobalPath = expandPath(C.IDE.Claude.GlobalPath, home)
-	C.IDE.Copilot.GlobalPath = expandPath(C.IDE.Copilot.GlobalPath, home)
 	C.IDE.Codex.GlobalPath = expandPath(C.IDE.Codex.GlobalPath, home)
 	C.IDE.OpenClaw.GlobalPath = expandPath(C.IDE.OpenClaw.GlobalPath, home)
+	C.IDE.Xigua.GlobalPath = expandPath(C.IDE.Xigua.GlobalPath, home)
 }
 
 // expandPath 扩展单个路径

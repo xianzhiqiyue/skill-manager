@@ -29,10 +29,9 @@ func newExportCmd() *cobra.Command {
 		Long: `将统一格式的技能导出到指定的 IDE 平台格式。
 
 支持的平台:
-    - claude: Claude Code 格式 (~/.claude/skills/)
-  - copilot: GitHub Copilot 格式 (~/.copilot/skills/)
+  - claude: Claude Code 格式 (~/.claude/skills/)
   - codex:  OpenAI Codex 格式 (.codex/agents/)
-  - cursor: Cursor 格式 (.cursor/rules/)
+  - xigua:  Xigua Agent 格式 (~/.xigua-agent/skills/)
   - all:    导出到所有平台
 
 示例:
@@ -54,7 +53,7 @@ func newExportCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVarP(&opts.platform, "platform", "p", "", "目标平台 (claude|copilot|codex|cursor|all)")
+	cmd.Flags().StringVarP(&opts.platform, "platform", "p", "", "目标平台 (claude|codex|xigua|all)")
 	cmd.Flags().StringVarP(&opts.output, "output", "o", "", "输出路径（默认使用平台默认路径）")
 	cmd.Flags().BoolVar(&opts.dryRun, "dry-run", false, "只显示将要执行的操作，不实际导出")
 	cmd.Flags().BoolVar(&opts.install, "install", false, "导出并安装到平台")
@@ -79,7 +78,7 @@ func runExport(skillPath string, opts *exportOptions) error {
 	// 确定要导出的平台
 	platforms := []string{}
 	if opts.platform == "all" {
-		platforms = []string{"claude", "copilot", "codex", "cursor"}
+		platforms = []string{"claude", "codex", "xigua"}
 	} else {
 		platforms = strings.Split(opts.platform, ",")
 	}

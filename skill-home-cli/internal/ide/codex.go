@@ -70,6 +70,16 @@ func (a *CodexAdapter) InstallSkill(data SkillData) error {
 		}
 	}
 
+	// 写入 Codex 额外文件，例如 assets/ 和 agents/openai.yaml。
+	for name, content := range data.AdditionalFiles {
+		if !filepath.IsLocal(name) {
+			return fmt.Errorf("额外文件路径不安全: %s", name)
+		}
+		if err := writeFile(filepath.Join(skillPath, name), content); err != nil {
+			return fmt.Errorf("写入额外文件失败: %w", err)
+		}
+	}
+
 	return nil
 }
 
@@ -143,11 +153,43 @@ description: %s`, s.Manifest.Name, s.Manifest.Version, s.Manifest.Description)
 		manifestYAML += fmt.Sprintf("\nauthor: %s", s.Manifest.Author)
 	}
 
+	additionalFiles := readCodexAdditionalFiles(s.Path)
+
 	return SkillData{
-		Name:       s.Manifest.Name,
-		Manifest:   []byte(manifestYAML),
-		Body:       s.Body,
-		References: refs,
-		Scripts:    scripts,
+		Name:            s.Manifest.Name,
+		Manifest:        []byte(manifestYAML),
+		Body:            s.Body,
+		References:      refs,
+		Scripts:         scripts,
+		AdditionalFiles: additionalFiles,
 	}
+}
+
+func readCodexAdditionalFiles(skillPath string) map[string][]byte {
+	files := make(map[string][]byte)
+	assetsDir := filepath.Join(skillPath, "assets")
+
+	_ = filepath.WalkDir(assetsDir, func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil || entry.IsDir() {
+			return nil
+		}
+
+		content, err := os.ReadFile(path)
+		if err != nil {
+			return nil
+		}
+		relativePath, err := filepath.Rel(skillPath, path)
+		if err != nil || !filepath.IsLocal(relativePath) {
+			return nil
+		}
+		files[relativePath] = content
+		return nil
+	})
+
+	openAIConfig := filepath.Join(skillPath, "agents", "openai.yaml")
+	if content, err := os.ReadFile(openAIConfig); err == nil {
+		files[filepath.Join("agents", "openai.yaml")] = content
+	}
+
+	return files
 }

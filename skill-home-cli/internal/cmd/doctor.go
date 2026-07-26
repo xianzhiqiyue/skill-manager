@@ -62,10 +62,9 @@ func runDoctor() error {
 	} else {
 		fmt.Printf("%s 项目根目录: %s\n", color.GreenString("✓"), resolver.GetProjectRoot())
 		checkIDEPath("claude", config.C.IDE.Claude.Enabled, config.C.IDE.Claude.GlobalPath, resolver)
-		checkIDEPath("copilot", config.C.IDE.Copilot.Enabled, config.C.IDE.Copilot.GlobalPath, resolver)
-		checkIDEPath("cursor", config.C.IDE.Cursor.Enabled, config.C.IDE.Cursor.GlobalPath, resolver)
 		checkIDEPath("codex", config.C.IDE.Codex.Enabled, config.C.IDE.Codex.GlobalPath, resolver)
 		checkIDEPath("openclaw", config.C.IDE.OpenClaw.Enabled, config.C.IDE.OpenClaw.GlobalPath, resolver)
+		checkIDEPath("xigua", config.C.IDE.Xigua.Enabled, config.C.IDE.Xigua.GlobalPath, resolver)
 	}
 
 	fmt.Printf("%s 符号链接支持: %t\n", color.GreenString("✓"), sync.SymlinkSupported)

@@ -13,6 +13,7 @@ trap 'rm -rf "${TMP_DIR}"' EXIT
 DIST_DIR="${TMP_DIR}/dist"
 FAKE_BIN_DIR="${TMP_DIR}/bin"
 INSTALL_SCRIPT_PATH="${TMP_DIR}/install.sh"
+WINDOWS_INSTALL_SCRIPT_PATH="${TMP_DIR}/install.ps1"
 SCP_ARGS_PATH="${TMP_DIR}/scp.args"
 SSH_ARGS_PATH="${TMP_DIR}/ssh.args"
 
@@ -36,6 +37,10 @@ done
 cat > "${INSTALL_SCRIPT_PATH}" <<'EOF'
 #!/usr/bin/env bash
 echo install
+EOF
+
+cat > "${WINDOWS_INSTALL_SCRIPT_PATH}" <<'EOF'
+Write-Host "install"
 EOF
 
 cat > "${FAKE_BIN_DIR}/ssh" <<'EOF'
@@ -76,6 +81,9 @@ case "$*" in
   *"/install.sh"*)
     printf 'https://example.test/skill-home/releases\n'
     ;;
+  *"/install.ps1"*)
+    printf 'https://example.test/skill-home/releases\n'
+    ;;
   *"/releases/latest.json"*)
     printf '{"tag_name":"v0.0.0"}\n'
     ;;
@@ -93,7 +101,7 @@ SKILL_HOME_DEPLOY_USER="root" \
 SKILL_HOME_DEPLOY_PORT="22" \
 SKILL_HOME_DEPLOY_DIR="/opt/skill-home" \
 SKILL_HOME_PUBLIC_BASE_URL="https://example.test/skill-home" \
-bash "${TARGET_SCRIPT}" v0.0.0 "${DIST_DIR}" "${INSTALL_SCRIPT_PATH}"
+bash "${TARGET_SCRIPT}" v0.0.0 "${DIST_DIR}" "${INSTALL_SCRIPT_PATH}" "${WINDOWS_INSTALL_SCRIPT_PATH}"
 
 if ! grep -qx -- '-P' "${SCP_ARGS_PATH}"; then
   echo "scp arguments did not include -P" >&2
@@ -110,9 +118,19 @@ if ! grep -qx -- 'https://example.test/skill-home/install.sh' "${SSH_ARGS_PATH}"
   exit 46
 fi
 
+if ! grep -qx -- 'https://example.test/skill-home/install.ps1' "${SSH_ARGS_PATH}"; then
+  echo "ssh arguments did not include prefixed Windows install check url" >&2
+  exit 47
+fi
+
 if ! grep -qx -- 'https://example.test/skill-home/releases/latest.json' "${SSH_ARGS_PATH}"; then
   echo "ssh arguments did not include prefixed releases latest url" >&2
-  exit 47
+  exit 48
+fi
+
+if ! grep -qx -- "${WINDOWS_INSTALL_SCRIPT_PATH}" "${SCP_ARGS_PATH}"; then
+  echo "scp arguments did not include Windows install script" >&2
+  exit 49
 fi
 
 echo "test-promote-hosted-release: ok"

@@ -77,6 +77,27 @@ func runPush(path string, opts *pushOptions) error {
 		return err
 	}
 
+	fmt.Println("正在安全审核技能...")
+	scanResult, err := scanSkillPath(path)
+	if err != nil {
+		return fmt.Errorf("安全审核失败: %w", err)
+	}
+	if scanResult.ShouldBlock(opts.force) {
+		printScanResult(scanResult)
+		return fmt.Errorf("安全扫描未通过")
+	}
+	if len(scanResult.Issues) == 0 {
+		fmt.Println(color.GreenString("✓"), "安全审核通过")
+	} else {
+		printScanResult(scanResult)
+		if opts.force {
+			fmt.Println(color.YellowString("!"), "已使用 --force 继续发布非严重安全风险")
+		} else {
+			fmt.Println(color.YellowString("!"), "发现安全提醒，继续发布")
+		}
+	}
+	fmt.Println()
+
 	// 创建客户端，并确定发布命名空间。默认使用当前登录用户的用户名，
 	// 避免本地 SKILL.md 或 default_namespace 中的占位/历史命名空间误导发布。
 	client := newRegistryClient()

@@ -54,7 +54,7 @@ func TestExportToClaudePreservesMetadata(t *testing.T) {
 	}
 }
 
-func TestExportToCopilotPreservesMetadata(t *testing.T) {
+func TestExportToXiguaPreservesMetadataAndWritesPackageManifest(t *testing.T) {
 	engine := NewEngine("")
 	s := &skill.Skill{
 		Manifest: skill.Manifest{
@@ -76,7 +76,7 @@ func TestExportToCopilotPreservesMetadata(t *testing.T) {
 		Body: "body",
 	}
 
-	result, err := engine.Export(s, "copilot")
+	result, err := engine.Export(s, "xigua")
 	if err != nil {
 		t.Fatalf("Export returned error: %v", err)
 	}
@@ -97,6 +97,9 @@ func TestExportToCopilotPreservesMetadata(t *testing.T) {
 	requires, ok := frontmatter["requires"].([]interface{})
 	if !ok || len(requires) != 1 || requires[0] != "OPENAI_API_KEY" {
 		t.Fatalf("requires = %#v, want derived OPENAI_API_KEY", frontmatter["requires"])
+	}
+	if _, ok := result.Files["skill.json"]; !ok {
+		t.Fatalf("skill.json missing from xigua export: %#v", result.Files)
 	}
 }
 

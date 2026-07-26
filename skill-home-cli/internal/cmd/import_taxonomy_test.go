@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -19,16 +21,33 @@ func TestCodexImporterGeneratedSkillUsesClassificationDefaults(t *testing.T) {
 	}
 }
 
-func TestCursorImporterGeneratedSkillUsesClassificationDefaults(t *testing.T) {
+func TestXiguaImporterPreservesClassificationDefaults(t *testing.T) {
 	t.Parallel()
 
-	importer := &CursorImporter{skillName: "demo-skill"}
-	content := importer.convertMdcToSkill(`---
-title: Demo Skill
+	tempDir := t.TempDir()
+	sourceDir := filepath.Join(tempDir, "demo-skill")
+	if err := os.MkdirAll(sourceDir, 0755); err != nil {
+		t.Fatalf("MkdirAll returned error: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(sourceDir, "SKILL.md"), []byte(`---
+name: demo-skill
+version: 0.1.0
 description: Demo description
+category: productivity
+tags:
+  - workflow
 ---
 
-body`)
+body`), 0644); err != nil {
+		t.Fatalf("WriteFile returned error: %v", err)
+	}
+
+	importer := &XiguaImporter{skillName: "demo-skill"}
+	skill, err := importer.ConvertToSkill(sourceDir)
+	if err != nil {
+		t.Fatalf("ConvertToSkill returned error: %v", err)
+	}
+	content := skill.Content
 
 	if !strings.Contains(content, "category: productivity") {
 		t.Fatalf("expected default category, got:\n%s", content)

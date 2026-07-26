@@ -34,8 +34,8 @@ func NewRootCmd(version, commit, buildDate string) *cobra.Command {
   ____) |   <| | (_) | |_| | | | (_) | | | | | |
  |_____/|_|\_\_|\___/ \__|_| |_|\___/|_| |_| |_|
 
-`) + `skill-home 是一个跨平台的 AI 技能管理工具，支持 Claude Code、GitHub Copilot、
-Cursor、Codex 等多个 IDE，实现技能的"一次编写，到处同步"。
+`) + `skill-home 是一个跨平台的 AI 技能管理工具，支持 Claude Code、Codex、
+OpenClaw、Xigua 等多个 IDE，实现技能的"一次编写，到处同步"。
 
 使用 "skill-home [command] --help" 查看具体命令的帮助信息。`,
 		Version: version,
@@ -83,6 +83,7 @@ Cursor、Codex 等多个 IDE，实现技能的"一次编写，到处同步"。
 	rootCmd.AddCommand(newLogoutCmd())
 	rootCmd.AddCommand(newWhoamiCmd())
 	rootCmd.AddCommand(newActivityCmd())
+	rootCmd.AddCommand(newCollaboratorsCmd())
 	rootCmd.AddCommand(newPushCmd())
 	rootCmd.AddCommand(newDeleteCmd())
 	rootCmd.AddCommand(newDeleteVersionCmd())
@@ -91,6 +92,7 @@ Cursor、Codex 等多个 IDE，实现技能的"一次编写，到处同步"。
 	rootCmd.AddCommand(newUninstallCmd())
 	rootCmd.AddCommand(newUpdateCmd())
 	rootCmd.AddCommand(newSearchCmd())
+	rootCmd.AddCommand(newFeedbackCmd())
 	rootCmd.AddCommand(newRateCmd())
 	rootCmd.AddCommand(newTranslateDescriptionsCmd())
 

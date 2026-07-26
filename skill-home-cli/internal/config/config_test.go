@@ -28,6 +28,10 @@ ide:
     enabled: true
     project_path: "custom-skills"
     global_path: "/tmp/openclaw-skills"
+  xigua:
+    enabled: true
+    project_path: ".xigua/skills"
+    global_path: "/tmp/xigua-skills"
 sync:
   mode: "mirror"
   conflict_strategy: "project_wins"
@@ -64,6 +68,15 @@ security:
 	}
 	if got := C.IDE.OpenClaw.GlobalPath; got != "/tmp/openclaw-skills" {
 		t.Fatalf("unexpected openclaw global_path: %q", got)
+	}
+	if got := C.IDE.Xigua.Enabled; !got {
+		t.Fatalf("unexpected xigua enabled: %t", got)
+	}
+	if got := C.IDE.Xigua.ProjectPath; got != ".xigua/skills" {
+		t.Fatalf("unexpected xigua project_path: %q", got)
+	}
+	if got := C.IDE.Xigua.GlobalPath; got != "/tmp/xigua-skills" {
+		t.Fatalf("unexpected xigua global_path: %q", got)
 	}
 	if got := C.Sync.ConflictStrategy; got != "project_wins" {
 		t.Fatalf("unexpected conflict_strategy: %q", got)
@@ -105,6 +118,15 @@ func TestInitAppliesOpenClawDefaultsAndExpandsGlobalPath(t *testing.T) {
 	}
 	if got := C.IDE.OpenClaw.GlobalPath; got != filepath.Join(homeDir, ".openclaw", "skills") {
 		t.Fatalf("unexpected openclaw global_path default: %q", got)
+	}
+	if got := C.IDE.Xigua.Enabled; got {
+		t.Fatalf("unexpected xigua enabled default: %t", got)
+	}
+	if got := C.IDE.Xigua.ProjectPath; got != ".xigua/skills" {
+		t.Fatalf("unexpected xigua project_path default: %q", got)
+	}
+	if got := C.IDE.Xigua.GlobalPath; got != filepath.Join(homeDir, ".xigua-agent", "skills") {
+		t.Fatalf("unexpected xigua global_path default: %q", got)
 	}
 }
 

@@ -512,6 +512,68 @@ func (c *Client) DeleteVersion(namespace, name, version string) error {
 	return c.handleError(resp)
 }
 
+// ListCollaborators 列出 skill 协作者。
+func (c *Client) ListCollaborators(namespace, name string) ([]SkillCollaborator, error) {
+	path := fmt.Sprintf("/api/v1/skills/%s/%s/collaborators", namespace, name)
+
+	resp, err := c.doRequest(http.MethodGet, path, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if err := c.handleError(resp); err != nil {
+		return nil, err
+	}
+
+	var result []SkillCollaborator
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+// UpsertCollaborator 新增或更新 skill 协作者。
+func (c *Client) UpsertCollaborator(namespace, name string, req *UpsertCollaboratorRequest) (*SkillCollaborator, error) {
+	body, err := json.Marshal(req)
+	if err != nil {
+		return nil, err
+	}
+
+	headers := map[string]string{
+		"Content-Type": "application/json",
+	}
+	path := fmt.Sprintf("/api/v1/skills/%s/%s/collaborators", namespace, name)
+	resp, err := c.doRequest(http.MethodPost, path, bytes.NewReader(body), headers)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if err := c.handleError(resp); err != nil {
+		return nil, err
+	}
+
+	var result SkillCollaborator
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// DeleteCollaborator 移除 skill 协作者。
+func (c *Client) DeleteCollaborator(namespace, name, username string) error {
+	path := fmt.Sprintf("/api/v1/skills/%s/%s/collaborators/%s", namespace, name, url.PathEscape(strings.TrimPrefix(username, "@")))
+
+	resp, err := c.doRequest(http.MethodDelete, path, nil, nil)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	return c.handleError(resp)
+}
+
 // UpdateSkill 更新技能元数据
 func (c *Client) UpdateSkill(namespace, name string, req *UpdateSkillRequest) (*Skill, error) {
 	body, err := json.Marshal(req)
@@ -659,19 +721,17 @@ func (c *Client) ListAuditLogs(page, perPage int, action string) (*AuditLogList,
 	return &result, nil
 }
 
-// RateSkill 评分技能
-func (c *Client) RateSkill(namespace, name string, req *RateSkillRequest) (*RateSkillResponse, error) {
+// CreateSkillFeedback 提交结构化 Skill 使用反馈。
+func (c *Client) CreateSkillFeedback(namespace, name string, req *CreateSkillFeedbackRequest) (*SkillFeedback, error) {
 	body, err := json.Marshal(req)
 	if err != nil {
 		return nil, err
 	}
 
-	headers := map[string]string{
+	path := fmt.Sprintf("/api/v1/skills/%s/%s/feedback", namespace, name)
+	resp, err := c.doRequest("POST", path, bytes.NewReader(body), map[string]string{
 		"Content-Type": "application/json",
-	}
-
-	path := fmt.Sprintf("/api/v1/skills/%s/%s/rating", namespace, name)
-	resp, err := c.doRequest("POST", path, bytes.NewReader(body), headers)
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -681,11 +741,10 @@ func (c *Client) RateSkill(namespace, name string, req *RateSkillRequest) (*Rate
 		return nil, err
 	}
 
-	var result RateSkillResponse
+	var result SkillFeedback
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, err
 	}
-
 	return &result, nil
 }
 

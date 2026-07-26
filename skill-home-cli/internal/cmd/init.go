@@ -28,9 +28,10 @@ tags: []
 
 # IDE 配置
 # ide_config:
-#   cursor:
-#     globs: ["**/*.{ts,tsx}"]
 #   claude:
+#     auto_activate: true
+#   xigua:
+#     globs: ["**/*.{ts,tsx}"]
 #     auto_activate: true
 ---
 

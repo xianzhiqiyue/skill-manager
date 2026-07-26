@@ -5,35 +5,35 @@ import (
 	"testing"
 )
 
-func TestPathResolverSupportsCopilotPaths(t *testing.T) {
+func TestPathResolverSupportsXiguaPaths(t *testing.T) {
 	projectRoot := t.TempDir()
 	globalRoot := t.TempDir()
 
 	C = &Config{
 		IDE: IDEConfig{
-			Copilot: IDE{
+			Xigua: IDE{
 				Enabled:     true,
-				ProjectPath: ".github/skills",
-				GlobalPath:  filepath.Join(globalRoot, ".copilot", "skills"),
+				ProjectPath: ".xigua/skills",
+				GlobalPath:  filepath.Join(globalRoot, ".xigua-agent", "skills"),
 			},
 		},
 	}
 
 	resolver := &PathResolver{projectRoot: projectRoot}
 
-	projectPath, err := resolver.GetIDEProjectPath("copilot")
+	projectPath, err := resolver.GetIDEProjectPath("xigua")
 	if err != nil {
 		t.Fatalf("GetIDEProjectPath returned error: %v", err)
 	}
-	if projectPath != filepath.Join(projectRoot, ".github", "skills") {
+	if projectPath != filepath.Join(projectRoot, ".xigua", "skills") {
 		t.Fatalf("unexpected project path: %s", projectPath)
 	}
 
-	globalPath, err := resolver.GetIDEGlobalPath("copilot")
+	globalPath, err := resolver.GetIDEGlobalPath("xigua")
 	if err != nil {
 		t.Fatalf("GetIDEGlobalPath returned error: %v", err)
 	}
-	if globalPath != filepath.Join(globalRoot, ".copilot", "skills") {
+	if globalPath != filepath.Join(globalRoot, ".xigua-agent", "skills") {
 		t.Fatalf("unexpected global path: %s", globalPath)
 	}
 }

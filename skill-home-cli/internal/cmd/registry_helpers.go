@@ -19,10 +19,13 @@ type registryClient interface {
 	Download(namespace, name, version, outputPath string) error
 	DeleteSkill(namespace, name string) error
 	DeleteVersion(namespace, name, version string) error
+	ListCollaborators(namespace, name string) ([]registry.SkillCollaborator, error)
+	UpsertCollaborator(namespace, name string, req *registry.UpsertCollaboratorRequest) (*registry.SkillCollaborator, error)
+	DeleteCollaborator(namespace, name, username string) error
 	GetCurrentUser() (*registry.User, error)
 	GetUserSkills() ([]registry.Skill, error)
 	ListAuditLogs(page, perPage int, action string) (*registry.AuditLogList, error)
-	RateSkill(namespace, name string, req *registry.RateSkillRequest) (*registry.RateSkillResponse, error)
+	CreateSkillFeedback(namespace, name string, req *registry.CreateSkillFeedbackRequest) (*registry.SkillFeedback, error)
 	RecordInstallEvent(namespace, name string, req *registry.InstallEventRequest) (*registry.InstallEventResponse, error)
 	Publish(skillPath string, req *registry.PublishRequest) (*registry.PublishResponse, error)
 	UpdateSkill(namespace, name string, req *registry.UpdateSkillRequest) (*registry.Skill, error)

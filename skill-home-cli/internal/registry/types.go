@@ -51,6 +51,24 @@ type SkillCredentialDescriptor struct {
 	Group       string `json:"group,omitempty"`
 }
 
+// SkillCollaborator skill 协作者权限。
+type SkillCollaborator struct {
+	ID            string    `json:"id"`
+	SkillID       string    `json:"skill_id"`
+	UserID        string    `json:"user_id"`
+	Username      string    `json:"username"`
+	DisplayNameZh string    `json:"display_name_zh,omitempty"`
+	Role          string    `json:"role"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
+}
+
+// UpsertCollaboratorRequest 新增或更新协作者。
+type UpsertCollaboratorRequest struct {
+	Username string `json:"username"`
+	Role     string `json:"role,omitempty"`
+}
+
 // SkillVersion 技能版本
 type SkillVersion struct {
 	ID           string      `json:"id"`
@@ -191,16 +209,27 @@ type PublishResponse struct {
 	PublishedAt string `json:"published_at"`
 }
 
-// RateSkillRequest 技能评分请求
-type RateSkillRequest struct {
-	Rating  int    `json:"rating"`
-	Comment string `json:"comment,omitempty"`
+// CreateSkillFeedbackRequest 提交轻量 Skill 使用反馈。
+type CreateSkillFeedbackRequest struct {
+	FeedbackType string `json:"feedback_type"`
+	Content      string `json:"content"`
 }
 
-// RateSkillResponse 技能评分响应
-type RateSkillResponse struct {
-	Skill      Skill       `json:"skill"`
-	UserRating SkillRating `json:"user_rating"`
+// SkillFeedback Skill 使用反馈。
+type SkillFeedback struct {
+	ID                  string    `json:"id"`
+	SkillID             string    `json:"skill_id"`
+	UserID              string    `json:"user_id"`
+	FeedbackType        string    `json:"feedback_type"`
+	Content             string    `json:"content"`
+	Status              string    `json:"status"`
+	ResolutionNote      string    `json:"resolution_note,omitempty"`
+	SkillNamespace      string    `json:"skill_namespace,omitempty"`
+	SkillName           string    `json:"skill_name,omitempty"`
+	AuthorUsername      string    `json:"author_username,omitempty"`
+	AuthorDisplayNameZh string    `json:"author_display_name_zh,omitempty"`
+	CreatedAt           time.Time `json:"created_at"`
+	UpdatedAt           time.Time `json:"updated_at"`
 }
 
 type InstallEventRequest struct {

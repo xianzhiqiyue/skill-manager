@@ -12,6 +12,8 @@ import (
 	"github.com/skill-home/cli/pkg/validator"
 )
 
+const maxScannedFileBytes = 1024 * 1024
+
 type scanOptions struct {
 	strict bool
 	json   bool
@@ -65,7 +67,15 @@ func runScan(path string, opts *scanOptions) error {
 		return nil
 	}
 
-	// 按文件分组显示
+	printScanResult(result)
+	return evaluateScanResult(result, opts.strict, false)
+}
+
+func printScanResult(result *validator.ScanResult) {
+	if result == nil || len(result.Issues) == 0 {
+		return
+	}
+
 	fileIssues := make(map[string][]validator.ScanIssue)
 	for _, issue := range result.Issues {
 		fileIssues[issue.File] = append(fileIssues[issue.File], issue)
@@ -81,7 +91,6 @@ func runScan(path string, opts *scanOptions) error {
 
 	// 摘要
 	fmt.Println(result.Summary)
-	return evaluateScanResult(result, opts.strict, false)
 }
 
 func printIssue(issue validator.ScanIssue) {
@@ -120,26 +129,55 @@ func printIssue(issue validator.ScanIssue) {
 func collectSkillFiles(path string) (map[string]string, error) {
 	files := make(map[string]string)
 
-	skillFile := filepath.Join(path, "SKILL.md")
-	if content, err := os.ReadFile(skillFile); err == nil {
-		files["SKILL.md"] = string(content)
-	} else {
-		return nil, fmt.Errorf("读取 SKILL.md 失败: %w", err)
+	root, err := filepath.Abs(path)
+	if err != nil {
+		return nil, fmt.Errorf("解析技能路径失败: %w", err)
 	}
 
-	for _, dirName := range []string{"scripts", "references"} {
-		dirPath := filepath.Join(path, dirName)
-		if entries, err := os.ReadDir(dirPath); err == nil {
-			for _, entry := range entries {
-				if entry.IsDir() || strings.HasPrefix(entry.Name(), ".") {
-					continue
-				}
-				content, err := os.ReadFile(filepath.Join(dirPath, entry.Name()))
-				if err == nil {
-					files[dirName+"/"+entry.Name()] = string(content)
-				}
-			}
+	err = filepath.Walk(root, func(filePath string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
 		}
+		if info.Name() == "." {
+			return nil
+		}
+		if strings.HasPrefix(info.Name(), ".") || shouldSkipFile(info.Name()) {
+			if info.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if info.IsDir() {
+			return nil
+		}
+		if !info.Mode().IsRegular() {
+			return nil
+		}
+		if info.Size() > maxScannedFileBytes {
+			return nil
+		}
+
+		content, err := os.ReadFile(filePath)
+		if err != nil {
+			return fmt.Errorf("读取文件失败 %s: %w", filePath, err)
+		}
+		if strings.ContainsRune(string(content), '\x00') {
+			return nil
+		}
+
+		rel, err := filepath.Rel(root, filePath)
+		if err != nil {
+			return err
+		}
+		files[filepath.ToSlash(rel)] = string(content)
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if _, ok := files["SKILL.md"]; !ok {
+		return nil, fmt.Errorf("读取 SKILL.md 失败: 文件不存在")
 	}
 
 	return files, nil

@@ -28,7 +28,7 @@ func newSyncCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "sync [skill-path]",
 		Short: "同步技能到 IDE",
-		Long:  "将技能同步到本地 IDE 配置目录（Claude、Copilot、Cursor、Codex、OpenClaw）",
+		Long:  "将技能同步到本地 IDE 配置目录（Claude、Codex、OpenClaw、Xigua）",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "."
@@ -148,24 +148,21 @@ func getTargetIDEs(opts *syncOptions) []string {
 	if config.C.IDE.Claude.Enabled {
 		ides = append(ides, "claude")
 	}
-	if config.C.IDE.Copilot.Enabled {
-		ides = append(ides, "copilot")
-	}
-	if config.C.IDE.Cursor.Enabled {
-		ides = append(ides, "cursor")
-	}
 	if config.C.IDE.Codex.Enabled {
 		ides = append(ides, "codex")
 	}
 	if config.C.IDE.OpenClaw.Enabled {
 		ides = append(ides, "openclaw")
 	}
+	if config.C.IDE.Xigua.Enabled {
+		ides = append(ides, "xigua")
+	}
 
 	return ides
 }
 
 func targetIDEUsageText() string {
-	return "指定 IDE (claude/copilot/cursor/codex/openclaw)"
+	return "指定 IDE (claude/codex/openclaw/xigua)"
 }
 
 // listInstalledSkills 列出已安装的技能

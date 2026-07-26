@@ -36,7 +36,7 @@ func newPreviewCmd() *cobra.Command {
   skill-home preview ./my-skill -p all
 
   # 将预览输出到文件
-  skill-home preview ./my-skill -p cursor -o ./preview.md`,
+  skill-home preview ./my-skill -p xigua -o ./preview.md`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			skillPath := args[0]
@@ -44,7 +44,7 @@ func newPreviewCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVarP(&opts.platform, "platform", "p", "", "预览指定平台 (claude|copilot|codex|cursor|all)")
+	cmd.Flags().StringVarP(&opts.platform, "platform", "p", "", "预览指定平台 (claude|codex|xigua|all)")
 	cmd.Flags().StringVarP(&opts.output, "output", "o", "", "将预览输出到文件")
 
 	cmd.MarkFlagRequired("platform")
@@ -62,7 +62,7 @@ func runPreview(skillPath string, opts *previewOptions) error {
 	// 确定要预览的平台
 	platforms := []string{}
 	if opts.platform == "all" {
-		platforms = []string{"claude", "copilot", "codex", "cursor"}
+		platforms = []string{"claude", "codex", "xigua"}
 	} else {
 		platforms = strings.Split(opts.platform, ",")
 	}
@@ -131,11 +131,9 @@ func runPreview(skillPath string, opts *previewOptions) error {
 
 func getMainFile(platform, skillName string) string {
 	switch platform {
-	case "claude":
+	case "claude", "xigua":
 		return "SKILL.md"
-	case "copilot":
-		return "SKILL.md"
-	case "codex", "cursor":
+	case "codex":
 		return skillName + ".mdc"
 	default:
 		return "SKILL.md"

@@ -123,6 +123,68 @@ body
 	}
 }
 
+func TestRunPushRejectsSensitiveValuesBeforePublishAndRedactsOutput(t *testing.T) {
+	t.Cleanup(func() {
+		viper.Reset()
+		config.C = nil
+	})
+	viper.Reset()
+	viper.Set("registry.api_key", "sk_test")
+	config.C = &config.Config{
+		Local: config.Local{DefaultNamespace: "@team"},
+	}
+
+	client := &fakeRegistryClient{
+		getCurrentUserResp: &registry.User{Username: "tester"},
+	}
+	restore := swapRegistryClientFactory(func() registryClient {
+		return client
+	})
+	defer restore()
+
+	skillPath := writePushSkill(t, `---
+name: deploy-buddy
+version: 1.2.3
+description: 部署助手
+category: ops
+tags:
+  - deployment
+license: MIT
+---
+
+body
+`)
+	scriptsDir := filepath.Join(skillPath, "scripts")
+	if err := os.Mkdir(scriptsDir, 0755); err != nil {
+		t.Fatalf("Mkdir returned error: %v", err)
+	}
+	secret := "sk-proj-abcdefghijklmnopqrstuvwxyz123456"
+	if err := os.WriteFile(filepath.Join(scriptsDir, "deploy.sh"), []byte("OPENAI_API_KEY="+secret+"\n"), 0644); err != nil {
+		t.Fatalf("WriteFile returned error: %v", err)
+	}
+
+	stdout, stderr := captureStdStreams(t, func() {
+		err := runPush(skillPath, &pushOptions{force: true})
+		if err == nil {
+			t.Fatal("expected runPush to fail")
+		}
+		if !strings.Contains(err.Error(), "安全扫描未通过") {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	output := stdout + stderr
+	if strings.Contains(output, secret) {
+		t.Fatalf("scan output leaked secret: %s", output)
+	}
+	if !strings.Contains(output, "<redacted:sensitive-data>") {
+		t.Fatalf("expected redacted match in output, got: %s", output)
+	}
+	if client.publishReq != nil {
+		t.Fatalf("publish should not be called: %#v", client.publishReq)
+	}
+}
+
 func TestRunPushPromptsForMissingMetadataInInteractiveMode(t *testing.T) {
 	t.Cleanup(func() {
 		viper.Reset()

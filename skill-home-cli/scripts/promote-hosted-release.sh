@@ -4,7 +4,7 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: promote-hosted-release.sh <version> <dist-dir> <install-script>
+Usage: promote-hosted-release.sh <version> <dist-dir> <install-script> <windows-install-script>
 
 将 GitHub Actions 中已打包好的 CLI 发布产物同步到 Skill Home 服务端，并触发原子切换。
 
@@ -28,8 +28,9 @@ require_file() {
 VERSION="${1:-}"
 DIST_DIR="${2:-}"
 INSTALL_SCRIPT_PATH="${3:-}"
+WINDOWS_INSTALL_SCRIPT_PATH="${4:-}"
 
-if [ -z "$VERSION" ] || [ -z "$DIST_DIR" ] || [ -z "$INSTALL_SCRIPT_PATH" ]; then
+if [ -z "$VERSION" ] || [ -z "$DIST_DIR" ] || [ -z "$INSTALL_SCRIPT_PATH" ] || [ -z "$WINDOWS_INSTALL_SCRIPT_PATH" ]; then
   usage
   exit 1
 fi
@@ -63,9 +64,11 @@ done
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 DIST_ABS="$(cd "$DIST_DIR" && pwd)"
 INSTALL_SCRIPT_ABS="$(cd "$(dirname "$INSTALL_SCRIPT_PATH")" && pwd)/$(basename "$INSTALL_SCRIPT_PATH")"
+WINDOWS_INSTALL_SCRIPT_ABS="$(cd "$(dirname "$WINDOWS_INSTALL_SCRIPT_PATH")" && pwd)/$(basename "$WINDOWS_INSTALL_SCRIPT_PATH")"
 DEPLOY_SCRIPT_ABS="${ROOT_DIR}/deploy-update.sh"
 
 require_file "$INSTALL_SCRIPT_ABS"
+require_file "$WINDOWS_INSTALL_SCRIPT_ABS"
 require_file "$DEPLOY_SCRIPT_ABS"
 
 required_assets=(
@@ -113,6 +116,7 @@ scp "${scp_opts[@]}" \
   "${DIST_ABS}/skill-home-linux-arm64.tar.gz" \
   "${DIST_ABS}/skill-home-windows-amd64.zip" \
   "${INSTALL_SCRIPT_ABS}" \
+  "${WINDOWS_INSTALL_SCRIPT_ABS}" \
   "${DEPLOY_SCRIPT_ABS}" \
   "${remote_target}:${remote_tmp}/"
 
@@ -122,6 +126,7 @@ ssh "${ssh_opts[@]}" "$remote_target" "bash -s" -- \
   "$remote_tmp" \
   "$VERSION" \
   "${PUBLIC_BASE_URL%/}/install.sh" \
+  "${PUBLIC_BASE_URL%/}/install.ps1" \
   "${PUBLIC_BASE_URL%/}/releases/latest.json" <<'EOF'
 set -euo pipefail
 
@@ -129,7 +134,8 @@ deploy_dir="$1"
 remote_tmp="$2"
 version="$3"
 installcheck_url="$4"
-releases_latest_url="$5"
+windows_installcheck_url="$5"
+releases_latest_url="$6"
 stage_dir="${deploy_dir}/releases.new"
 
 rm -rf "$stage_dir"
@@ -154,7 +160,9 @@ do
 done
 
 install -m 0755 "${remote_tmp}/install.sh" "${deploy_dir}/install.sh.new"
+install -m 0644 "${remote_tmp}/install.ps1" "${deploy_dir}/install.ps1.new"
 SKILL_HOME_INSTALLCHECK_URL="$installcheck_url" \
+SKILL_HOME_WINDOWS_INSTALLCHECK_URL="$windows_installcheck_url" \
 SKILL_HOME_RELEASES_LATEST_URL="$releases_latest_url" \
 DEPLOY_DIR="$deploy_dir" \
 bash "${remote_tmp}/deploy-update.sh"
@@ -163,6 +171,7 @@ EOF
 
 echo "正在验收 Skill Home hosted release..."
 curl -fsSL "${PUBLIC_BASE_URL%/}/install.sh" | grep -F "${PUBLIC_BASE_URL%/}/releases" >/dev/null
+curl -fsSL "${PUBLIC_BASE_URL%/}/install.ps1" | grep -F "${PUBLIC_BASE_URL%/}/releases" >/dev/null
 curl -fsSL "${PUBLIC_BASE_URL%/}/releases/latest.json" | grep -F "\"tag_name\":\"${VERSION}\"" >/dev/null
 curl -fsSI "${PUBLIC_BASE_URL%/}/releases/${VERSION}/checksums.txt" >/dev/null
 curl -fsSI "${PUBLIC_BASE_URL%/}/releases/${VERSION}/skill-home-linux-amd64.tar.gz" >/dev/null
