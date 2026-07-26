@@ -59,7 +59,9 @@ jobs:
 
       - name: Run hosted release promotion regression test
         working-directory: skill-home-cli
-        run: bash ./scripts/test-promote-hosted-release.sh
+        run: |
+          bash ./scripts/test-promote-hosted-release.sh
+          bash ./scripts/test-deploy-update.sh
 
       - name: Build release assets
         working-directory: skill-home-cli

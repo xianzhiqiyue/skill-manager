@@ -105,18 +105,18 @@ restore_dir_if_needed() {
 
 verify_deployment() {
   if [ "$needs_restart" -eq 1 ]; then
-    curl -fsSL "$HEALTHCHECK_URL" >/dev/null
+    curl -fsSL "$HEALTHCHECK_URL" >/dev/null || return 1
   fi
 
   if [ "$update_install_script" -eq 1 ] || [ -f "$DEPLOY_DIR/install.sh" ]; then
-    curl -fsSL "$INSTALLCHECK_URL" | grep -q "skill-home CLI 安装脚本"
+    curl -fsSL "$INSTALLCHECK_URL" | grep -F "skill-home CLI 安装脚本" >/dev/null || return 1
   fi
   if [ "$update_windows_install_script" -eq 1 ] || [ -f "$DEPLOY_DIR/install.ps1" ]; then
-    curl -fsSL "$WINDOWS_INSTALLCHECK_URL" | grep -q "skill-home CLI Windows 安装脚本"
+    curl -fsSL "$WINDOWS_INSTALLCHECK_URL" | grep -F "skill-home CLI Windows 安装脚本" >/dev/null || return 1
   fi
 
   if [ "$update_release_assets" -eq 1 ] || [ -d "$DEPLOY_DIR/releases" ]; then
-    curl -fsSL "$RELEASES_LATEST_URL" | grep -q '"tag_name"'
+    curl -fsSL "$RELEASES_LATEST_URL" | grep -F '"tag_name"' >/dev/null || return 1
   fi
 }
 
