@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/spf13/viper"
 )
@@ -63,6 +64,95 @@ func TestRunLoginWithAPIKeyValidatesAndSavesConfig(t *testing.T) {
 	if !strings.Contains(string(content), "default_namespace: '@tester'") &&
 		!strings.Contains(string(content), "default_namespace: \"@tester\"") {
 		t.Fatalf("expected saved default namespace, got:\n%s", string(content))
+	}
+	info, err := os.Stat(configPath)
+	if err != nil {
+		t.Fatalf("Stat returned error: %v", err)
+	}
+	if got := info.Mode().Perm(); got != 0600 {
+		t.Fatalf("config permissions = %o, want 600", got)
+	}
+}
+
+func TestRunLoginUsesOAuthDeviceFlowByDefault(t *testing.T) {
+	t.Cleanup(viper.Reset)
+	viper.Reset()
+
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	originalLaunchBrowser := launchBrowser
+	originalWaitOAuthPoll := waitOAuthPoll
+	t.Cleanup(func() {
+		launchBrowser = originalLaunchBrowser
+		waitOAuthPoll = originalWaitOAuthPoll
+	})
+	openedURL := ""
+	launchBrowser = func(target string) error {
+		openedURL = target
+		return nil
+	}
+	waitOAuthPoll = func(time.Duration) {}
+
+	polls := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/oauth/device/code":
+			var req map[string]string
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				t.Fatalf("Decode returned error: %v", err)
+			}
+			if !strings.HasPrefix(req["api_key_name"], "skill-home-cli@") {
+				t.Fatalf("unexpected API key name: %+v", req)
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"device_code":               "device-secret",
+				"user_code":                 "ABCD-EFGH",
+				"verification_uri":          "https://skill-home.example/oauth/device",
+				"verification_uri_complete": "https://skill-home.example/oauth/device?user_code=ABCD-EFGH",
+				"expires_in":                600,
+				"interval":                  1,
+			})
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/oauth/device/token":
+			polls++
+			if polls == 1 {
+				w.WriteHeader(http.StatusBadRequest)
+				_ = json.NewEncoder(w).Encode(map[string]any{
+					"code":    "authorization_pending",
+					"message": "waiting",
+				})
+				return
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"access_token": "sk_oauth_generated",
+				"token_type":   "Bearer",
+				"api_key_name": "skill-home-cli@test-host",
+				"user": map[string]any{
+					"id":       "user-1",
+					"username": "oauth-user",
+					"email":    "oauth@example.com",
+				},
+			})
+		default:
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	if err := runLogin(&loginOptions{server: server.URL, oauthTimeout: time.Minute}); err != nil {
+		t.Fatalf("runLogin returned error: %v", err)
+	}
+	if openedURL != "https://skill-home.example/oauth/device?user_code=ABCD-EFGH" {
+		t.Fatalf("unexpected opened URL: %s", openedURL)
+	}
+	if polls != 2 {
+		t.Fatalf("poll count = %d, want 2", polls)
+	}
+	if got := viper.GetString("registry.api_key"); got != "sk_oauth_generated" {
+		t.Fatalf("unexpected registry.api_key: %s", got)
+	}
+	if got := viper.GetString("local.default_namespace"); got != "@oauth-user" {
+		t.Fatalf("unexpected local.default_namespace: %s", got)
 	}
 }
 

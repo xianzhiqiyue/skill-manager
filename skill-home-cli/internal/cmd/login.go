@@ -4,7 +4,10 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"os/exec"
+	"runtime"
 	"strings"
+	"time"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -16,11 +19,13 @@ import (
 )
 
 type loginOptions struct {
-	apiKey     string
-	server     string
-	email      string
-	password   string
-	apiKeyName string
+	apiKey       string
+	server       string
+	email        string
+	password     string
+	apiKeyName   string
+	noBrowser    bool
+	oauthTimeout time.Duration
 }
 
 func newLoginCmd() *cobra.Command {
@@ -29,7 +34,7 @@ func newLoginCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "login",
 		Short: "登录到注册中心",
-		Long:  "使用邮箱/密码登录到 skill-home 服务并自动创建 CLI API Key，或直接使用现成 API Key 登录",
+		Long:  "默认在浏览器中完成 OAuth 授权并自动保存 CLI 凭证；也兼容邮箱/密码或现成 API Key 登录",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runLogin(opts)
 		},
@@ -40,6 +45,8 @@ func newLoginCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&opts.email, "email", "e", "", "登录邮箱")
 	cmd.Flags().StringVarP(&opts.password, "password", "p", "", "登录密码")
 	cmd.Flags().StringVar(&opts.apiKeyName, "api-key-name", "", "自动创建的 CLI API Key 名称")
+	cmd.Flags().BoolVar(&opts.noBrowser, "no-browser", false, "不自动打开浏览器，只显示授权链接")
+	cmd.Flags().DurationVar(&opts.oauthTimeout, "oauth-timeout", 10*time.Minute, "等待浏览器授权的最长时间")
 
 	return cmd
 }
@@ -78,43 +85,97 @@ func runLogin(opts *loginOptions) error {
 		return loginWithAccount(server, email, password, apiKeyName)
 	}
 
-	if !term.IsTerminal(int(os.Stdin.Fd())) {
-		return fmt.Errorf("未提供登录凭据，请使用 --api-key 或 --email/--password")
-	}
+	return loginWithOAuth(server, apiKeyName, opts.noBrowser, opts.oauthTimeout)
+}
 
-	method, err := promptLoginMethod()
+var launchBrowser = openBrowserURL
+var waitOAuthPoll = time.Sleep
+
+func loginWithOAuth(server, apiKeyName string, noBrowser bool, timeout time.Duration) error {
+	if apiKeyName == "" {
+		apiKeyName = defaultCLIAPIKeyName()
+	}
+	clientName := strings.Replace(apiKeyName, "skill-home-cli@", "Skill Home CLI on ", 1)
+	client := registry.NewClient(server, "")
+	authorization, err := client.StartOAuthDeviceAuthorization(clientName, apiKeyName)
 	if err != nil {
-		return err
+		return fmt.Errorf("启动 OAuth 登录失败: %w（旧服务可继续使用 --email/--password 或 --api-key）", err)
+	}
+	if authorization.DeviceCode == "" || authorization.VerificationURI == "" {
+		return fmt.Errorf("启动 OAuth 登录失败: 服务端返回的授权信息不完整")
 	}
 
-	if method == "api-key" {
-		apiKey, err = promptLine("请输入 API Key: ")
-		if err != nil {
-			return err
+	verificationURL := authorization.VerificationURIComplete
+	if verificationURL == "" {
+		verificationURL = authorization.VerificationURI
+	}
+	fmt.Println()
+	fmt.Printf("请在浏览器中确认登录，授权码: %s\n", color.CyanString(authorization.UserCode))
+	fmt.Printf("  %s\n", color.CyanString(verificationURL))
+	if !noBrowser {
+		if err := launchBrowser(verificationURL); err != nil {
+			fmt.Printf("  未能自动打开浏览器，请手动访问上面的链接（%v）。\n", err)
+		} else {
+			fmt.Println("  已尝试打开浏览器，正在等待授权...")
 		}
-		if strings.TrimSpace(apiKey) == "" {
-			return fmt.Errorf("API Key 不能为空")
+	} else {
+		fmt.Println("  已关闭自动打开浏览器，正在等待授权...")
+	}
+
+	expiresIn := time.Duration(authorization.ExpiresIn) * time.Second
+	if expiresIn <= 0 {
+		expiresIn = 10 * time.Minute
+	}
+	if timeout > 0 && timeout < expiresIn {
+		expiresIn = timeout
+	}
+	deadline := time.Now().Add(expiresIn)
+	interval := time.Duration(authorization.Interval) * time.Second
+	if interval < time.Second {
+		interval = time.Second
+	}
+
+	for time.Now().Before(deadline) {
+		waitOAuthPoll(interval)
+		result, err := client.ExchangeOAuthDeviceToken(authorization.DeviceCode)
+		if err == nil {
+			return saveLoginSession(server, result.AccessToken, &result.User, result.APIKeyName)
 		}
-		return loginWithAPIKey(server, apiKey)
+		apiErr, ok := err.(*registry.APIError)
+		if !ok {
+			return fmt.Errorf("OAuth 登录失败: %w", err)
+		}
+		switch apiErr.Code {
+		case "authorization_pending":
+			continue
+		case "slow_down":
+			interval += 5 * time.Second
+			continue
+		case "access_denied":
+			return fmt.Errorf("OAuth 登录已在浏览器中被拒绝")
+		case "expired_token":
+			return fmt.Errorf("OAuth 授权已过期，请重新执行 skill-home login")
+		default:
+			return fmt.Errorf("OAuth 登录失败: %w", err)
+		}
 	}
 
-	email, err = promptLine("请输入邮箱: ")
-	if err != nil {
-		return err
-	}
-	if email == "" {
-		return fmt.Errorf("邮箱不能为空")
-	}
+	return fmt.Errorf("等待 OAuth 授权超时，请重新执行 skill-home login")
+}
 
-	password, err = promptPassword("请输入密码: ")
-	if err != nil {
-		return err
+func openBrowserURL(target string) error {
+	var command *exec.Cmd
+	switch {
+	case runtime.GOOS == "windows":
+		command = exec.Command("rundll32", "url.dll,FileProtocolHandler", target)
+	case runtime.GOOS == "darwin":
+		command = exec.Command("open", target)
+	case os.Getenv("WSL_DISTRO_NAME") != "":
+		command = exec.Command("cmd.exe", "/c", "start", "", target)
+	default:
+		command = exec.Command("xdg-open", target)
 	}
-	if password == "" {
-		return fmt.Errorf("密码不能为空")
-	}
-
-	return loginWithAccount(server, email, password, apiKeyName)
+	return command.Start()
 }
 
 func loginWithAPIKey(server, apiKey string) error {

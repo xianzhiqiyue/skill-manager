@@ -141,6 +141,24 @@ type AuthResponse struct {
 	User  User   `json:"user"`
 }
 
+// OAuthDeviceAuthorizationResponse starts the OAuth device authorization flow.
+type OAuthDeviceAuthorizationResponse struct {
+	DeviceCode              string `json:"device_code"`
+	UserCode                string `json:"user_code"`
+	VerificationURI         string `json:"verification_uri"`
+	VerificationURIComplete string `json:"verification_uri_complete"`
+	ExpiresIn               int    `json:"expires_in"`
+	Interval                int    `json:"interval"`
+}
+
+// OAuthDeviceTokenResponse is returned once the browser approves CLI access.
+type OAuthDeviceTokenResponse struct {
+	AccessToken string `json:"access_token"`
+	TokenType   string `json:"token_type"`
+	APIKeyName  string `json:"api_key_name"`
+	User        User   `json:"user"`
+}
+
 // User 用户信息
 type User struct {
 	ID            string    `json:"id"`

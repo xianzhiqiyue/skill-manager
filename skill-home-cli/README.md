@@ -191,15 +191,31 @@ skill-home update --ide codex --global --mode mirror
 
 ## 登录工作流
 
-### 邮箱/密码登录
+### 浏览器 OAuth 登录（默认）
 
 ```bash
 skill-home login
 ```
 
-CLI 会登录 Skill Home 服务，并自动创建一把 CLI 可复用的 API Key 保存到本地配置。
+CLI 会打开 Skill Home 一次性授权页。用户登录并确认设备后，终端自动领取并保存专用 CLI 凭证；不需要先去网页创建、复制 API Key，也不会把账号密码交给 CLI。
 
-### 直接使用 API Key
+远程终端或不希望自动打开浏览器时：
+
+```bash
+skill-home login --no-browser
+```
+
+终端会显示授权链接和一次性授权码，可在其它浏览器完成确认。授权请求 10 分钟过期，成功领取后不能再次使用。
+
+### 邮箱/密码登录（兼容）
+
+```bash
+skill-home login --email "you@example.com" --password "your-password"
+```
+
+该方式仍会自动创建并保存 CLI API Key，主要用于旧服务或兼容脚本。
+
+### 直接使用 API Key（兼容自动化）
 
 ```bash
 skill-home login --api-key "sk_xxx"

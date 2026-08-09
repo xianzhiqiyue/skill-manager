@@ -533,6 +533,66 @@ func (c *Client) ListCollaborators(namespace, name string) ([]SkillCollaborator,
 	return result, nil
 }
 
+// StartOAuthDeviceAuthorization starts a browser-based CLI login without
+// requiring the user to manually create and copy an API key.
+func (c *Client) StartOAuthDeviceAuthorization(clientName, apiKeyName string) (*OAuthDeviceAuthorizationResponse, error) {
+	body, err := json.Marshal(map[string]string{
+		"client_id":    "skill-home-cli",
+		"client_name":  clientName,
+		"api_key_name": apiKeyName,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.doRequest(http.MethodPost, "/api/v1/oauth/device/code", bytes.NewReader(body), map[string]string{
+		"Content-Type": "application/json",
+	})
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if err := c.handleError(resp); err != nil {
+		return nil, err
+	}
+
+	var result OAuthDeviceAuthorizationResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// ExchangeOAuthDeviceToken polls the one-time device request. While approval
+// is pending the registry returns an APIError with code authorization_pending.
+func (c *Client) ExchangeOAuthDeviceToken(deviceCode string) (*OAuthDeviceTokenResponse, error) {
+	body, err := json.Marshal(map[string]string{
+		"client_id":   "skill-home-cli",
+		"grant_type":  "urn:ietf:params:oauth:grant-type:device_code",
+		"device_code": deviceCode,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.doRequest(http.MethodPost, "/api/v1/oauth/device/token", bytes.NewReader(body), map[string]string{
+		"Content-Type": "application/json",
+	})
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if err := c.handleError(resp); err != nil {
+		return nil, err
+	}
+
+	var result OAuthDeviceTokenResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
 // UpsertCollaborator 新增或更新 skill 协作者。
 func (c *Client) UpsertCollaborator(namespace, name string, req *UpsertCollaboratorRequest) (*SkillCollaborator, error) {
 	body, err := json.Marshal(req)

@@ -221,7 +221,13 @@ func Save() error {
 	}
 
 	configFile := filepath.Join(configDir, "config.yaml")
-	return viper.WriteConfigAs(configFile)
+	if err := viper.WriteConfigAs(configFile); err != nil {
+		return err
+	}
+	if err := os.Chmod(configFile, 0600); err != nil {
+		return fmt.Errorf("保护配置文件权限失败: %w", err)
+	}
+	return nil
 }
 
 // InitDefaultConfig 创建默认配置文件
