@@ -1,6 +1,6 @@
 ---
 name: generate-image
-version: 0.1.3
+version: 0.1.4
 description: Generate images for “生成汽车图片”, “画一只猫”, “做张海报”, illustrations, avatars, and product visuals. Prefer a native image tool, with an OpenAI-compatible fallback.
 category: 设计与内容
 tags:
