@@ -73,11 +73,19 @@ body
 	if client.publishReq.Namespace != "tester" {
 		t.Fatalf("unexpected namespace: %#v", client.publishReq)
 	}
-	if client.publishReq.Category != "ops" {
+	if client.publishReq.Category != "运维与安全" {
 		t.Fatalf("unexpected category: %#v", client.publishReq)
 	}
 	if len(client.publishReq.Tags) != 2 || client.publishReq.Tags[0] != "deployment" || client.publishReq.Tags[1] != "ci-cd" {
 		t.Fatalf("unexpected tags: %#v", client.publishReq.Tags)
+	}
+
+	content, err := os.ReadFile(filepath.Join(skillPath, "SKILL.md"))
+	if err != nil {
+		t.Fatalf("ReadFile returned error: %v", err)
+	}
+	if !strings.Contains(string(content), "category: 运维与安全") {
+		t.Fatalf("expected legacy category to be rewritten in Chinese, got:\n%s", string(content))
 	}
 }
 
@@ -225,7 +233,7 @@ func TestRunPushPromptsForMissingMetadataInInteractiveMode(t *testing.T) {
 		if len(tags) != 0 {
 			t.Fatalf("expected empty tags before prompt, got %#v", tags)
 		}
-		return "ops", []string{"deploy", "ci"}, nil
+		return "运维与安全", []string{"deploy", "ci"}, nil
 	}
 	defer func() {
 		pushMetadataPrompter = previousPrompter
@@ -253,7 +261,7 @@ body
 	if client.publishReq.Namespace != "tester" {
 		t.Fatalf("unexpected namespace: %#v", client.publishReq)
 	}
-	if client.publishReq.Category != "ops" {
+	if client.publishReq.Category != "运维与安全" {
 		t.Fatalf("unexpected category: %#v", client.publishReq)
 	}
 	if len(client.publishReq.Tags) != 2 || client.publishReq.Tags[0] != "deployment" || client.publishReq.Tags[1] != "ci-cd" {
@@ -264,7 +272,7 @@ body
 	if err != nil {
 		t.Fatalf("ReadFile returned error: %v", err)
 	}
-	if !strings.Contains(string(content), "category: ops") {
+	if !strings.Contains(string(content), "category: 运维与安全") {
 		t.Fatalf("expected persisted category, got:\n%s", string(content))
 	}
 	if !strings.Contains(string(content), "- deployment") || !strings.Contains(string(content), "- ci-cd") {
@@ -274,15 +282,29 @@ body
 
 func TestResolvePublishNamespacePrefersCurrentUser(t *testing.T) {
 	client := &fakeRegistryClient{
-		getCurrentUserResp: &registry.User{Username: "tester"},
+		getCurrentUserResp: &registry.User{Username: "dt_test", Namespace: "zhuhuanhuan"},
 	}
 
 	namespace, err := resolvePublishNamespace(&pushOptions{}, client)
 	if err != nil {
 		t.Fatalf("resolvePublishNamespace returned error: %v", err)
 	}
-	if namespace != "tester" {
-		t.Fatalf("namespace = %q, want tester", namespace)
+	if namespace != "zhuhuanhuan" {
+		t.Fatalf("namespace = %q, want zhuhuanhuan", namespace)
+	}
+}
+
+func TestResolvePublishNamespaceFallsBackToUsernameForOlderServers(t *testing.T) {
+	client := &fakeRegistryClient{
+		getCurrentUserResp: &registry.User{Username: "legacy-user"},
+	}
+
+	namespace, err := resolvePublishNamespace(&pushOptions{}, client)
+	if err != nil {
+		t.Fatalf("resolvePublishNamespace returned error: %v", err)
+	}
+	if namespace != "legacy-user" {
+		t.Fatalf("namespace = %q, want legacy-user", namespace)
 	}
 }
 

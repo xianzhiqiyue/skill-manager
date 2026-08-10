@@ -1,0 +1,6 @@
+interface:
+  display_name: "Generate Image"
+  short_description: "Generate images from everyday natural-language requests"
+  default_prompt: "Use $generate-image to create an image from my everyday-language description."
+policy:
+  allow_implicit_invocation: true

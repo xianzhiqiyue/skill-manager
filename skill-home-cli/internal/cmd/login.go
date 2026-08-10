@@ -213,13 +213,18 @@ func saveLoginSession(server, apiKey string, user *registry.User, apiKeyName str
 	viper.Set("registry.endpoint", server)
 	viper.Set("registry.api_key", apiKey)
 	username := ""
+	namespace := ""
 	email := ""
 	if user != nil {
 		username = strings.TrimSpace(user.Username)
+		namespace = strings.TrimSpace(user.Namespace)
 		email = strings.TrimSpace(user.Email)
 	}
-	if username != "" {
-		viper.Set("local.default_namespace", "@"+strings.TrimPrefix(username, "@"))
+	if namespace == "" {
+		namespace = username
+	}
+	if namespace != "" {
+		viper.Set("local.default_namespace", "@"+strings.TrimPrefix(namespace, "@"))
 	}
 
 	if err := config.Save(); err != nil {
@@ -230,7 +235,7 @@ func saveLoginSession(server, apiKey string, user *registry.User, apiKeyName str
 	fmt.Println(color.GreenString("✓"), "登录成功!")
 	fmt.Printf("  用户名: %s\n", color.CyanString(username))
 	fmt.Printf("  邮箱: %s\n", color.CyanString(email))
-	if username != "" {
+	if namespace != "" {
 		fmt.Printf("  默认命名空间: %s\n", color.CyanString(viper.GetString("local.default_namespace")))
 	}
 	if apiKeyName != "" {
@@ -329,6 +334,11 @@ func newWhoamiCmd() *cobra.Command {
 
 			fmt.Printf("已登录用户:\n")
 			fmt.Printf("  用户名: %s\n", color.CyanString(user.Username))
+			namespace := strings.TrimPrefix(strings.TrimSpace(user.Namespace), "@")
+			if namespace == "" {
+				namespace = strings.TrimPrefix(strings.TrimSpace(user.Username), "@")
+			}
+			fmt.Printf("  发布作用域: @%s\n", color.CyanString(namespace))
 			fmt.Printf("  邮箱: %s\n", color.CyanString(user.Email))
 			fmt.Printf("  注册时间: %s\n", user.CreatedAt.Format("2006-01-02"))
 

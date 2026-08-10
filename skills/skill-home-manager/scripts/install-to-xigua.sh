@@ -11,10 +11,10 @@ source "${script_dir}/common.sh"
 
 usage() {
   cat <<'EOF'
-Usage: install-to-codex.sh <skill-path>
+Usage: install-to-xigua.sh <skill-path>
 
-Validate a local skill, sync it into the resolved Codex global skills directory
-using mirror mode, then probe compatible candidate paths to verify the install.
+Validate a local skill, sync it into the resolved Xigua global skills directory
+using mirror mode, then verify the Xigua package layout.
 EOF
 }
 
@@ -46,18 +46,23 @@ if [[ -z "$skill_name" ]]; then
 fi
 
 skill-home validate "$skill_path"
-skill-home sync "$skill_path" --ide codex --global --mode mirror
+skill-home sync "$skill_path" --ide xigua --global --mode mirror
 
-install_dir="$(resolve_installed_codex_skill_dir "$skill_name" || true)"
+install_dir="$(resolve_installed_xigua_skill_dir "$skill_name" || true)"
 
 if [[ -z "$install_dir" ]]; then
-  echo "Install verification failed: unable to locate ${skill_name}/SKILL.md in compatible Codex skill directories" >&2
+  echo "Install verification failed: unable to locate ${skill_name}/SKILL.md in compatible Xigua skill directories" >&2
   echo "Checked:" >&2
   while IFS= read -r candidate; do
     echo "  - ${candidate%/}/$skill_name" >&2
-  done < <(list_codex_skills_dir_candidates)
+  done < <(list_xigua_skills_dir_candidates)
   exit 1
 fi
 
-write_platform_context "codex" "$install_dir" "global" "$(dirname "$install_dir")" "mirror" >/dev/null
+if [[ ! -f "$install_dir/skill.json" ]]; then
+  echo "Install verification failed: missing Xigua package manifest: $install_dir/skill.json" >&2
+  exit 1
+fi
+
+write_platform_context "xigua" "$install_dir" "global" "$(dirname "$install_dir")" "mirror" >/dev/null
 find "$install_dir" -maxdepth 3 -type f | sort

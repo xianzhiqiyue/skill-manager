@@ -236,7 +236,7 @@ func (c *CodexImporter) convertAgentMD(content string) string {
 name: %s
 version: 0.1.0
 description: Imported from Codex
-category: productivity
+category: 效率与协作
 tags:
   - workflow
 license: MIT
@@ -256,7 +256,7 @@ func (c *CodexImporter) generateSkillMD(system string) string {
 name: %s
 version: 0.1.0
 description: Imported from Codex agent configuration
-category: productivity
+category: 效率与协作
 tags:
   - workflow
 license: MIT

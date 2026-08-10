@@ -7,14 +7,33 @@
 
 ## 一级分类
 
-- `development`: 代码生成、重构、调试、工程辅助
-- `testing`: 测试、验证、评审、质量保障
-- `docs`: 文档编写、知识整理、说明生成
-- `automation`: 流程编排、重复任务自动化
-- `integration`: 外部平台、API、第三方工具接入
-- `ops`: 部署、发布、运维、环境管理
-- `research`: 检索、分析、调研、总结
-- `productivity`: 协作推进、组织管理、个人效率
+- `开发与编程`: 编写、重构和调试代码，构建网站、应用或 Agent
+- `测试与质量`: 测试、评审、质量检查、故障排查与合规审计
+- `数据与分析`: 处理表格和数据库，完成统计分析、可视化与数据报告
+- `搜索与研究`: 检索资料、开展调研，整理知识、论文、市场与行业情报
+- `文档与办公`: 创建、编辑、翻译和排版文档、表格、演示文稿与 PDF
+- `设计与内容`: 完成 UI、视觉、生图、写作、音视频与社交媒体内容创作
+- `业务与管理`: 支持销售、营销、财务、法务、人力、项目、生产与客户服务
+- `效率与协作`: 管理任务、笔记、会议、知识以及个人与团队协作
+- `自动化与工作流`: 执行浏览器、文件、定时任务和跨步骤重复流程
+- `平台与连接`: 通过 API、MCP 或客户端连接通用外部平台和企业系统
+- `运维与安全`: 部署发布，管理服务器、环境、监控、权限与安全
+- `Agent 与 Skill 工具`: 创建、安装、管理或改进 Agent、Skill、提示词与上下文
+
+## 旧英文分类兼容
+
+- `development` -> `开发与编程`
+- `testing` -> `测试与质量`
+- `data` -> `数据与分析`
+- `research` -> `搜索与研究`
+- `docs` -> `文档与办公`
+- `creative` -> `设计与内容`
+- `business` -> `业务与管理`
+- `productivity` -> `效率与协作`
+- `automation` -> `自动化与工作流`
+- `integration` -> `平台与连接`
+- `ops` -> `运维与安全`
+- `meta` -> `Agent 与 Skill 工具`
 
 ## 官方标签
 
@@ -52,11 +71,16 @@
 
 ## 使用建议
 
-- 先判断 skill 的一级能力域，填写 `category`。
-- 再从官方标签里挑 1 到 4 个最典型的场景词。
+- 分类只能从上面的固定列表中选择，不接受自定义分类。
+- 一级分类按 skill 的主要交付结果选择，而不是按调用的技术或平台选择。
+- 面向特定业务结果的 skill 优先选择 `业务与管理`；只有通用连接器才选择 `平台与连接`。
+- `自动化与工作流` 只用于跨场景的通用自动化能力；文档、研究或业务流程仍选择对应结果分类。
+- 再从官方标签里挑 1 到 4 个最典型的场景词；API、MCP、自动化等实现方式放在标签中。
 - 优先使用受控词表，不要临时发明新的官方标签。
 
 ## 示例
 
-- `deploy-buddy`: `category: ops`，`tags: [deployment, ci-cd, automation]`
-- `doc-helper`: `category: docs`，`tags: [docs, analysis, workflow]`
+- `deploy-buddy`: `category: 运维与安全`，`tags: [deployment, ci-cd, automation]`
+- `doc-helper`: `category: 文档与办公`，`tags: [docs, analysis, workflow]`
+- `crm-contract-audit`: `category: 业务与管理`，`tags: [analysis, api, workflow]`
+- `image-generator`: `category: 设计与内容`，`tags: [automation, integration]`

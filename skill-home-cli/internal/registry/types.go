@@ -163,6 +163,7 @@ type OAuthDeviceTokenResponse struct {
 type User struct {
 	ID            string    `json:"id"`
 	Username      string    `json:"username"`
+	Namespace     string    `json:"namespace"`
 	DisplayNameZh string    `json:"display_name_zh,omitempty"`
 	Email         string    `json:"email"`
 	AvatarURL     string    `json:"avatar_url,omitempty"`

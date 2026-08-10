@@ -28,7 +28,7 @@ var skillTemplates = []SkillTemplate{
 	{
 		Name:        "basic",
 		Description: "基础模板 - 通用技能",
-		Category:    "productivity",
+		Category:    "效率与协作",
 		DefaultTags: []string{"workflow"},
 		Content: `---
 name: {{.Name}}
@@ -64,7 +64,7 @@ license: {{.License}}
 	{
 		Name:        "code-reviewer",
 		Description: "代码审查专家",
-		Category:    "development",
+		Category:    "开发与编程",
 		DefaultTags: []string{"review", "testing", "analysis"},
 		Content: `---
 name: {{.Name}}
@@ -137,7 +137,7 @@ ide_config:
 	{
 		Name:        "api-designer",
 		Description: "API 设计专家",
-		Category:    "integration",
+		Category:    "平台与连接",
 		DefaultTags: []string{"api", "planning", "integration", "backend"},
 		Content: `---
 name: {{.Name}}
@@ -188,7 +188,7 @@ license: {{.License}}
 	{
 		Name:        "refactor-expert",
 		Description: "代码重构专家",
-		Category:    "development",
+		Category:    "开发与编程",
 		DefaultTags: []string{"refactor", "analysis", "review"},
 		Content: `---
 name: {{.Name}}
@@ -256,7 +256,7 @@ ide_config:
 	{
 		Name:        "test-expert",
 		Description: "测试专家",
-		Category:    "testing",
+		Category:    "测试与质量",
 		DefaultTags: []string{"testing", "review", "analysis"},
 		Content: `---
 name: {{.Name}}
@@ -325,7 +325,7 @@ describe('功能模块', () => {
 	{
 		Name:        "doc-writer",
 		Description: "文档编写专家",
-		Category:    "docs",
+		Category:    "文档与办公",
 		DefaultTags: []string{"docs", "analysis", "workflow"},
 		Content: `---
 name: {{.Name}}
@@ -389,7 +389,7 @@ license: {{.License}}
 	{
 		Name:        "security-auditor",
 		Description: "安全审计专家",
-		Category:    "development",
+		Category:    "开发与编程",
 		DefaultTags: []string{"security", "review", "analysis"},
 		Content: `---
 name: {{.Name}}
@@ -448,7 +448,7 @@ permissions:
 	{
 		Name:        "performance-optimizer",
 		Description: "性能优化专家",
-		Category:    "development",
+		Category:    "开发与编程",
 		DefaultTags: []string{"analysis", "monitoring", "backend"},
 		Content: `---
 name: {{.Name}}

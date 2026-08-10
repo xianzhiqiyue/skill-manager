@@ -50,7 +50,7 @@ func newPushCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVarP(&opts.namespace, "namespace", "n", "", "命名空间 (默认使用当前登录用户的用户名)")
+	cmd.Flags().StringVarP(&opts.namespace, "namespace", "n", "", "命名空间 (默认使用当前用户的发布作用域)")
 	cmd.Flags().StringVar(&opts.version, "version", "", "指定版本号 (默认使用 SKILL.md 中的 version)")
 	cmd.Flags().BoolVarP(&opts.force, "force", "f", false, "强制推送，忽略安全警告")
 	cmd.Flags().BoolVar(&opts.ownerOnly, "owner-only", false, "仅允许发布者搜索和安装该 skill")
@@ -202,12 +202,15 @@ func resolvePublishNamespace(opts *pushOptions, client registryClient) (string, 
 	if err != nil {
 		return "", fmt.Errorf("获取当前用户失败，无法确定发布命名空间: %w", err)
 	}
-	if user == nil || strings.TrimSpace(user.Username) == "" {
-		return "", fmt.Errorf("当前用户用户名为空，无法确定发布命名空间")
+	if user == nil {
+		return "", fmt.Errorf("当前用户信息为空，无法确定发布命名空间")
 	}
-	namespace := strings.TrimPrefix(strings.TrimSpace(user.Username), "@")
+	namespace := strings.TrimPrefix(strings.TrimSpace(user.Namespace), "@")
 	if namespace == "" {
-		return "", fmt.Errorf("当前用户用户名为空，无法确定发布命名空间")
+		namespace = strings.TrimPrefix(strings.TrimSpace(user.Username), "@")
+	}
+	if namespace == "" {
+		return "", fmt.Errorf("当前用户发布作用域为空，无法确定发布命名空间")
 	}
 
 	return namespace, nil
@@ -233,7 +236,7 @@ func validatePublishMetadata(s *skill.Skill) (string, []string, error) {
 		return "", nil, fmt.Errorf("加载 taxonomy 失败: %w", err)
 	}
 
-	category := strings.ToLower(strings.TrimSpace(s.Manifest.Category))
+	category := definition.NormalizeCategory(s.Manifest.Category)
 	if category == "" {
 		return "", nil, fmt.Errorf("缺少 category，请在 SKILL.md 中设置 category")
 	}
@@ -273,7 +276,14 @@ func validatePublishMetadata(s *skill.Skill) (string, []string, error) {
 }
 
 func ensurePublishMetadata(path string, s *skill.Skill) error {
-	if _, _, err := validatePublishMetadata(s); err == nil {
+	if category, tags, err := validatePublishMetadata(s); err == nil {
+		if strings.TrimSpace(s.Manifest.Category) != category {
+			if err := writePublishMetadata(path, category, tags); err != nil {
+				return err
+			}
+		}
+		s.Manifest.Category = category
+		s.Manifest.Tags = tags
 		return nil
 	}
 
@@ -315,9 +325,12 @@ func ensurePublishMetadata(path string, s *skill.Skill) error {
 }
 
 func collectExistingMetadata(definition *taxonomy.Definition, s *skill.Skill) (string, []string) {
-	category := strings.ToLower(strings.TrimSpace(s.Manifest.Category))
-	if definition == nil || !definition.HasCategory(category) {
-		category = ""
+	category := ""
+	if definition != nil {
+		category = definition.NormalizeCategory(s.Manifest.Category)
+		if !definition.HasCategory(category) {
+			category = ""
+		}
 	}
 
 	normalizedTags := make([]string, 0, len(s.Manifest.Tags))

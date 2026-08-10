@@ -13,7 +13,7 @@ func TestCodexImporterGeneratedSkillUsesClassificationDefaults(t *testing.T) {
 	importer := &CodexImporter{skillName: "demo-skill"}
 	content := importer.generateSkillMD("system prompt")
 
-	if !strings.Contains(content, "category: productivity") {
+	if !strings.Contains(content, "category: 效率与协作") {
 		t.Fatalf("expected default category, got:\n%s", content)
 	}
 	if !strings.Contains(content, "tags:\n  - workflow") {
@@ -33,7 +33,7 @@ func TestXiguaImporterPreservesClassificationDefaults(t *testing.T) {
 name: demo-skill
 version: 0.1.0
 description: Demo description
-category: productivity
+category: 效率与协作
 tags:
   - workflow
 ---
@@ -49,7 +49,7 @@ body`), 0644); err != nil {
 	}
 	content := skill.Content
 
-	if !strings.Contains(content, "category: productivity") {
+	if !strings.Contains(content, "category: 效率与协作") {
 		t.Fatalf("expected default category, got:\n%s", content)
 	}
 	if !strings.Contains(content, "tags:\n  - workflow") {

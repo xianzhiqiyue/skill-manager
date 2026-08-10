@@ -28,6 +28,7 @@ def write_json(target: Path, payload: dict) -> None:
 
 def render_skill_reference(payload: dict) -> str:
     categories = payload["categories"]
+    category_aliases = payload["category_aliases"]
     tags = payload["official_tags"]
     aliases = payload["aliases"]
 
@@ -46,6 +47,10 @@ def render_skill_reference(payload: dict) -> str:
     for category in categories:
         lines.append(f"- `{category['id']}`: {category['description']}")
 
+    lines.extend(["", "## 旧英文分类兼容", ""])
+    for source, target in category_aliases.items():
+        lines.append(f"- `{source}` -> `{target}`")
+
     lines.extend(["", "## 官方标签", ""])
     for tag in tags:
         lines.append(f"- `{tag['id']}`: {tag['description']}")
@@ -59,14 +64,19 @@ def render_skill_reference(payload: dict) -> str:
             "",
             "## 使用建议",
             "",
-            "- 先判断 skill 的一级能力域，填写 `category`。",
-            "- 再从官方标签里挑 1 到 4 个最典型的场景词。",
+            "- 分类只能从上面的固定列表中选择，不接受自定义分类。",
+            "- 一级分类按 skill 的主要交付结果选择，而不是按调用的技术或平台选择。",
+            "- 面向特定业务结果的 skill 优先选择 `业务与管理`；只有通用连接器才选择 `平台与连接`。",
+            "- `自动化与工作流` 只用于跨场景的通用自动化能力；文档、研究或业务流程仍选择对应结果分类。",
+            "- 再从官方标签里挑 1 到 4 个最典型的场景词；API、MCP、自动化等实现方式放在标签中。",
             "- 优先使用受控词表，不要临时发明新的官方标签。",
             "",
             "## 示例",
             "",
-            "- `deploy-buddy`: `category: ops`，`tags: [deployment, ci-cd, automation]`",
-            "- `doc-helper`: `category: docs`，`tags: [docs, analysis, workflow]`",
+            "- `deploy-buddy`: `category: 运维与安全`，`tags: [deployment, ci-cd, automation]`",
+            "- `doc-helper`: `category: 文档与办公`，`tags: [docs, analysis, workflow]`",
+            "- `crm-contract-audit`: `category: 业务与管理`，`tags: [analysis, api, workflow]`",
+            "- `image-generator`: `category: 设计与内容`，`tags: [automation, integration]`",
         ]
     )
 

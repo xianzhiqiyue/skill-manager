@@ -1,46 +1,80 @@
 {
   "categories": [
     {
-      "id": "development",
-      "label": "Development",
-      "description": "代码生成、重构、调试、工程辅助"
+      "id": "开发与编程",
+      "label": "开发与编程",
+      "description": "编写、重构和调试代码，构建网站、应用或 Agent"
     },
     {
-      "id": "testing",
-      "label": "Testing",
-      "description": "测试、验证、评审、质量保障"
+      "id": "测试与质量",
+      "label": "测试与质量",
+      "description": "测试、评审、质量检查、故障排查与合规审计"
     },
     {
-      "id": "docs",
-      "label": "Docs",
-      "description": "文档编写、知识整理、说明生成"
+      "id": "数据与分析",
+      "label": "数据与分析",
+      "description": "处理表格和数据库，完成统计分析、可视化与数据报告"
     },
     {
-      "id": "automation",
-      "label": "Automation",
-      "description": "流程编排、重复任务自动化"
+      "id": "搜索与研究",
+      "label": "搜索与研究",
+      "description": "检索资料、开展调研，整理知识、论文、市场与行业情报"
     },
     {
-      "id": "integration",
-      "label": "Integration",
-      "description": "外部平台、API、第三方工具接入"
+      "id": "文档与办公",
+      "label": "文档与办公",
+      "description": "创建、编辑、翻译和排版文档、表格、演示文稿与 PDF"
     },
     {
-      "id": "ops",
-      "label": "Ops",
-      "description": "部署、发布、运维、环境管理"
+      "id": "设计与内容",
+      "label": "设计与内容",
+      "description": "完成 UI、视觉、生图、写作、音视频与社交媒体内容创作"
     },
     {
-      "id": "research",
-      "label": "Research",
-      "description": "检索、分析、调研、总结"
+      "id": "业务与管理",
+      "label": "业务与管理",
+      "description": "支持销售、营销、财务、法务、人力、项目、生产与客户服务"
     },
     {
-      "id": "productivity",
-      "label": "Productivity",
-      "description": "协作推进、组织管理、个人效率"
+      "id": "效率与协作",
+      "label": "效率与协作",
+      "description": "管理任务、笔记、会议、知识以及个人与团队协作"
+    },
+    {
+      "id": "自动化与工作流",
+      "label": "自动化与工作流",
+      "description": "执行浏览器、文件、定时任务和跨步骤重复流程"
+    },
+    {
+      "id": "平台与连接",
+      "label": "平台与连接",
+      "description": "通过 API、MCP 或客户端连接通用外部平台和企业系统"
+    },
+    {
+      "id": "运维与安全",
+      "label": "运维与安全",
+      "description": "部署发布，管理服务器、环境、监控、权限与安全"
+    },
+    {
+      "id": "Agent 与 Skill 工具",
+      "label": "Agent 与 Skill 工具",
+      "description": "创建、安装、管理或改进 Agent、Skill、提示词与上下文"
     }
   ],
+  "category_aliases": {
+    "development": "开发与编程",
+    "testing": "测试与质量",
+    "data": "数据与分析",
+    "research": "搜索与研究",
+    "docs": "文档与办公",
+    "creative": "设计与内容",
+    "business": "业务与管理",
+    "productivity": "效率与协作",
+    "automation": "自动化与工作流",
+    "integration": "平台与连接",
+    "ops": "运维与安全",
+    "meta": "Agent 与 Skill 工具"
+  },
   "official_tags": [
     {
       "id": "codegen",

@@ -29,7 +29,8 @@ func TestRunLoginWithAPIKeyValidatesAndSavesConfig(t *testing.T) {
 		}
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"id":         "user-1",
-			"username":   "tester",
+			"username":   "dt_test",
+			"namespace":  "zhuhuanhuan",
 			"email":      "tester@example.com",
 			"created_at": "2026-03-27T00:00:00Z",
 		})
@@ -49,7 +50,7 @@ func TestRunLoginWithAPIKeyValidatesAndSavesConfig(t *testing.T) {
 	if got := viper.GetString("registry.api_key"); got != "sk_test_api_key" {
 		t.Fatalf("unexpected registry.api_key: %s", got)
 	}
-	if got := viper.GetString("local.default_namespace"); got != "@tester" {
+	if got := viper.GetString("local.default_namespace"); got != "@zhuhuanhuan" {
 		t.Fatalf("unexpected local.default_namespace: %s", got)
 	}
 
@@ -61,8 +62,8 @@ func TestRunLoginWithAPIKeyValidatesAndSavesConfig(t *testing.T) {
 	if !strings.Contains(string(content), "api_key: sk_test_api_key") {
 		t.Fatalf("expected saved api key, got:\n%s", string(content))
 	}
-	if !strings.Contains(string(content), "default_namespace: '@tester'") &&
-		!strings.Contains(string(content), "default_namespace: \"@tester\"") {
+	if !strings.Contains(string(content), "default_namespace: '@zhuhuanhuan'") &&
+		!strings.Contains(string(content), "default_namespace: \"@zhuhuanhuan\"") {
 		t.Fatalf("expected saved default namespace, got:\n%s", string(content))
 	}
 	info, err := os.Stat(configPath)
@@ -128,9 +129,10 @@ func TestRunLoginUsesOAuthDeviceFlowByDefault(t *testing.T) {
 				"token_type":   "Bearer",
 				"api_key_name": "skill-home-cli@test-host",
 				"user": map[string]any{
-					"id":       "user-1",
-					"username": "oauth-user",
-					"email":    "oauth@example.com",
+					"id":        "user-1",
+					"username":  "dt_oauth",
+					"namespace": "ouyangna",
+					"email":     "oauth@example.com",
 				},
 			})
 		default:
@@ -151,7 +153,7 @@ func TestRunLoginUsesOAuthDeviceFlowByDefault(t *testing.T) {
 	if got := viper.GetString("registry.api_key"); got != "sk_oauth_generated" {
 		t.Fatalf("unexpected registry.api_key: %s", got)
 	}
-	if got := viper.GetString("local.default_namespace"); got != "@oauth-user" {
+	if got := viper.GetString("local.default_namespace"); got != "@ouyangna" {
 		t.Fatalf("unexpected local.default_namespace: %s", got)
 	}
 }

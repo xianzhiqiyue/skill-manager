@@ -22,11 +22,13 @@ type OfficialTag struct {
 }
 
 type Definition struct {
-	Categories   []Category            `json:"categories"`
-	OfficialTags []OfficialTag         `json:"official_tags"`
-	Aliases      map[string]string     `json:"aliases"`
-	categorySet  map[string]struct{}
-	tagSet       map[string]struct{}
+	Categories      []Category        `json:"categories"`
+	CategoryAliases map[string]string `json:"category_aliases"`
+	OfficialTags    []OfficialTag     `json:"official_tags"`
+	Aliases         map[string]string `json:"aliases"`
+	categorySet     map[string]struct{}
+	categoryValues  map[string]string
+	tagSet          map[string]struct{}
 }
 
 var (
@@ -52,8 +54,22 @@ func (d *Definition) HasCategory(value string) bool {
 	if d == nil {
 		return false
 	}
-	_, ok := d.categorySet[normalizeValue(value)]
+	_, ok := d.categorySet[normalizeValue(d.NormalizeCategory(value))]
 	return ok
+}
+
+func (d *Definition) NormalizeCategory(value string) string {
+	normalized := normalizeValue(value)
+	if normalized == "" {
+		return ""
+	}
+	if target, ok := d.CategoryAliases[normalized]; ok {
+		normalized = normalizeValue(target)
+	}
+	if canonical, ok := d.categoryValues[normalized]; ok {
+		return canonical
+	}
+	return normalized
 }
 
 func (d *Definition) HasOfficialTag(value string) bool {
@@ -77,8 +93,11 @@ func (d *Definition) NormalizeTag(value string) string {
 
 func (d *Definition) buildIndexes() {
 	d.categorySet = make(map[string]struct{}, len(d.Categories))
+	d.categoryValues = make(map[string]string, len(d.Categories))
 	for _, category := range d.Categories {
-		d.categorySet[normalizeValue(category.ID)] = struct{}{}
+		normalized := normalizeValue(category.ID)
+		d.categorySet[normalized] = struct{}{}
+		d.categoryValues[normalized] = category.ID
 	}
 	d.tagSet = make(map[string]struct{}, len(d.OfficialTags))
 	for _, tag := range d.OfficialTags {

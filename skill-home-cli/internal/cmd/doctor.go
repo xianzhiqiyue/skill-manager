@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -53,7 +54,11 @@ func runDoctor() error {
 	} else if user, err := client.GetCurrentUser(); err != nil {
 		fmt.Printf("%s API Key 校验失败: %v\n", color.RedString("✗"), err)
 	} else {
-		fmt.Printf("%s 当前用户: %s\n", color.GreenString("✓"), user.Username)
+		namespace := strings.TrimPrefix(strings.TrimSpace(user.Namespace), "@")
+		if namespace == "" {
+			namespace = strings.TrimPrefix(strings.TrimSpace(user.Username), "@")
+		}
+		fmt.Printf("%s 当前用户: %s（发布作用域 @%s）\n", color.GreenString("✓"), user.Username, namespace)
 	}
 
 	resolver, err := config.NewPathResolver()

@@ -4,8 +4,12 @@
 
 - 当前工作目录: `pwd`
 - Codex 全局 skills 目录: 不要写死，优先探测 `SKILL_HOME_CODEX_SKILLS_DIR`、`skill-home` 配置里的 `ide.codex.global_path`、`$CODEX_HOME/skills`，再回退到宿主环境里已存在的 `~/.agents/skills` 或 `~/.codex/skills`
+- Xigua 全局 skills 目录: 不要写死，优先探测 `SKILL_HOME_XIGUA_SKILLS_DIR`、`skill-home` 配置里的 `ide.xigua.global_path`，再回退到 `~/.xigua-agent/skills`
+- 平台上下文文件: 已安装 skill 根目录下的 `.skill-home/platform-context.json`。每次使用本 skill 前先读取；缺失时用 `scripts/inject-platform-context.sh auto "$skill_home_manager_root"` 写入。
 - skill-home 配置文件: `~/.config/skill-home/config.yaml`
-- 公共 CLI 安装脚本: `https://soulstore.ciqtek.com/skill-home/install.sh`
+- CLI API Key 环境变量: `SKILL_HOME_API_KEY`，优先于配置文件里的 `registry.api_key`
+- Linux/macOS 公共 CLI 安装脚本: `https://soulstore.ciqtek.com/skill-home/install.sh`
+- Windows x64 公共 CLI 安装脚本: `https://soulstore.ciqtek.com/skill-home/install.ps1`
 - GitHub Releases: `https://github.com/xianzhiqiyue/skill-manager/releases`
 
 除非用户明确在维护 `skill-manager` 仓库，否则不要假设本机存在任何 `skill-home` 源码目录。
@@ -13,11 +17,34 @@
 
 - `$SKILL_HOME_MANAGER_ROOT`
 - `skill-home` 配置文件里的 `ide.codex.global_path/skill-home-manager`
+- `skill-home` 配置文件里的 `ide.xigua.global_path/skill-home-manager`
 - `$CODEX_HOME/skills/skill-home-manager`
 - `~/.agents/skills/skill-home-manager`
 - `~/.codex/skills/skill-home-manager`
+- `~/.xigua-agent/skills/skill-home-manager`
 
 不要把这个路径写死成某台开发机的仓库绝对路径。
+
+## 平台上下文注入
+
+安装引导必须把平台信息固化到已安装 skill 根目录:
+
+```bash
+bash "$skill_home_manager_root/scripts/inject-platform-context.sh" auto "$skill_home_manager_root"
+```
+
+如果刚完成安装且已知道目标平台和路径，使用显式参数:
+
+```bash
+bash "$skill_home_manager_root/scripts/inject-platform-context.sh" codex "$installed_skill_dir" global "$target_path" mirror
+bash "$skill_home_manager_root/scripts/inject-platform-context.sh" xigua "$installed_skill_dir" global "$target_path" mirror
+```
+
+后续操作先读取 `.skill-home/platform-context.json`：
+
+- `platform=codex`: 优先使用 Codex 路径和 mirror 模式排障。
+- `platform=xigua`: 优先检查 Xigua package 布局，确认 `SKILL.md` 和 `skill.json` 同时存在。
+- 如果文件缺失或与用户本次指定平台冲突，完成操作后刷新这个文件。
 
 ## 先确保 CLI 可用
 
@@ -47,6 +74,34 @@ bash "$skill_home_manager_root/scripts/rebuild-cli.sh"
 ```bash
 bash "$skill_home_manager_root/scripts/bootstrap-cli.sh" --version v0.2.4
 ```
+
+## Agent 自主完成 OAuth 登录和配置
+
+涉及 `push`、`delete`、`delete-version`、`activity`、`whoami` 或私有 skill 读取时，Agent 直接运行 bundled script：
+
+```bash
+bash "$skill_home_manager_root/scripts/ensure-oauth-login.sh"
+```
+
+这个脚本负责检查或安装 CLI、复用已有凭证、刷新不支持 OAuth 的旧 CLI、发起授权、等待结果、保存配置并执行 `whoami` 验证。脚本成功后，Agent 不再等待用户回复，直接继续原始任务。
+
+首次登录时，CLI 会打开一次性授权页。Agent 保持该命令会话运行并持续轮询，只提醒用户在页面点击“允许”；不要让用户运行命令、生成或复制 API Key、编辑配置，或授权后回来确认。
+
+浏览器没有自动打开时，CLI 会打印完整授权链接。Agent 把这个链接明确交给用户并继续等待。只有已经证实当前环境无法尝试打开浏览器时，才使用：
+
+```bash
+bash "$skill_home_manager_root/scripts/ensure-oauth-login.sh" --no-browser
+```
+
+指定注册中心或延长等待时间时，由 Agent 直接传参：
+
+```bash
+bash "$skill_home_manager_root/scripts/ensure-oauth-login.sh" --server https://registry.example.com --oauth-timeout 15m
+```
+
+已有的配置凭证或 `SKILL_HOME_API_KEY` 会被自动复用，适用于无人值守环境。环境变量凭证失效时，脚本只在自身进程内忽略它并切换到 OAuth，不要求用户清理环境。不要在日志、提交信息或回复中展示完整 API Key。
+
+如果刷新后的 CLI 仍没有 `--no-browser`，或服务端没有 OAuth device 接口，说明已发布版本尚未具备 OAuth 能力。此时停止需要登录的动作并报告部署阻塞，不得退回“让用户去网页生成 Key”。
 
 ## 本地 skill 工作流
 
@@ -81,7 +136,7 @@ skill-home create my-skill
 
 无论是 `init`、`create` 还是导入后的 skill，都要在 `validate` 前确认 `SKILL.md` 里有：
 
-- 发布命名空间使用当前 `skill-home` 登录用户的用户名（`skill-home whoami` 输出里的“用户名”，引用形态为 `@<用户名>/<skill-name>`）
+- 发布命名空间使用当前 API Key 对应用户的发布作用域（`skill-home whoami` 输出里的“发布作用域”，引用形态为 `@<发布作用域>/<skill-name>`）
 - 1 个合法的 `category`
 - 1 到 4 个合法的 `official tags`
 
@@ -110,7 +165,7 @@ skill-home pack ./my-skill --output ./dist/my-skill.zip
 
 如果用户没有明确要求输出位置，先根据当前 skill 所在目录和后续用途决定是否显式传 `--output`；不要默认把压缩包落到固定路径。
 
-### 5. 安装到 Codex
+### 5. 安装到 Codex 或 Xigua
 
 优先使用镜像模式，避免 WSL 符号链接问题:
 
@@ -122,6 +177,19 @@ skill-home doctor
 ```
 
 安装后的校验路径也不要写死。优先查看 `skill-home doctor` 输出的 `codex 全局路径`，再到该目录下确认 `my-skill/SKILL.md` 是否存在。
+`install-to-codex.sh` 会自动写入 `.skill-home/platform-context.json`。如果手动执行 `skill-home sync`，同步成功后补跑 `inject-platform-context.sh codex`。
+
+安装到 Xigua:
+
+```bash
+bash "$skill_home_manager_root/scripts/install-to-xigua.sh" ./my-skill
+
+skill-home sync ./my-skill --ide xigua --global --mode mirror
+skill-home doctor
+```
+
+安装后的校验路径同样不要写死。优先查看 `skill-home doctor` 输出的 `xigua 全局路径`，再到该目录下确认 `my-skill/SKILL.md` 和 `my-skill/skill.json` 是否存在。
+`install-to-xigua.sh` 会自动写入 `.skill-home/platform-context.json`。如果手动执行 `skill-home sync`，同步成功后补跑 `inject-platform-context.sh xigua`。
 
 ## 刷新本地 CLI
 
@@ -139,25 +207,28 @@ skill-home self-update
 ```bash
 skill-home doctor
 skill-home --debug sync /path/to/skill --ide codex --global --mode mirror
+skill-home --debug sync /path/to/skill --ide xigua --global --mode mirror
 ```
 
 优先检查:
 
 - 配置文件是否是 `~/.config/skill-home/config.yaml`
 - Codex 全局路径是否与 `skill-home doctor` 输出一致
+- Xigua 全局路径是否与 `skill-home doctor` 输出一致
 - 本地 skill 是否已经补齐 `category/tags` 并通过了 `validate`
 - 是否把“本地目录”误当成“远程 skill 引用”去执行 `install`
 
 ## registry 相关命令
 
-写操作先确认已登录；公开 skill 的读操作可匿名执行:
+写操作先由 Agent 执行 OAuth 登录脚本；公开 skill 的读操作可匿名执行:
 
 ```bash
-skill-home login
+bash "$skill_home_manager_root/scripts/ensure-oauth-login.sh"
 skill-home list --remote
 skill-home search keyword
 skill-home pull @namespace/name
 skill-home install @namespace/name --ide codex --global --mode mirror
+skill-home install @namespace/name --ide xigua --global --mode mirror
 skill-home push /path/to/skill
 skill-home delete @namespace/name --yes
 skill-home delete-version @namespace/name@1.2.3 --yes
@@ -165,11 +236,11 @@ skill-home delete-version @namespace/name@1.2.3 --yes
 
 规则:
 
-- `push`、`delete`、`delete-version` 必须先 `skill-home login`
-- `push` 默认发布到当前登录用户的用户名命名空间；新版 CLI 登录后也会把 `local.default_namespace` 保存为 `@<用户名>`；不要默认使用 `@user`、示例命名空间或历史 manifest 命名空间
+- `push`、`delete`、`delete-version` 必须先具备有效登录态；Agent 用 bundled script 自动复用凭证或完成 OAuth，用户只点击授权页
+- `push` 默认发布到当前用户的发布作用域；OAuth 与兼容登录都会把 `local.default_namespace` 保存为 `@<发布作用域>`；不要默认使用登录用户名、`@user`、示例命名空间或历史 manifest 命名空间
 - `push` 在交互终端里会尝试补齐缺失的 `category/tags`，但代理默认仍应先整理好 `SKILL.md`
 - `pull`、`install`、`update`、`search`、`info`、`list --remote` 对公开 skill 不要求登录
-- 匿名读取私有 skill 时，如果看到“该 skill 可能是私有的”，先登录再重试
+- 匿名读取私有 skill 时，如果看到“该 skill 可能是私有的”，Agent 先执行 OAuth 登录脚本并自动重试
 
 远程目录缓存说明:
 

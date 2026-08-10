@@ -51,3 +51,25 @@ body
 		t.Fatalf("expected multiple validation errors, got %#v", result.Errors)
 	}
 }
+
+func TestValidateSkillAcceptsNewFixedCategory(t *testing.T) {
+	t.Parallel()
+
+	content := []byte(`---
+name: crm-contract-audit
+version: 1.0.0
+description: Audit CRM contracts
+category: 业务与管理
+tags:
+  - analysis
+  - workflow
+---
+
+body
+`)
+
+	result := validateSkill(content, false)
+	if len(result.Errors) != 0 {
+		t.Fatalf("expected fixed Chinese category to pass, got %#v", result.Errors)
+	}
+}

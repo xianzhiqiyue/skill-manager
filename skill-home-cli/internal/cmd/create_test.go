@@ -19,7 +19,7 @@ license: {{.License}}
 ---`, &SkillAnswers{
 		Name:        "deploy-buddy",
 		Description: "部署助手",
-		Category:    "ops",
+		Category:    "运维与安全",
 		Tags:        []string{"deployment", "ci-cd"},
 		License:     "MIT",
 		Platforms:   []string{"codex"},
@@ -28,7 +28,7 @@ license: {{.License}}
 		t.Fatalf("renderTemplate returned error: %v", err)
 	}
 
-	if !strings.Contains(content, "category: ops") {
+	if !strings.Contains(content, "category: 运维与安全") {
 		t.Fatalf("expected category line, got:\n%s", content)
 	}
 	if !strings.Contains(content, "- deployment") || !strings.Contains(content, "- ci-cd") {
